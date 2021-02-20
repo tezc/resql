@@ -1,7 +1,7 @@
 /*
- *  reSQL
+ *  Resql
  *
- *  Copyright (C) 2021 reSQL Authors
+ *  Copyright (C) 2021 Resql Authors
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -653,7 +653,7 @@ void state_on_info(struct state *st, struct sc_buf *buf)
         ptr = sc_buf_get_blob(buf, len);
 
         found = sc_map_get_sv(&st->nodes, name, (void **) &info);
-        if (found) {
+        if (found && len != 0) {
             tmp = sc_buf_wrap(ptr, len, SC_BUF_READ);
             info_set_stats(info, &tmp);
         }

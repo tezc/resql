@@ -1,5 +1,5 @@
 /*
- *  reSQL
+ *  Resql
  *
  *  Copyright (C) 2021 Resql Authors
  *

@@ -1,7 +1,7 @@
 /*
- *  reSQL
+ *  Resql
  *
- *  Copyright (C) 2021 reSQL Authors
+ *  Copyright (C) 2021 Resql Authors
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by

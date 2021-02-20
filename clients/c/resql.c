@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Resql Authors
+ * Copyright (c) 2021 Resql Authors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -257,15 +257,17 @@ struct sc_str
     ((struct sc_str *) ((char *) (str) -offsetof(struct sc_str, buf)))
 
 #define sc_str_bytes(n) ((n) + sizeof(struct sc_str) + 1)
-#ifndef SC_STR_SIZE_MAX
-    #define SC_STR_SIZE_MAX (UINT32_MAX - sizeof(struct sc_str) - 1)
+#ifndef SC_SIZE_MAX
+    #define SC_SIZE_MAX (UINT32_MAX - sizeof(struct sc_str) - 1)
 #endif
 
 static char *sc_str_create_len(const char *str, uint32_t len)
 {
     struct sc_str *copy;
 
-    assert(str != NULL);
+    if (str == NULL) {
+        return NULL;
+    }
 
     copy = sc_str_malloc(sc_str_bytes(len));
     if (copy == NULL) {
@@ -283,14 +285,11 @@ static char *sc_str_create(const char *str)
 {
     size_t size;
 
-    assert(str != NULL);
-
-    size = strlen(str);
-    if (size > SC_STR_SIZE_MAX) {
+    if (str == NULL || (size = strlen(str)) > SC_SIZE_MAX) {
         return NULL;
     }
 
-    return sc_str_create_len(str, size);
+    return sc_str_create_len(str, (uint32_t) size);
 }
 
 static void sc_str_destroy(char *str)
@@ -316,6 +315,10 @@ static const char *sc_str_token_begin(char *str, char **save, const char *delim)
 {
     char *it = str;
 
+    if (str == NULL) {
+        return NULL;
+    }
+
     if (*save != NULL) {
         it = *save;
         swap(str, it);
@@ -333,13 +336,18 @@ static const char *sc_str_token_begin(char *str, char **save, const char *delim)
 
 static void sc_str_token_end(char *str, char **save)
 {
-    char *end = str + sc_str_meta(str)->len;
+    char *end;
 
+    if (str == NULL) {
+        return;
+    }
+
+    end = str + sc_str_meta(str)->len;
     if (*end == '\0') {
         return;
     }
 
-    swap(str, (save != NULL && *save != NULL) ? *save : str + strlen(str));
+    swap(str, *save);
 }
 
 #define SC_BUF_CORRUPT 1u
@@ -1770,7 +1778,7 @@ static int resql_verify_config(struct resql *c,
     return RESQL_OK;
 }
 
-void resql_copy_uris(struct resql *c, struct msg *msg)
+int resql_copy_uris(struct resql *c, struct msg *msg)
 {
     const int CAP = 16;
     int count = 0;
@@ -1780,7 +1788,10 @@ void resql_copy_uris(struct resql *c, struct msg *msg)
     struct sc_uri *uris[CAP];
 
     if (c->uri_term < msg->connect_resp.term) {
-        s = (char *) msg->connect_resp.nodes;
+        s = (char *) sc_str_create(msg->connect_resp.nodes);
+        if (!s) {
+            return RESQL_OOM;
+        }
 
         while ((token = sc_str_token_begin(s, &save, " ")) != NULL) {
             uri = sc_uri_create(token);
@@ -1794,8 +1805,10 @@ void resql_copy_uris(struct resql *c, struct msg *msg)
             }
         }
 
+        sc_str_destroy(s);
+
         if (count == 0) {
-            return;
+            return RESQL_OK;
         }
 
         for (int i = 0; i < c->uri_count; i++) {
@@ -1807,6 +1820,8 @@ void resql_copy_uris(struct resql *c, struct msg *msg)
         c->uri_trial = 0;
         c->uri_term = msg->connect_resp.term;
     }
+
+    return RESQL_OK;
 }
 
 int resql_recv_connect_resp(struct resql *c)
@@ -1853,7 +1868,11 @@ retry:
         return RESQL_FATAL;
     }
 
-    resql_copy_uris(c, &msg);
+    rc = resql_copy_uris(c, &msg);
+    if (rc != RESQL_OK) {
+        resql_err(c, "out of memory");
+        return RESQL_FATAL;
+    }
 
     rc = msg.connect_resp.rc;
     if (rc != MSG_OK) {

@@ -1,7 +1,7 @@
 /*
- *  reSQL
+ *  Resql
  *
- *  Copyright (C) 2021 reSQL Authors
+ *  Copyright (C) 2021 Resql Authors
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -1442,7 +1442,7 @@ static void server_prepare_start(struct server *s)
     }
 
     server_schedule_election(s);
-    s->info_timer = sc_timer_add(&s->timer, 3000, SERVER_TIMER_INFO, NULL);
+    s->info_timer = sc_timer_add(&s->timer, 0, SERVER_TIMER_INFO, NULL);
 }
 
 static void server_on_meta(struct server *s, struct meta *meta)
