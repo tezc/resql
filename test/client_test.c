@@ -1,0 +1,476 @@
+/*
+ *  Copyright (C) 2020 Resql Authors
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+#include "server.h"
+#include "rs.h"
+#include "test_util.h"
+
+#include "c/resql.h"
+#include "sc/sc_log.h"
+
+#include <unistd.h>
+
+struct resql *create_client(const char *name)
+{
+    const char *urls =
+            "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082";
+
+    struct resql_config config = {.cluster_name = "cluster",
+                                      .client_name = name,
+                                      .timeout = 10000,
+                                      .uris = urls};
+
+    struct resql *client;
+
+    int rc = resql_create(&client, &config);
+    if (rc != RS_OK) {
+        printf("Failed to connect to server \n");
+        return NULL;
+    } else {
+        printf("Connected to server \n");
+    }
+
+    return client;
+}
+
+struct server *create_node_0()
+{
+    char *options[] = {"", "-e"};
+
+    struct settings settings;
+
+    settings_init(&settings);
+    settings_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
+
+    sc_str_set(&settings.node.log_level, "DEBUG");
+    sc_str_set(&settings.node.name, "node0");
+    sc_str_set(&settings.node.bind_uri,
+               "tcp://node0@127.0.0.1:8080 unix:///tmp/var");
+    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:8080");
+    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:8080");
+    sc_str_set(&settings.node.dir, "/tmp/node0");
+    settings.node.in_memory = true;
+
+    struct server *server = server_create(&settings);
+
+    int rc = server_start(server, true);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    return server;
+}
+
+static void client_simple()
+{
+    struct resql_column *row;
+    struct server *s1 = create_node_0();
+    struct resql *client = create_client("clientim");
+
+    if (!s1 || !client) {
+        rs_abort("");
+    }
+
+    struct resql_result *rs = NULL;
+
+    for (int i = 0; i < 100; i++) {
+
+        resql_put_sql(client, "Select 'resql'");
+
+        int rc = resql_exec(client, true, &rs);
+        if (rc != RESQL_OK) {
+            rs_abort("");
+        }
+
+        do {
+            assert(resql_column_count(rs) == 1);
+
+            while ((row = resql_row(rs)) != NULL) {
+                assert(row[0].type == RESQL_TEXT);
+                assert(strcmp("resql", row[0].text) == 0);
+            }
+
+        } while (resql_next(rs));
+    }
+
+
+    for (int i = 0; i < 100; i++) {
+        resql_put_sql(client, "Select 'resql'");
+
+        int rc = resql_exec(client, false, &rs);
+        if (rc != RESQL_OK) {
+            rs_abort("");
+        }
+
+        do {
+            assert(resql_column_count(rs) == 1);
+
+            while ((row = resql_row(rs)) != NULL) {
+
+                assert(row[0].type == RESQL_TEXT);
+                assert(strcmp("resql", row[0].text) == 0);
+            }
+        } while (resql_next(rs));
+    }
+
+    int rc = resql_destroy(client);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    rc = server_stop(s1);
+    if (rc != RS_OK) {
+        abort();
+    }
+}
+
+static void client_prepared()
+{
+    int rc;
+    struct resql_column* row;
+    resql_result  *rs = NULL;
+    resql_stmt stmt = 0;
+    struct server *s1 = create_node_0();
+    resql *client = create_client("clientim");
+
+    if (!s1 || !client) {
+        rs_abort("");
+    }
+
+    rc = resql_del_prepared(client, &stmt);
+    client_assert(client, rc == RESQL_SQL_ERROR);
+
+    resql_put_sql(
+            client,
+            "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
+    rc = resql_exec(client, false, &rs);
+    client_assert(client, rc == RESQL_OK);
+
+    rc = resql_prepare(client, "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);", &stmt);
+    client_assert(client, rc == RESQL_OK);
+
+    for (int i = 0; i < 100; i++) {
+        resql_put_prepared(client, &stmt);
+        resql_bind_param(client, ":key1", "%d", i);
+        resql_bind_param(client, ":key2", "%s", "test");
+        resql_bind_param(client, ":key3", "%f", 3.11);
+        resql_bind_param(client, ":key4", "%b", 5, "blob");
+
+        rc = resql_exec(client, false, &rs);
+        if (rc != RESQL_OK) {
+            printf("Err :%s \n", resql_errstr(client));
+            rs_abort("");
+        }
+
+        do {
+            while (resql_row(rs)) {
+                assert(true);
+            }
+        } while (resql_next(rs));
+    }
+
+    rc = resql_del_prepared(client, &stmt);
+    client_assert(client, rc == RESQL_OK);
+
+    resql_put_sql(client, "SELECT * FROM test");
+    rc = resql_exec(client, false, &rs);
+    client_assert(client, rc == RESQL_OK);
+
+    int x = 0;
+    do {
+        assert(resql_column_count(rs) == 4);
+
+        while ((row = resql_row(rs)) != NULL) {
+            assert(row[0].type  == RESQL_INTEGER);
+            assert(row[1].type  == RESQL_TEXT);
+            assert(row[2].type == RESQL_FLOAT);
+            assert(row[3].type  == RESQL_BLOB);
+            assert(strcmp("a", row[0].name) == 0);
+            assert(strcmp("b", row[1].name) == 0);
+            assert(strcmp("c", row[2].name) == 0);
+            assert(strcmp("d", row[3].name) == 0);
+
+            assert(row[0].num == x++);
+            assert(strcmp(row[1].text, "test") == 0);
+            assert(row[2].real == 3.11);
+            assert(row[3].len == 5);
+            assert(strcmp(row[3].blob, "blob") == 0);
+        }
+    } while (resql_next(rs));
+
+
+    rc = resql_destroy(client);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    rc = server_stop(s1);
+    if (rc != RS_OK) {
+        abort();
+    }
+}
+
+static void client_error()
+{
+    int rc;
+    struct resql_result *rs = NULL;
+    struct resql_column* row;
+    resql_stmt stmt = 0;
+    struct server *s1 = create_node_0();
+    struct resql *client = create_client("clientim");
+
+    if (!s1 || !client) {
+        rs_abort("");
+    }
+
+    rc = resql_del_prepared(client, &stmt);
+    assert(rc == RESQL_SQL_ERROR);
+
+    resql_put_sql(
+            client,
+            "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
+    rc = resql_exec(client, false, &rs);
+    assert(rc == RESQL_OK);
+
+    resql_put_sql(client,
+                      "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
+    resql_bind_param(client, ":key1", "%d", 1);
+    resql_bind_param(client, ":key2", "%s", "test");
+    resql_bind_param(client, ":key3", "%f", 3.11);
+    resql_bind_param(client, ":key4", "%b", 5, "blob");
+
+    resql_put_sql(client,
+                      "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
+    resql_bind_param(client, ":key1", "%d", 1);
+    resql_bind_param(client, ":key2", "%s", "test");
+    resql_bind_param(client, ":key3", "%f", 3.11);
+    resql_bind_param(client, ":key4", "%b", 5, "blob");
+
+    rc = resql_exec(client, false, &rs);
+    assert(rc == RESQL_SQL_ERROR);
+
+    resql_put_sql(client, "SELECT * FROM test");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Err :%s \n", resql_errstr(client));
+        rs_abort("");
+    }
+
+    while (resql_next(rs)) {
+        assert(true);
+    }
+
+    resql_put_sql(client,
+                      "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
+    resql_bind_param(client, ":key1", "%d", 0);
+    resql_bind_param(client, ":key2", "%s", "test");
+    resql_bind_param(client, ":key3", "%f", 3.11);
+    resql_bind_param(client, ":key4", "%b", 5, "blob");
+
+    resql_put_sql(client,
+                      "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
+    resql_bind_param(client, ":key1", "%d", 1);
+    resql_bind_param(client, ":key2", "%s", "test");
+    resql_bind_param(client, ":key3", "%f", 3.11);
+    resql_bind_param(client, ":key4", "%b", 5, "blob");
+
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Err :%s \n", resql_errstr(client));
+        rs_abort("");
+    }
+
+    int k = 0;
+    do {
+        k++;
+    } while (resql_next(rs));
+
+    assert(k == 2);
+
+    resql_put_sql(client, "SELECT * FROM test");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Err :%s \n", resql_errstr(client));
+        rs_abort("");
+    }
+
+
+    int x = 0;
+    do {
+        assert(resql_column_count(rs) == 4);
+
+        while ((row = resql_row(rs)) != NULL) {
+
+            assert(row[0].type == RESQL_INTEGER);
+            assert(row[1].type == RESQL_TEXT);
+            assert(row[2].type == RESQL_FLOAT);
+            assert(row[3].type == RESQL_BLOB);
+            assert(strcmp("a", row[0].name) == 0);
+            assert(strcmp("b", row[1].name) == 0);
+            assert(strcmp("c", row[2].name) == 0);
+            assert(strcmp("d", row[3].name) == 0);
+
+            assert(row[0].num == x++);
+            assert(strcmp(row[1].text, "test") == 0);
+            assert(row[2].real == 3.11);
+            assert(row[3].len == 5);
+            assert(strcmp(row[3].blob, "blob") == 0);
+        }
+    } while (resql_next(rs));
+
+    rc = resql_prepare(
+            client, "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);",
+            &stmt);
+    assert(rc == RESQL_OK);
+
+
+    rc = resql_destroy(client);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    rc = server_stop(s1);
+    if (rc != RS_OK) {
+        abort();
+    }
+}
+
+static void client_many()
+{
+    int rc;
+    struct resql_result *rs = NULL;
+    resql_stmt stmt = 0;
+    struct server *s1 = create_node_0();
+    struct resql *client = create_client("clientim");
+
+    if (!s1 || !client) {
+        rs_abort("");
+    }
+
+    rc = resql_del_prepared(client, &stmt);
+    assert(rc == RESQL_SQL_ERROR);
+
+    resql_put_sql(
+            client,
+            "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
+    rc = resql_exec(client, false, &rs);
+    assert(rc == RESQL_OK);
+
+    for (int i = 0; i < 1000; i++) {
+        resql_put_sql(
+                client,
+                "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
+        resql_bind_param(client, ":key1", "%d", i);
+        resql_bind_param(client, ":key2", "%s", "test");
+        resql_bind_param(client, ":key3", "%f", 3.11);
+        resql_bind_param(client, ":key4", "%b", 5, "blob");
+
+        rc = resql_exec(client, false, &rs);
+        if (rc != RESQL_OK) {
+            printf("Err :%s \n", resql_errstr(client));
+            rs_abort("");
+        }
+
+
+        do {
+            while (resql_row(rs) != NULL) {
+                assert(true);
+            }
+        } while (resql_next(rs));
+    }
+
+    rc = resql_destroy(client);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    rc = server_stop(s1);
+    if (rc != RS_OK) {
+        abort();
+    }
+}
+
+
+static void client_big()
+{
+    int rc;
+    struct resql_result *rs = NULL;
+    resql_stmt stmt = 0;
+    struct server *s1 = create_node_0();
+    struct resql *client = create_client("clientim");
+
+    if (!s1 || !client) {
+        rs_abort("");
+    }
+
+    rc = resql_del_prepared(client, &stmt);
+    assert(rc == RESQL_SQL_ERROR);
+
+    resql_put_sql(
+            client,
+            "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
+    rc = resql_exec(client, false, &rs);
+    assert(rc == RESQL_OK);
+
+    char *p = calloc(1, 1024 * 1024);
+    memset(p, 0, 1024 * 1024);
+
+    for (int i = 0; i < 1000; i++) {
+        resql_put_sql(
+                client,
+                "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
+        resql_bind_param(client, ":key1", "%d", i);
+        resql_bind_param(client, ":key2", "%s", "test");
+        resql_bind_param(client, ":key3", "%f", 3.11);
+        resql_bind_param(client, ":key4", "%b", 1 * 1024, p);
+
+        rc = resql_exec(client, false, &rs);
+        if (rc != RESQL_OK) {
+            printf("Err :%s \n", resql_errstr(client));
+            rs_abort("");
+        }
+
+        do {
+            while (resql_row(rs)) {
+                assert(true);
+            }
+        } while (resql_next(rs));
+    }
+
+    free(p);
+
+    rc = resql_destroy(client);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    rc = server_stop(s1);
+    if (rc != RS_OK) {
+        abort();
+    }
+}
+
+
+int main(void)
+{
+    test_execute(client_big);
+    test_execute(client_many);
+    test_execute(client_simple);
+    test_execute(client_prepared);
+    test_execute(client_error);
+
+    return 0;
+}

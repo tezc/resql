@@ -1,0 +1,57 @@
+ubuntu_task:
+  use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
+  container:
+    image: gcc:8.4.0
+    cpu: 1
+    memory: 2G
+  test_script:
+    - apt-get update && apt-get install -y gcc cmake
+    - mkdir build-debug && cd build-debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
+    - make check
+    - cd ..
+    - mkdir build-release && cd build-release
+    - cmake .. && make
+
+centos8_task:
+  use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
+  container:
+    image: centos:8
+    cpu: 1
+    memory: 2G
+  test_script:
+    - yum -y install gcc make cmake
+    - mkdir build-debug && cd build-debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
+    - make check
+    - cd ..
+    - mkdir build-release && cd build-release
+    - cmake .. && make
+
+osx_task:
+  use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
+  osx_instance:
+    image: catalina-xcode
+  test_script:
+    - brew install cmake
+    - mkdir build-debug && cd build-debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
+    - make check
+    - cd ..
+    - mkdir build-release && cd build-release
+    - cmake .. && make
+
+freebsd_task:
+  use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
+  freebsd_instance:
+    image_family: freebsd-12-1
+    cpu: 1
+    memory: 2G
+  test_script:
+    - pkg install -y git cmake
+    - mkdir build-debug && cd build-debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
+    - make check
+    - cd ..
+    - mkdir build-release && cd build-release
+    - cmake .. && make
