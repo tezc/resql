@@ -33,7 +33,6 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 
 class Client implements Resql {
@@ -43,7 +42,6 @@ class Client implements Resql {
     private long seq = 0;
     private boolean connected = false;
     private boolean hasStatement;
-    private AtomicBoolean shutdown = new AtomicBoolean();
 
     private SocketChannel sock;
     private int urlIndex = 0;
@@ -88,7 +86,7 @@ class Client implements Resql {
                 connect();
             } catch (ResqlFatalException e) {
                 clear();
-                throw new ResqlException(e.getCause());
+                throw new ResqlException(e);
             } catch (ResqlException ignored) {
             }
         }
@@ -98,10 +96,6 @@ class Client implements Resql {
         }
 
         clear();
-    }
-
-    public void cancel() {
-        
     }
 
     public void shutdown() {
@@ -197,6 +191,10 @@ class Client implements Resql {
             }
         }
 
+        if (rc == Msg.MSG_CLUSTER_NAME_MISMATCH) {
+            throw new ResqlFatalException("Cluster name mismatch!");
+        }
+
         if (rc != Msg.MSG_OK) {
             return;
         }
@@ -244,7 +242,7 @@ class Client implements Resql {
                 }
             } catch (ResqlFatalException e) {
                 clear();
-                throw new ResqlException(e.getCause());
+                throw new ResqlException(e);
             } catch (ResqlException ignored) {
             }
 
@@ -454,5 +452,10 @@ class Client implements Resql {
         req.put(Msg.PARAM_NAME);
         req.putString(param);
         bind(value);
+    }
+
+    @Override
+    public void close() {
+        shutdown();
     }
 }

@@ -236,7 +236,7 @@ const char *sc_sock_local_str(struct sc_sock *sock, char *buf, size_t len);
 const char *sc_sock_remote_str(struct sc_sock *sock, char *buf, size_t len);
 
 /**
- * Print socket in format "Local(127.0.0.1:8080), Remote(180.20.20.3:9000)"
+ * Print socket in format "Local(127.0.0.1:7600), Remote(180.20.20.3:9000)"
  *
  * @param sock sock
  * @param buf  buf

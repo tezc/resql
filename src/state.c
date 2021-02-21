@@ -717,6 +717,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             param = sc_buf_get_str(req);
             idx = sqlite3_bind_parameter_index(stmt, param);
             if (idx == 0) {
+                st->last_err = "Invalid parameter name";
                 goto error;
             }
             break;

@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 		Timeout:     2000,
 		SourceAddr:  "",
 		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1:8080"},
+		Urls:        []string{"tcp://127.0.0.1:7600"},
 	})
 
 	if err != nil {

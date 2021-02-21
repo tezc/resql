@@ -28,6 +28,7 @@ abstract class Msg {
     public static final int MSG_LEN_SIZE = 4;
 
     public static final byte MSG_OK = 0;
+    public static final byte MSG_CLUSTER_NAME_MISMATCH = 2;
     public static final byte CONNECT_REQ = 0;
     public static final byte CONNECT_RESP = 1;
     public static final byte DISCONNECT_REQ = 2;

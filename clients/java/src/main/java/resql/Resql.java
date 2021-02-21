@@ -24,7 +24,7 @@
 
 package resql;
 
-public interface Resql {
+public interface Resql extends AutoCloseable {
 
     /**
      * Prepare Statement

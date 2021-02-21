@@ -39,11 +39,11 @@ struct server *create_node_0()
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");
     sc_str_set(&settings.node.bind_uri,
-               "tcp://node0@127.0.0.1:8080 unix:///tmp/var0");
-    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:8080");
+               "tcp://node0@127.0.0.1:7600 unix:///tmp/var0");
+    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:7600");
     sc_str_set(
             &settings.cluster.nodes,
-            "tcp://node0@127.0.0.1:8080 tcp://node1@127.0.0.1:8081 tcp://node2@127.0.0.1:8082");
+            "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
     sc_str_set(&settings.node.dir, "/tmp/node0");
     settings.node.in_memory = true;
 
@@ -69,11 +69,11 @@ struct server *create_node_0_existing()
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");
     sc_str_set(&settings.node.bind_uri,
-               "tcp://node0@127.0.0.1:8080 unix:///tmp/var0");
-    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:8080");
+               "tcp://node0@127.0.0.1:7600 unix:///tmp/var0");
+    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:7600");
     sc_str_set(
             &settings.cluster.nodes,
-            "tcp://node0@127.0.0.1:8080 tcp://node1@127.0.0.1:8081 tcp://node2@127.0.0.1:8082");
+            "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
     sc_str_set(&settings.node.dir, "/tmp/node0");
     settings.node.in_memory = true;
 
@@ -99,11 +99,11 @@ struct server *create_node_1()
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node1");
     sc_str_set(&settings.node.bind_uri,
-               "tcp://node1@127.0.0.1:8081 unix:///tmp/var1");
-    sc_str_set(&settings.node.ad_uri, "tcp://node1@127.0.0.1:8081");
+               "tcp://node1@127.0.0.1:7601 unix:///tmp/var1");
+    sc_str_set(&settings.node.ad_uri, "tcp://node1@127.0.0.1:7601");
     sc_str_set(
             &settings.cluster.nodes,
-            "tcp://node0@127.0.0.1:8080 tcp://node1@127.0.0.1:8081 tcp://node2@127.0.0.1:8082");
+            "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
     sc_str_set(&settings.node.dir, "/tmp/node1");
     settings.node.in_memory = true;
 
@@ -129,11 +129,11 @@ struct server *create_node_2()
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node2");
     sc_str_set(&settings.node.bind_uri,
-               "tcp://node2@127.0.0.1:8082 unix:///tmp/var2");
-    sc_str_set(&settings.node.ad_uri, "tcp://node2@127.0.0.1:8082");
+               "tcp://node2@127.0.0.1:7602 unix:///tmp/var2");
+    sc_str_set(&settings.node.ad_uri, "tcp://node2@127.0.0.1:7602");
     sc_str_set(
             &settings.cluster.nodes,
-            "tcp://node0@127.0.0.1:8080 tcp://node1@127.0.0.1:8081 tcp://node2@127.0.0.1:8082");
+            "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
     sc_str_set(&settings.node.dir, "/tmp/node2");
     settings.node.in_memory = true;
 
@@ -154,7 +154,7 @@ void test()
     resql_result *rs;
     struct resql_column *row;
     const char *uris =
-            "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082";
+            "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
     struct server *s0, *s1;
 
@@ -205,7 +205,7 @@ void write_test()
     resql *c;
     resql_result *rs;
     const char *uris =
-            "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082";
+            "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
     struct server *s0, *s1;
 
@@ -254,7 +254,7 @@ void write_test2()
     resql *c;
     resql_result *rs;
     const char *uris =
-            "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082";
+            "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
     struct server *s0, *s1, *s2;
 

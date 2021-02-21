@@ -4,7 +4,7 @@
 ```
 Requirements CMake, gcc or clang
 
-git clone https://github.com/resql/resql-db.git
+git clone https://github.com/tezc/resql.git
 cd resql
 ./build.sh
 ```
@@ -54,7 +54,7 @@ resql> SELECT * FROM resql_sessions
 +-------------+-----------+----------+----------------+-----------------+------+
 | client_name | client_id | sequence | local          | remote          | resp |
 +-------------+-----------+----------+----------------+-----------------+------+
-| cli         | 1039      | 0        | 127.0.0.1:8080 | 127.0.0.1:59284 | null |
+| cli         | 1039      | 0        | 127.0.0.1:7600 | 127.0.0.1:59284 | null |
 +-------------+-----------+----------+----------------+-----------------+------+
 
 ```

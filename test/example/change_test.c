@@ -40,9 +40,9 @@ static char *names[] = {
 };
 
 static char* binds[] = {
-        "tcp://node0@127.0.0.1:8080 unix:///tmp/var0",
-        "tcp://node1@127.0.0.1:8081 unix:///tmp/var1",
-        "tcp://node2@127.0.0.1:8082 unix:///tmp/var2",
+        "tcp://node0@127.0.0.1:7600 unix:///tmp/var0",
+        "tcp://node1@127.0.0.1:7601 unix:///tmp/var1",
+        "tcp://node2@127.0.0.1:7602 unix:///tmp/var2",
         "tcp://node3@127.0.0.1:8083 unix:///tmp/var3",
         "tcp://node4@127.0.0.1:8084 unix:///tmp/var4",
         "tcp://node5@127.0.0.1:8085 unix:///tmp/var5",
@@ -50,9 +50,9 @@ static char* binds[] = {
 };
 
 static char* ads[] = {
-        "tcp://node0@127.0.0.1:8080",
-        "tcp://node1@127.0.0.1:8081",
-        "tcp://node2@127.0.0.1:8082",
+        "tcp://node0@127.0.0.1:7600",
+        "tcp://node1@127.0.0.1:7601",
+        "tcp://node2@127.0.0.1:7602",
         "tcp://node3@127.0.0.1:8083",
         "tcp://node4@127.0.0.1:8084",
         "tcp://node5@127.0.0.1:8085",
@@ -138,7 +138,7 @@ void test()
     resql *c;
     resql_result *rs;
     const char *urls =
-            "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082";
+            "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
     create_servers(2, 2);
 
@@ -185,7 +185,7 @@ void write_test()
     resql *c;
     resql_result *rs;
     const char *urls =
-            "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082";
+            "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
     create_servers(3, 3);
 

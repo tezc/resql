@@ -85,7 +85,7 @@ struct resql_config
      * Node uris, it's okay to give one uri,
      * client will discover other nodes later.
      *
-     * e.g "tcp://127.0.0.1:8080 tcp://127.0.0.1:8081 tcp://127.0.0.1:8082"
+     * e.g "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602"
      */
     const char *uris;
 

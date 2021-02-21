@@ -30,6 +30,13 @@ public final class ResqlClient {
 
     }
 
+    /**
+     * Create client and connect to server. Client will try to connect to server
+     * at most timeout milliseconds which is configured in 'config'.
+     *
+     * @param config config
+     * @return       Resql client
+     */
     public static Resql create(Config config) {
         try {
             return new Client(config);

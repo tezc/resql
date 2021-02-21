@@ -643,12 +643,12 @@ int aux_del_session(struct aux *aux, struct session *s)
     }
 
     rc = sqlite3_clear_bindings(aux->rm_session);
-    if (rc != SQLITE_DONE) {
+    if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
     rc = sqlite3_clear_bindings(aux->rm_all_stmts);
-    if (rc != SQLITE_DONE) {
+    if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
@@ -753,7 +753,7 @@ int aux_add_stmt(struct aux *aux, const char *client, uint64_t cid, uint64_t id,
     }
 
     rc = sqlite3_clear_bindings(aux->add_stmt);
-    if (rc != SQLITE_DONE) {
+    if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 

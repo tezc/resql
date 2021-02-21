@@ -9,7 +9,8 @@ target_include_directories(resql-example PUBLIC ..)
 
 enable_testing()
 
-#[[add_executable(single_test single_test.c)
+#[[
+add_executable(single_test single_test.c)
 target_link_libraries(single_test ${PROJECT_LIBS} resql-test)
 add_test(NAME single_test COMMAND $<TARGET_FILE:single_test>)
 

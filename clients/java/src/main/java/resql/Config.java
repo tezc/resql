@@ -33,31 +33,50 @@ public class Config {
     int timeoutMillis = Integer.MAX_VALUE;
     List<String> urls = new ArrayList<>();
 
+    /**
+     * Create new Config instance
+     *
+     * Default timeout is Integer.MAX_VALUE.
+     * Default url is 127.0.0.1:7600
+     *
+     */
     public Config() {
-        urls.add("tcp://127.0.0.1:8080");
+        urls.add("tcp://127.0.0.1:7600");
     }
 
+    /**
+     * Create new Config instance
+     *
+     * @param clientName    client name
+     * @param clusterName   cluster name must match with cluster name of servers
+     * @param timeoutMillis timeout milliseconds
+     * @param urls          urls
+     */
     public Config(String clientName, String clusterName, int timeoutMillis,
-                  List<String> urls) {
+            List<String> urls) {
         this.clientName = clientName;
         this.clusterName = clusterName;
         this.timeoutMillis = timeoutMillis;
         this.urls = urls;
     }
 
-    public void setClientName(String clientName) {
+    public Config setClientName(String clientName) {
         this.clientName = clientName;
+        return this;
     }
 
-    public void setClusterName(String clusterName) {
+    public Config setClusterName(String clusterName) {
         this.clusterName = clusterName;
+        return this;
     }
 
-    public void setTimeoutMillis(int timeoutMillis) {
+    public Config setTimeoutMillis(int timeoutMillis) {
         this.timeoutMillis = timeoutMillis;
+        return this;
     }
 
-    public void setUrls(List<String> urls) {
+    public Config setUrls(List<String> urls) {
         this.urls = urls;
+        return this;
     }
 }

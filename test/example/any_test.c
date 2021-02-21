@@ -27,7 +27,7 @@ int main()
     resql *c;
     resql_result *rs;
     const char *urls =
-            "tcp://127.0.0.1:8080";
+            "tcp://127.0.0.1:7600";
 
     struct resql_config config = {.cluster_name = "cluster",
             .client_name = "any",

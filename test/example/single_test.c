@@ -38,9 +38,9 @@ struct server *create_node_0()
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");
     sc_str_set(&settings.node.bind_uri,
-               "tcp://node0@127.0.0.1:8080 unix:///tmp/var");
-    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:8080");
-    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:8080");
+               "tcp://node0@127.0.0.1:7600 unix:///tmp/var");
+    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:7600");
+    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600");
     sc_str_set(&settings.node.dir, "/tmp/node0");
     settings.node.in_memory = true;
 

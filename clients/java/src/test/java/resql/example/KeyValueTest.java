@@ -38,7 +38,8 @@ public class KeyValueTest {
 
         for (Row row : rs) {
             for (int i = 0; i < row.columnCount(); i++) {
-                System.out.printf("%-20s : %-20s \n", row.get(i), row.get(i));
+                System.out.printf("%-20s : %-20s \n",
+                                  row.getColumnName(i), row.get(i));
             }
         }
 

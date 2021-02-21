@@ -57,7 +57,7 @@ static struct resql *client;
 static void resql_cli_cmdline_usage()
 {
     printf("\n Resql CLI version : %s \n\n", RESQL_CLI_VERSION_STR);
-    printf(" -u=<uri>          --uri=<uri>              ex: --uri=127.0.0.1:8080 \n"
+    printf(" -u=<uri>          --uri=<uri>              ex: --uri=127.0.0.1:7600 \n"
            " -c=<command>      --command=<command>      ex: ./resql-cli -c=\"SELECT * FROM resql_sessions\"\n"
            " -h                --help                   Print this help and exit \n"
            " -v,               --version                Print version and exit   \n"
@@ -593,7 +593,7 @@ void resql_print_help()
 
 void resql_cli_init(struct resql_cli *cli)
 {
-    cli->uri = sc_uri_create("tcp://127.0.0.1:8080");
+    cli->uri = sc_uri_create("tcp://127.0.0.1:7600");
     cli->vertical = false;
 }
 
