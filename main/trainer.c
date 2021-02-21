@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 
     rc = resql_create(&c, &config);
     if (rc != RESQL_OK) {
-        printf("Failed to connect to server.");
+        printf("Failed to connect to server. \n");
         exit(EXIT_FAILURE);
     }
 
@@ -46,19 +46,19 @@ int main(int argc, char **argv)
     resql_put_sql(c, "CREATE TABLE test (key INTEGER, value TEXT);");
     rc = resql_exec(c, false, &rs);
     if (rc != RESQL_OK) {
-        printf("Failed : %s ", resql_errstr(c));
+        printf("Failed : %s \n", resql_errstr(c));
         exit(EXIT_FAILURE);
     }
 
     for (int i = 0; i < 1000; i++) {
         ops++;
         resql_put_sql(c, "INSERT INTO test VALUES (:key,:value);");
-        resql_bind_param(c, ":key", "%d", i);
-        resql_bind_param(c, ":value", "%s", "data");
+        resql_bind_param_int(c, ":key", i);
+        resql_bind_param_text(c, ":value", "data");
 
         rc = resql_exec(c, false, &rs);
         if (rc != RESQL_OK) {
-            printf("Failed : %s ", resql_errstr(c));
+            printf("Failed : %s \n", resql_errstr(c));
             exit(EXIT_FAILURE);
         }
     }
@@ -66,18 +66,25 @@ int main(int argc, char **argv)
     for (int i = 0; i < 10000; i++) {
         ops++;
         resql_put_sql(c, "SELECT * FROM test WHERE key = ?;");
-        resql_bind_index(c, 0, "%d", i % 1000);
+        resql_bind_index_int(c, 0, i % 1000);
         rc = resql_exec(c, true, &rs);
         if (rc != RESQL_OK) {
-            printf("Failed : %s ", resql_errstr(c));
+            printf("Failed : %s \n", resql_errstr(c));
             exit(EXIT_FAILURE);
         }
+    }
+
+    resql_put_sql(c, "DROP TABLE IF EXISTS test;");
+    rc = resql_exec(c, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Failed : %s \n", resql_errstr(c));
+        exit(EXIT_FAILURE);
     }
 
     resql_put_sql(c, "SELECT resql('shutdown', '*');");
     rc = resql_exec(c, false, &rs);
     if (rc != RESQL_OK) {
-        printf("Failed : %s ", resql_errstr(c));
+        printf("Failed : %s \n", resql_errstr(c));
         exit(EXIT_FAILURE);
     }
 

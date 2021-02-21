@@ -1,0 +1,24 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    name: Build on Ubuntu
+
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          sudo apt update
+          sudo apt-get install valgrind cmake java
+          ./build.sh
+
+          cd clients/java
+          mvn test

@@ -39,6 +39,8 @@ class Client implements Resql {
     private final String clientName;
     private final String clusterName;
     private final int timeout;
+    private final String outgoingAddr;
+    private final int outgoingPort;
     private long seq = 0;
     private boolean connected = false;
     private boolean hasStatement;
@@ -70,6 +72,8 @@ class Client implements Resql {
         clientName = n != null ? n : UUID.randomUUID().toString();
         clusterName = config.clusterName;
         timeout = config.timeoutMillis;
+        outgoingAddr = config.outgoingAddr;
+        outgoingPort = config.outgoingPort;
 
         for (String s : config.urls) {
             try {
@@ -135,6 +139,10 @@ class Client implements Resql {
         }
 
         try {
+            if (outgoingAddr != null) {
+                sock.bind(new InetSocketAddress(outgoingAddr, outgoingPort));
+            }
+
             InetSocketAddress addr = new InetSocketAddress(uri.getHost(),
                                                            uri.getPort());
             ok = sock.connect(addr);

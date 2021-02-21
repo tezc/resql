@@ -30,6 +30,8 @@ import java.util.List;
 public class Config {
     String clientName = null;
     String clusterName = "cluster";
+    String outgoingAddr = null;
+    int outgoingPort = 0;
     int timeoutMillis = Integer.MAX_VALUE;
     List<String> urls = new ArrayList<>();
 
@@ -77,6 +79,16 @@ public class Config {
 
     public Config setUrls(List<String> urls) {
         this.urls = urls;
+        return this;
+    }
+
+    public Config setOutgoingAddr(String outgoingAddr) {
+        this.outgoingAddr = outgoingAddr;
+        return this;
+    }
+
+    public Config setOutgoingPort(int outgoingPort) {
+        this.outgoingPort = outgoingPort;
         return this;
     }
 }

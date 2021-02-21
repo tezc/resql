@@ -46,14 +46,14 @@ public class BenchmarkSimple {
 
         Options opt = new OptionsBuilder().include(
                 this.getClass().getName() + ".*")
-                                          .mode(Mode.AverageTime)
+                                          .mode(Mode.SampleTime)
                                           .timeUnit(TimeUnit.MICROSECONDS)
                                           .warmupTime(TimeValue.seconds(2))
                                           .warmupIterations(1)
                                           .measurementTime(
                                                   TimeValue.seconds(5))
                                           .measurementIterations(1)
-                                          .threads(1)
+                                          .threads(10)
                                           .forks(1)
                                           .shouldFailOnError(true)
                                           .build();
@@ -102,6 +102,16 @@ public class BenchmarkSimple {
         client.put(p);
         client.bind(0, (state.i));
         state.i++;
+        bh.consume(client.execute(true));
+    }
+
+    @Benchmark
+    public void benchmarkSelect(BenchmarkState state, Blackhole bh)
+            throws InterruptedException {
+
+        Resql client = state.client;
+
+        client.put("SELECT '1';");
         bh.consume(client.execute(true));
     }
 }

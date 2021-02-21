@@ -39,6 +39,8 @@ import (
 var ErrMissingStatement = errors.New("resql: missing statement")
 var ErrInvalidMessage = errors.New("resql: received invalid message")
 var ErrConnFail = errors.New("resql: failed to connect")
+var ErrClusterNameMismatch = errors.New("resql: cluster name mismatch")
+
 var ErrTimeout = errors.New("resql: operation timeout")
 var ErrDisconnected = errors.New("resql: disconnected")
 var ErrNotSingle = errors.New("resql: operation must be a single operation")
@@ -94,7 +96,7 @@ type Row interface {
 	ValueByColumn(columnName string) (interface{}, error)
 	ColumnName(index int) (string, error)
 	ColumnCount() int
-	Read(columns... interface{}) error
+	Read(columns ...interface{}) error
 }
 
 type ResultSet interface {
@@ -263,6 +265,10 @@ retry:
 		c.urlsTerm = term
 	}
 
+	if rc == msgClusterNameMismatch {
+		return ErrClusterNameMismatch
+	}
+
 	if rc != msgOK {
 		return ErrConnFail
 	}
@@ -270,7 +276,7 @@ retry:
 	if c.req.empty() {
 		c.seq = seq
 	} else {
-		if seq != c.seq && seq != c.seq + 1 {
+		if seq != c.seq && seq != c.seq+1 {
 			c.seq = seq
 			return ErrSessionDoesNotExist
 		}
@@ -669,12 +675,11 @@ func (r *result) NextResultSet() bool {
 	return true
 }
 
-
 func (r *result) ColumnCount() int {
 	return r.columns
 }
 
-func (r *result) ValueByIndex(index int) (interface{},error) {
+func (r *result) ValueByIndex(index int) (interface{}, error) {
 	if index < 0 || index >= len(r.values) {
 		return nil, ErrIndexOutOfRange
 	}
@@ -682,7 +687,7 @@ func (r *result) ValueByIndex(index int) (interface{},error) {
 	return r.values[index], nil
 }
 
-func (r *result) ValueByColumn(param string) (interface{},error) {
+func (r *result) ValueByColumn(param string) (interface{}, error) {
 	v, found := r.indexes[param]
 	if !found {
 		return nil, ErrColumnMissing
@@ -698,8 +703,6 @@ func (r *result) ColumnName(index int) (string, error) {
 
 	return r.names[index], nil
 }
-
-
 
 func (r *result) NextRow() Row {
 	if r.remainingRows <= 0 {
@@ -729,32 +732,33 @@ func (r *result) NextRow() Row {
 }
 
 const (
-	lenBytes            = 4
-	connectReq          = byte(0x00)
-	connectResp         = byte(0x01)
-	disconnectReq       = byte(0x02)
-	clientReq           = byte(0x04)
-	clientResp          = byte(0x05)
-	remoteTypeClient    = byte(0x00)
-	rcOk                = byte(0x00)
-	clientReqHeader     = 14
-	flagOK              = byte(0)
-	flagError           = byte(1)
-	flagDone            = byte(2)
-	flagStmt            = byte(3)
-	flagStmtId          = byte(4)
-	flagStmtPrepare     = byte(5)
-	flagStmtDelPrepared = byte(6)
-	flagRow             = byte(7)
-	flagEnd             = byte(8)
-	msgOK               = byte(0)
-	paramInteger        = byte(0)
-	paramFloat          = byte(1)
-	paramText           = byte(2)
-	paramBlob           = byte(3)
-	paramNull           = byte(4)
-	paramName           = byte(5)
-	paramIndex          = byte(6)
+	lenBytes               = 4
+	connectReq             = byte(0x00)
+	connectResp            = byte(0x01)
+	disconnectReq          = byte(0x02)
+	clientReq              = byte(0x04)
+	clientResp             = byte(0x05)
+	remoteTypeClient       = byte(0x00)
+	rcOk                   = byte(0x00)
+	clientReqHeader        = 14
+	flagOK                 = byte(0)
+	flagError              = byte(1)
+	flagDone               = byte(2)
+	flagStmt               = byte(3)
+	flagStmtId             = byte(4)
+	flagStmtPrepare        = byte(5)
+	flagStmtDelPrepared    = byte(6)
+	flagRow                = byte(7)
+	flagEnd                = byte(8)
+	msgOK                  = byte(0)
+	msgClusterNameMismatch = byte(2)
+	paramInteger           = byte(0)
+	paramFloat             = byte(1)
+	paramText              = byte(2)
+	paramBlob              = byte(3)
+	paramNull              = byte(4)
+	paramName              = byte(5)
+	paramIndex             = byte(6)
 )
 
 func (c *client) encodeConnectReq(buf *Buffer) {

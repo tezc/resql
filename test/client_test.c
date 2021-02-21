@@ -167,10 +167,10 @@ static void client_prepared()
 
     for (int i = 0; i < 100; i++) {
         resql_put_prepared(client, &stmt);
-        resql_bind_param(client, ":key1", "%d", i);
-        resql_bind_param(client, ":key2", "%s", "test");
-        resql_bind_param(client, ":key3", "%f", 3.11);
-        resql_bind_param(client, ":key4", "%b", 5, "blob");
+        resql_bind_param_int(client, ":key1", i);
+        resql_bind_param_text(client, ":key2", "test");
+        resql_bind_param_float(client, ":key3", 3.11);
+        resql_bind_param_blob(client, ":key4", 5, "blob");
 
         rc = resql_exec(client, false, &rs);
         if (rc != RESQL_OK) {
@@ -250,17 +250,17 @@ static void client_error()
 
     resql_put_sql(client,
                       "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
-    resql_bind_param(client, ":key1", "%d", 1);
-    resql_bind_param(client, ":key2", "%s", "test");
-    resql_bind_param(client, ":key3", "%f", 3.11);
-    resql_bind_param(client, ":key4", "%b", 5, "blob");
+    resql_bind_param_int(client, ":key1", 1);
+    resql_bind_param_text(client, ":key2", "test");
+    resql_bind_param_float(client, ":key3", 3.11);
+    resql_bind_param_blob(client, ":key4", 5, "blob");
 
     resql_put_sql(client,
                       "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
-    resql_bind_param(client, ":key1", "%d", 1);
-    resql_bind_param(client, ":key2", "%s", "test");
-    resql_bind_param(client, ":key3", "%f", 3.11);
-    resql_bind_param(client, ":key4", "%b", 5, "blob");
+    resql_bind_param_int(client, ":key1", 1);
+    resql_bind_param_text(client, ":key2", "test");
+    resql_bind_param_float(client, ":key3", 3.11);
+    resql_bind_param_blob(client, ":key4", 5, "blob");
 
     rc = resql_exec(client, false, &rs);
     assert(rc == RESQL_SQL_ERROR);
@@ -278,17 +278,17 @@ static void client_error()
 
     resql_put_sql(client,
                       "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
-    resql_bind_param(client, ":key1", "%d", 0);
-    resql_bind_param(client, ":key2", "%s", "test");
-    resql_bind_param(client, ":key3", "%f", 3.11);
-    resql_bind_param(client, ":key4", "%b", 5, "blob");
+    resql_bind_param_int(client, ":key1", 0);
+    resql_bind_param_text(client, ":key2", "test");
+    resql_bind_param_float(client, ":key3", 3.11);
+    resql_bind_param_blob(client, ":key4", 5, "blob");
 
     resql_put_sql(client,
                       "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
-    resql_bind_param(client, ":key1", "%d", 1);
-    resql_bind_param(client, ":key2", "%s", "test");
-    resql_bind_param(client, ":key3", "%f", 3.11);
-    resql_bind_param(client, ":key4", "%b", 5, "blob");
+    resql_bind_param_int(client, ":key1", 1);
+    resql_bind_param_text(client, ":key2", "test");
+    resql_bind_param_float(client, ":key3", 3.11);
+    resql_bind_param_blob(client, ":key4", 5, "blob");
 
     rc = resql_exec(client, false, &rs);
     if (rc != RESQL_OK) {
@@ -376,10 +376,10 @@ static void client_many()
         resql_put_sql(
                 client,
                 "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
-        resql_bind_param(client, ":key1", "%d", i);
-        resql_bind_param(client, ":key2", "%s", "test");
-        resql_bind_param(client, ":key3", "%f", 3.11);
-        resql_bind_param(client, ":key4", "%b", 5, "blob");
+        resql_bind_param_int(client, ":key1", i);
+        resql_bind_param_text(client, ":key2", "test");
+        resql_bind_param_float(client, ":key3", 3.11);
+        resql_bind_param_blob(client, ":key4", 5, "blob");
 
         rc = resql_exec(client, false, &rs);
         if (rc != RESQL_OK) {
@@ -435,10 +435,10 @@ static void client_big()
         resql_put_sql(
                 client,
                 "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
-        resql_bind_param(client, ":key1", "%d", i);
-        resql_bind_param(client, ":key2", "%s", "test");
-        resql_bind_param(client, ":key3", "%f", 3.11);
-        resql_bind_param(client, ":key4", "%b", 1 * 1024, p);
+        resql_bind_param_int(client, ":key1", i);
+        resql_bind_param_text(client, ":key2", "test");
+        resql_bind_param_float(client, ":key3", 3.11);
+        resql_bind_param_blob(client, ":key4", 1 * 1024, p);
 
         rc = resql_exec(client, false, &rs);
         if (rc != RESQL_OK) {

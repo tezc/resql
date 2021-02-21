@@ -214,48 +214,21 @@ int resql_put_prepared(resql *c, const resql_stmt *stmt);
 int resql_put_sql(resql *c, const char *sql);
 
 /**
- * Bind with parameter. String and blob is copied
- * into internal buffer, reSQL won't call free() for them.
- *
- * resql_bind_param(c, ":intcolumn", "%d", 3);
- * resql_bind_param(c, ":realcolumn", "%f", 3.11);
- * resql_bind_param(c, ":textcolumn", "%s", "value");
- * resql_bind_param(c, ":blobcolumn", "%b", 10, "blobvalue");
- * resql_bind_param(c, ":anyother", "%n"); // NULL binding
- *
- * @param c      client
- * @param param  param
- * @param fmt    fmt, valid fmts are '%d' : int64_t
- *                                   '%f' : double
- *                                   '%s' : const char*
- *                                   '%b' : int, const void*
- *                                   '%n' : bind null, no value needed
- * @param ...
- * @return
+ * Bind values, either :
+ * resql_bind_param_int(c, ":param", "value");
+ * resql_bind_index_int(c, 0, "value");
  */
-int resql_bind_param(resql *c, const char *param, const char *fmt, ...);
+void resql_bind_param_int(resql *c, const char* param, uint64_t val);
+void resql_bind_param_float(resql *c, const char* param, double val);
+void resql_bind_param_text(resql *c, const char* param, const char* val);
+void resql_bind_param_blob(resql *c, const char* param, int len, void* data);
+void resql_bind_param_null(resql *c, const char* param);
 
-/**
- * Bind with index, indexes starts from '0'. String and blob is copied
- * into internal buffer, Resql won't call free() for them.
- *
- * resql_bind_index(c, 0, "%d", 3);
- * resql_bind_index(c, 1, "%f", 3.11);
- * resql_bind_index(c, 2, "%s", "value");
- * resql_bind_index(c, 3, "%b", 10, "blobvalue");
- * resql_bind_index(c, 4, "%n"); // NULL binding
- *
- * @param c      client
- * @param param  param
- * @param fmt    fmt, valid fmts are '%d' : int64_t
- *                                   '%f' : double
- *                                   '%s' : const char*
- *                                   '%b' : int, const void*
- *                                   '%n' : bind null, no value needed
- * @param ...
- * @return
- */
-int resql_bind_index(resql *c, int index, const char *fmt, ...);
+void resql_bind_index_int(resql *c, int index, uint64_t val);
+void resql_bind_index_float(resql *c, int index, double val);
+void resql_bind_index_text(resql *c, int index, const char* val);
+void resql_bind_index_blob(resql *c, int index, int len, void* data);
+void resql_bind_index_null(resql *c, int index);
 
 /**
  * Execute added statements.

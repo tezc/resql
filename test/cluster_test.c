@@ -117,7 +117,7 @@ void write_test()
 
             resql_put_sql(
                     c, "INSERT INTO snapshot VALUES(:key, 'value')");
-            resql_bind_param(c, ":key", "%s", tmp);
+            resql_bind_param_text(c, ":key", tmp);
         }
 
         rc = resql_exec(c, false, &rs);

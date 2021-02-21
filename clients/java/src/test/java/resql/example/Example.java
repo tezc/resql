@@ -190,7 +190,8 @@ public class Example {
 
     @Test
     public void showcase() {
-        try (Resql client = ResqlClient.create(new Config().setClientName("myclient"))) {
+        Config config = new Config().setOutgoingAddr("127.0.0.1").setOutgoingPort(18000).setClientName("myclient");
+        try (Resql client = ResqlClient.create(config)) {
             client.put("CREATE TABLE test (name TEXT, lastname TEXT);");
             client.execute(false);
 

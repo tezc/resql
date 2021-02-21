@@ -441,8 +441,8 @@ void completion(const char *buf, linenoiseCompletions *lc)
 
     resql_put_sql(client, "SELECT DISTINCT candidate COLLATE nocase"
                               "  FROM completion(:head, :all) ORDER BY 1");
-    resql_bind_param(client, ":head", "%s", &buf[head]);
-    resql_bind_param(client, ":all", "%s", buf);
+    resql_bind_param_text(client, ":head", &buf[head]);
+    resql_bind_param_text(client, ":all", buf);
 
     rc = resql_exec(client, true, &rs);
     if (rc == RESQL_ERROR) {
@@ -512,8 +512,8 @@ char *hints(const char *buf, int *color, int *bold)
 
     resql_put_sql(client, "SELECT DISTINCT candidate COLLATE nocase"
                               "  FROM completion(:head, :all) ORDER BY 1");
-    resql_bind_param(client, ":head", "%s", &buf[head]);
-    resql_bind_param(client, ":all", "%s", buf);
+    resql_bind_param_text(client, ":head", &buf[head]);
+    resql_bind_param_text(client, ":all", buf);
 
     rc = resql_exec(client, true, &rs);
     if (rc == RESQL_ERROR) {
