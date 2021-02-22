@@ -26,5 +26,5 @@ target_include_directories(resql PUBLIC .)
 set_source_files_properties(
         sqlite3.c
         PROPERTIES
-        COMPILE_FLAGS "-w -Wno-error=stringop-overflow="
+        COMPILE_FLAGS "-w -Wno-error=stringop-overflow= "
 )
