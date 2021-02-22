@@ -142,7 +142,7 @@ set_source_files_properties(
         ../deps/sqlite/completion.c
         APPEND PROPERTIES
         COMPILE_FLAGS
-        "-w -Wno-error=stringop-overflow= \
+        "-w \
  -DSQLITE_OMIT_AUTOINIT \
  -DSQLITE_THREADSAFE=0 \
  -DSQLITE_DEFAULT_MEMSTATUS=0 \
