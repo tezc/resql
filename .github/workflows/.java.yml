@@ -8,7 +8,7 @@ on:
 jobs:
   ubuntu:
     runs-on: ubuntu-latest
-    name: Build on Ubuntu
+    name: Java client test
 
     steps:
       - uses: actions/checkout@v2.1.0
@@ -19,6 +19,6 @@ jobs:
           sudo apt update
           sudo apt-get install valgrind cmake default-jdk maven
           ./build.sh
-          cd bin && ./resql & cd ..
+          cd bin && ./resql && cd ..
           cd clients/java
           mvn test
