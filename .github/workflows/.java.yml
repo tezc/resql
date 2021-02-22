@@ -19,7 +19,8 @@ jobs:
           sudo apt update
           sudo apt-get install valgrind cmake default-jdk maven
           ./build.sh
-          cd bin && ./resql &
+          cd bin
+          ./resql &
           cd ..
           cd clients/java
           mvn test
