@@ -159,6 +159,12 @@ set_source_files_properties(
  -DSQLITE_USE_ALLOCA"
 )
 
+set_source_files_properties(
+        sqlite3.c
+        PROPERTIES
+        COMPILE_FLAGS "-w"
+)
+
 enable_warning_if_supported(-Wno-stringop-overflow)
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Rel")
