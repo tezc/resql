@@ -302,6 +302,7 @@ enable_warning_if_supported(-Wno-unused-function)
 enable_warning_if_supported(-Wno-unused-but-set-variable)
 enable_warning_if_supported(-Wno-unused-result)
 enable_warning_if_supported(-Wno-sign-compare)
+enable_warning_if_supported(-Wno-stringop-overflow)
 
 enable_c_flag_if_avail(-march=native C_FLAGS_REL HAVE_MARCH_NATIVE)
 
