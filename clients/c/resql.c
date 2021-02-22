@@ -1788,8 +1788,6 @@ static void resql_err(struct resql *c, const char *fmt, ...)
 {
     va_list va;
 
-    c->error = true;
-
     va_start(va, fmt);
     vsnprintf(c->err, sizeof(c->err), fmt, va);
     va_end(va);
@@ -2297,6 +2295,7 @@ int resql_del_prepared(struct resql *c, resql_stmt *stmt)
 void resql_bind_param_int(resql *c, const char* param, uint64_t val)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2310,6 +2309,7 @@ void resql_bind_param_int(resql *c, const char* param, uint64_t val)
 void resql_bind_param_float(resql *c, const char* param, double val)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2323,6 +2323,7 @@ void resql_bind_param_float(resql *c, const char* param, double val)
 void resql_bind_param_text(resql *c, const char* param, const char *val)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2336,6 +2337,7 @@ void resql_bind_param_text(resql *c, const char* param, const char *val)
 void resql_bind_param_blob(resql *c, const char* param, int len, void* data)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2349,6 +2351,7 @@ void resql_bind_param_blob(resql *c, const char* param, int len, void* data)
 void resql_bind_param_null(resql *c, const char* param)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2361,6 +2364,7 @@ void resql_bind_param_null(resql *c, const char* param)
 void resql_bind_index_int(resql *c, int index, uint64_t val)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2374,6 +2378,7 @@ void resql_bind_index_int(resql *c, int index, uint64_t val)
 void resql_bind_index_float(resql *c, int index, double val)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2387,6 +2392,7 @@ void resql_bind_index_float(resql *c, int index, double val)
 void resql_bind_index_text(resql *c, int index, const char* val)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2400,6 +2406,7 @@ void resql_bind_index_text(resql *c, int index, const char* val)
 void resql_bind_index_blob(resql *c, int index, int len, void* data)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }
@@ -2413,6 +2420,7 @@ void resql_bind_index_blob(resql *c, int index, int len, void* data)
 void resql_bind_index_null(resql *c, int index)
 {
     if (!c->statement) {
+        c->error = true;
         resql_err(c, "missing statement before binding");
         return;
     }

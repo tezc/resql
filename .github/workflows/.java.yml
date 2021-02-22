@@ -17,7 +17,7 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           sudo apt update
-          sudo apt-get install valgrind cmake java
+          sudo apt-get install valgrind cmake default-jdk maven
           ./build.sh
 
           cd clients/java
