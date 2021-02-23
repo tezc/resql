@@ -22,6 +22,10 @@
  * SOFTWARE.
  */
 
+#ifndef _XOPEN_SOURCE
+    #define _XOPEN_SOURCE 700
+#endif
+
 #include "resql.h"
 
 #include <errno.h>
@@ -37,6 +41,7 @@
 #else
     #include <assert.h>
     #include <stdlib.h>
+    #include <sys/time.h>
     #include <time.h>
 #endif
 
@@ -1371,7 +1376,7 @@ struct resql_result
     int row_count;
     int remaining_rows;
     uint32_t row_pos;
-    uint32_t column_count;
+    int column_count;
     struct sc_buf buf;
     struct resql_column *row;
     int column_cap;
@@ -1446,12 +1451,12 @@ struct resql_column *resql_row(struct resql_result *rs)
         case RESQL_INTEGER:
             rs->row[i].type = RESQL_INTEGER;
             rs->row[i].len = -1;
-            rs->row[i].num = sc_buf_get_64(&rs->buf);
+            rs->row[i].intval = sc_buf_get_64(&rs->buf);
             break;
         case RESQL_FLOAT:
             rs->row[i].type = RESQL_FLOAT;
             rs->row[i].len = -1;
-            rs->row[i].real = sc_buf_get_double(&rs->buf);
+            rs->row[i].floatval = sc_buf_get_double(&rs->buf);
             break;
         case RESQL_TEXT:
             rs->row[i].type = RESQL_TEXT;
@@ -2013,6 +2018,16 @@ cleanup:
     return rc;
 }
 
+int resql_init()
+{
+    return sc_sock_startup();
+}
+
+int resql_term()
+{
+    return sc_sock_cleanup();
+}
+
 int resql_create(struct resql **client, struct resql_config *config)
 {
     bool b;
@@ -2292,7 +2307,7 @@ int resql_del_prepared(struct resql *c, resql_stmt *stmt)
     return RESQL_OK;
 }
 
-void resql_bind_param_int(resql *c, const char* param, uint64_t val)
+void resql_bind_param_int(resql *c, const char* param, int64_t val)
 {
     if (!c->statement) {
         c->error = true;
@@ -2361,7 +2376,7 @@ void resql_bind_param_null(resql *c, const char* param)
     sc_buf_put_8(&c->req, TASK_PARAM_NULL);
 }
 
-void resql_bind_index_int(resql *c, int index, uint64_t val)
+void resql_bind_index_int(resql *c, int index, int64_t val)
 {
     if (!c->statement) {
         c->error = true;
@@ -2430,7 +2445,7 @@ void resql_bind_index_null(resql *c, int index)
     sc_buf_put_8(&c->req, TASK_PARAM_NULL);
 }
 
-int resql_put_prepared(struct resql *c, const resql_stmt *stmt)
+void resql_put_prepared(struct resql *c, const resql_stmt *stmt)
 {
     if (c->statement) {
         sc_buf_put_8(&c->req, TASK_FLAG_END);
@@ -2440,11 +2455,9 @@ int resql_put_prepared(struct resql *c, const resql_stmt *stmt)
     sc_buf_put_64(&c->req, *stmt);
 
     c->statement = true;
-
-    return RESQL_OK;
 }
 
-int resql_put_sql(struct resql *c, const char *sql)
+void resql_put_sql(struct resql *c, const char *sql)
 {
     if (c->statement) {
         sc_buf_put_8(&c->req, TASK_FLAG_END);
@@ -2454,8 +2467,6 @@ int resql_put_sql(struct resql *c, const char *sql)
     sc_buf_put_str(&c->req, sql);
 
     c->statement = true;
-
-    return RESQL_OK;
 }
 
 int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
@@ -2471,6 +2482,12 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
     }
 
     if (c->error) {
+        resql_clear(c);
+        return RESQL_SQL_ERROR;
+    }
+
+    if (!sc_buf_valid(&c->req)) {
+        resql_err(c, "Out of memory!.");
         resql_clear(c);
         return RESQL_SQL_ERROR;
     }

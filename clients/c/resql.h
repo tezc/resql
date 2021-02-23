@@ -68,8 +68,8 @@ struct resql_column
     {
         const void *blob;
         const char *text;
-        uint64_t num;
-        double real;
+        int64_t intval;
+        double floatval;
     };
 };
 
@@ -107,6 +107,15 @@ struct resql_config
      */
     uint32_t timeout;
 };
+
+/**
+ * Initialize library once when your application starts and terminate once
+ * before shutting down.
+ *
+ * @return '0' on success, negative on failure.
+ */
+int resql_init();
+int resql_term();
 
 /**
  * Create client and connect to the server.
@@ -188,11 +197,10 @@ int resql_del_prepared(resql *c, resql_stmt *stmt);
  *
  * int rc = resql_exec(client, readonly, &rs);
  *
- * @param c
- * @param sql
- * @return
+ * @param c    client
+ * @param stmt stmt
  */
-int resql_put_prepared(resql *c, const resql_stmt *stmt);
+void resql_put_prepared(resql *c, const resql_stmt *stmt);
 
 /**
  * Add statement to the current operation batch.
@@ -200,31 +208,30 @@ int resql_put_prepared(resql *c, const resql_stmt *stmt);
  * resql_stmt *stmt;
  * resql_result *rs;
  *
- * resql_put_statement(client, "SELECT * FROM TEST");
- * resql_put_statement(client, "SELECT * FROM ANOTHER");
+ * resql_put_sql(client, "SELECT * FROM TEST");
+ * resql_put_sql(client, "SELECT * FROM ANOTHER");
  * resql_put_prepared(client, stmt);
  * resql_bind_index_int(client, 0, id);
  *
  * int rc = resql_exec(client, readonly, &rs);
  *
- * @param c
- * @param sql
- * @return
+ * @param c   client
+ * @param sql sql
  */
-int resql_put_sql(resql *c, const char *sql);
+void resql_put_sql(resql *c, const char *sql);
 
 /**
  * Bind values, either :
  * resql_bind_param_int(c, ":param", "value");
  * resql_bind_index_int(c, 0, "value");
  */
-void resql_bind_param_int(resql *c, const char* param, uint64_t val);
+void resql_bind_param_int(resql *c, const char* param, int64_t val);
 void resql_bind_param_float(resql *c, const char* param, double val);
 void resql_bind_param_text(resql *c, const char* param, const char* val);
 void resql_bind_param_blob(resql *c, const char* param, int len, void* data);
 void resql_bind_param_null(resql *c, const char* param);
 
-void resql_bind_index_int(resql *c, int index, uint64_t val);
+void resql_bind_index_int(resql *c, int index, int64_t val);
 void resql_bind_index_float(resql *c, int index, double val);
 void resql_bind_index_text(resql *c, int index, const char* val);
 void resql_bind_index_blob(resql *c, int index, int len, void* data);
@@ -236,8 +243,8 @@ void resql_bind_index_null(resql *c, int index);
  * resql_stmt *stmt;
  * resql_result *rs;
  *
- * resql_put_statement(client, "SELECT * FROM TEST");
- * resql_put_statement(client, "SELECT * FROM ANOTHER");
+ * resql_put_sql(client, "SELECT * FROM TEST");
+ * resql_put_sql(client, "SELECT * FROM ANOTHER");
  * resql_put_prepared(client, stmt);
  * resql_bind_index_int(client, 0, id);
  *
@@ -261,8 +268,8 @@ int resql_exec(resql *client, bool readonly, resql_result **rs);
  * e.g
  * resql_stmt *stmt;
  *
- * resql_put_statement(client, "SELECT * FROM TEST");
- * resql_put_statement(client, "SELECT * FROM ANOTHER");
+ * resql_put_sql(client, "SELECT * FROM TEST");
+ * resql_put_sql(client, "SELECT * FROM ANOTHER");
  * resql_put_prepared(client, stmt);
  * // Want to dismiss these statements.
  *
