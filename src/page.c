@@ -159,7 +159,6 @@ int page_expand(struct page *p)
 {
     int rc;
     uint64_t prev_index = p->prev_index;
-    uint64_t last_term = page_last_term(p);
     uint64_t last_index = page_last_index(p);
     uint64_t entry_count = page_entry_count(p);
     int64_t cap = (int64_t) (p->map.len * 2);
@@ -176,7 +175,6 @@ int page_expand(struct page *p)
     }
 
     if (prev_index != p->prev_index ||
-        last_term != page_last_term(p) ||
         last_index != page_last_index(p) ||
         entry_count != page_entry_count(p) ||
         p->map.len < cap) {

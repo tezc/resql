@@ -31,15 +31,15 @@ import (
 )
 
 const (
-	MaxUint32 = ^uint32(0)
-	MinUint32 = 0
-	MaxInt32  = int32(MaxUint32 >> 1)
-	MinInt32  = -MaxInt32 - 1
-	MaxStrLen = int(MaxInt32) >> 1
-	NilStrLen = MaxUint32
-	maxInt = int(^uint(0) >> 1)
+	MaxUint32       = ^uint32(0)
+	MinUint32       = 0
+	MaxInt32        = int32(MaxUint32 >> 1)
+	MinInt32        = -MaxInt32 - 1
+	MaxStrLen       = int(MaxInt32) >> 1
+	NilStrLen       = MaxUint32
+	maxInt          = int(^uint(0) >> 1)
 	smallBufferSize = 1024
-	MinRead = 512
+	MinRead         = 512
 )
 
 var ErrTooLarge = errors.New("resql.Buffer: too large")
@@ -151,7 +151,7 @@ func (b *Buffer) PeekUint32() uint32 {
 	return binary.LittleEndian.Uint32(b.buf[b.off:])
 }
 
-func (b *Buffer) Position (n int) {
+func (b *Buffer) Position(n int) {
 	if n > b.Cap() {
 		panic(ErrTooLarge)
 	}
@@ -159,7 +159,7 @@ func (b *Buffer) Position (n int) {
 	b.buf = b.buf[n:n]
 }
 
-func (b *Buffer) SetLength (n int) {
+func (b *Buffer) SetLength(n int) {
 	if n > b.Cap() {
 		panic(ErrTooLarge)
 	}
@@ -167,7 +167,7 @@ func (b *Buffer) SetLength (n int) {
 	b.buf = b.buf[0:n]
 }
 
-func (b *Buffer) SetOffset (n int) {
+func (b *Buffer) SetOffset(n int) {
 	if n > b.Cap() {
 		panic(ErrTooLarge)
 	}
@@ -218,7 +218,7 @@ func (b *Buffer) ReadString() *string {
 		return nil
 	}
 
-	if b.Len() < int(length + 1) {
+	if b.Len() < int(length+1) {
 		panic(errEmpty)
 	}
 
@@ -250,7 +250,7 @@ func (b *Buffer) WriteString(s *string) {
 func (b *Buffer) ReadBlob() []byte {
 	length := b.ReadUint32()
 
-	s := b.buf[b.off:b.off + int(length)]
+	s := b.buf[b.off : b.off+int(length)]
 	b.off += int(length)
 
 	return s
@@ -265,8 +265,6 @@ func (b *Buffer) WriteBlob(blob []byte) {
 	}
 	copy(b.buf[m:], blob)
 }
-
-
 
 // WriteTo writes data to w until the buffer is drained or an error occurs.
 // The return value n is the number of bytes written; it always fits into an
