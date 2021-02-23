@@ -40,6 +40,7 @@ var ErrMissingStatement = errors.New("resql: missing statement")
 var ErrInvalidMessage = errors.New("resql: received invalid message")
 var ErrConnFail = errors.New("resql: failed to connect")
 var ErrClusterNameMismatch = errors.New("resql: cluster name mismatch")
+var ErrParamTypeMismatch = errors.New("resql: parameter type mismatch")
 
 var ErrTimeout = errors.New("resql: operation timeout")
 var ErrDisconnected = errors.New("resql: disconnected")
@@ -53,8 +54,7 @@ type client struct {
 	name         string
 	clusterName  string
 	timeout      int64
-	sourceAddr   string
-	sourcePort   string
+	sourceAddr   *net.TCPAddr
 	urls         []url.URL
 	urlsTerm     uint64
 	seq          uint64
@@ -62,6 +62,7 @@ type client struct {
 	resp         Buffer
 	connected    bool
 	hasStatement bool
+	misuse       bool
 	conn         net.Conn
 	result       result
 }
@@ -80,8 +81,8 @@ type Resql interface {
 	Delete(p PreparedStatement) error
 	PutStatement(sql string)
 	PutPrepared(p PreparedStatement)
-	BindParam(param string, val interface{}) error
-	BindIndex(index uint32, val interface{}) error
+	BindParam(param string, val interface{})
+	BindIndex(index uint32, val interface{})
 	Execute(readonly bool) (ResultSet, error)
 	Shutdown() error
 	Clear()
@@ -101,7 +102,7 @@ type Row interface {
 
 type ResultSet interface {
 	NextResultSet() bool
-	NextRow() Row
+	Row() Row
 	LinesChanged() int
 	RowCount() int
 }
@@ -113,6 +114,26 @@ type Prepared struct {
 
 func (p *Prepared) StatementSql() string {
 	return p.sql
+}
+
+type NullInt32 struct {
+	Int32 int32
+	Valid bool // Valid is true if Int32 is not NULL
+}
+
+type NullInt64 struct {
+	Int64 int64
+	Valid bool // Valid is true if Int32 is not NULL
+}
+
+type NullString struct {
+	String string
+	Valid  bool // Valid is true if Int32 is not NULL
+}
+
+type NullFloat64 struct {
+	Float64 float64
+	Valid   bool // Valid is true if Int32 is not NULL
 }
 
 var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -127,22 +148,38 @@ func randomName() string {
 }
 
 func Create(config *Config) (Resql, error) {
+	var name string
+	var addr net.TCPAddr
+	var err error
+
 	if config.Urls == nil {
 		return nil, errors.New("Url cannot be nil")
 	}
 
-	var name = config.Name
-
+	name = config.Name
 	if len(name) == 0 {
 		name = randomName()
+	}
+
+	if len(config.SourceAddr) > 0 {
+		addr.IP = net.ParseIP(config.SourceAddr)
+		if addr.IP == nil {
+			return nil, fmt.Errorf("invalid source addr %s", config.SourceAddr)
+		}
+	}
+
+	if len(config.SourcePort) > 0 {
+		addr.Port, err = strconv.Atoi(config.SourcePort)
+		if err != nil {
+			return nil, fmt.Errorf("invalid source addr %s", config.SourcePort)
+		}
 	}
 
 	s := client{
 		name:        name,
 		clusterName: config.ClusterName,
 		timeout:     config.Timeout,
-		sourceAddr:  config.SourceAddr,
-		sourcePort:  config.SourcePort,
+		sourceAddr:  &addr,
 		result: result{
 			indexes: map[string]int{},
 		},
@@ -162,18 +199,22 @@ func Create(config *Config) (Resql, error) {
 	}
 
 	start := time.Now()
-	var err error
 
 	for time.Now().Sub(start).Milliseconds() < s.timeout {
 		err = s.connect()
-		if err == nil {
-			break
+
+		if err == ErrClusterNameMismatch ||
+			err == ErrSessionDoesNotExist {
+			return nil, err
 		}
 
+		if err == nil {
+			return &s, nil
+		}
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect")
+		return nil, err
 	}
 
 	return &s, nil
@@ -276,7 +317,7 @@ retry:
 	if c.req.empty() {
 		c.seq = seq
 	} else {
-		if seq != c.seq && seq != c.seq+1 {
+		if seq != c.seq && seq != c.seq-1 {
 			c.seq = seq
 			return ErrSessionDoesNotExist
 		}
@@ -298,19 +339,9 @@ func (c *client) connectSock() error {
 	c.urls = c.urls[1:]
 
 	if u.Scheme == "tcp" {
-		localAddr := &net.TCPAddr{}
-
-		if len(c.sourceAddr) > 0 {
-			localAddr.IP = net.ParseIP(c.sourceAddr)
-		}
-
-		if len(c.sourcePort) > 0 {
-			localAddr.Port, _ = strconv.Atoi(c.sourcePort)
-		}
-
 		dialer := &net.Dialer{
 			Timeout:       200000000,
-			LocalAddr:     localAddr,
+			LocalAddr:     c.sourceAddr,
 			FallbackDelay: 0,
 		}
 
@@ -345,7 +376,6 @@ func (c *client) PutStatement(sql string) {
 	}
 
 	c.hasStatement = true
-
 	c.req.WriteUint8(flagStmt)
 	c.req.WriteString(&sql)
 }
@@ -356,19 +386,18 @@ func (c *client) PutPrepared(p PreparedStatement) {
 	}
 
 	c.hasStatement = true
-
 	c.req.WriteUint8(flagStmtId)
 	c.req.WriteUint64(p.(*Prepared).id)
 }
 
-func (c *client) Bind(val interface{}) error {
+func (c *client) Bind(val interface{}) {
 	switch val.(type) {
 	case int:
 		c.req.WriteUint8(paramInteger)
 		c.req.WriteUint64(uint64(val.(int)))
 	case int64:
 		c.req.WriteUint8(paramInteger)
-		c.req.WriteUint64(val.(uint64))
+		c.req.WriteUint64(uint64(val.(int64)))
 	case float64:
 		c.req.WriteUint8(paramFloat)
 		c.req.WriteUint64(math.Float64bits(val.(float64)))
@@ -382,32 +411,30 @@ func (c *client) Bind(val interface{}) error {
 	case nil:
 		c.req.WriteUint8(paramNull)
 	default:
-		return ErrParamUnknown
+		panic("resql: unsupported type for bind")
 	}
-
-	return nil
 }
 
-func (c *client) BindParam(param string, val interface{}) error {
+func (c *client) BindParam(param string, val interface{}) {
 	if !c.hasStatement {
-		return ErrMissingStatement
+		c.misuse = true
+		return
 	}
 
 	c.req.WriteUint8(paramName)
 	c.req.WriteString(&param)
-
-	return c.Bind(val)
+	c.Bind(val)
 }
 
-func (c *client) BindIndex(index uint32, val interface{}) error {
+func (c *client) BindIndex(index uint32, val interface{}) {
 	if !c.hasStatement {
-		return ErrMissingStatement
+		c.misuse = true
+		return
 	}
 
 	c.req.WriteUint8(paramIndex)
 	c.req.WriteUint32(index)
-
-	return c.Bind(val)
+	c.Bind(val)
 }
 
 func (c *client) Prepare(sql string) (PreparedStatement, error) {
@@ -436,11 +463,11 @@ func (c *client) Prepare(sql string) (PreparedStatement, error) {
 
 	rc := c.resp.ReadUint8()
 	if rc == flagError {
-		return nil, fmt.Errorf("sql error : %s", *c.req.ReadString())
+		return nil, fmt.Errorf("sql error : %s", *c.resp.ReadString())
 	}
 
 	return &Prepared{
-		id:  c.req.ReadUint64(),
+		id:  c.resp.ReadUint64(),
 		sql: sql,
 	}, nil
 }
@@ -470,7 +497,7 @@ func (c *client) Delete(p PreparedStatement) error {
 
 	rc := c.resp.ReadUint8()
 	if rc == flagError {
-		return fmt.Errorf("sql error : %s", *c.req.ReadString())
+		return fmt.Errorf("sql error : %s", *c.resp.ReadString())
 	}
 
 	return nil
@@ -523,7 +550,8 @@ func (c *client) send() error {
 }
 
 func (c *client) Execute(readonly bool) (ResultSet, error) {
-	if !c.hasStatement {
+	if !c.hasStatement || c.misuse {
+		c.misuse = false
 		return nil, ErrMissingStatement
 	}
 
@@ -571,46 +599,74 @@ type result struct {
 }
 
 func (r *result) Read(columns ...interface{}) error {
+
 	if len(columns) > len(r.values) {
 		return ErrIndexOutOfRange
 	}
 
 	for i, _ := range columns {
 		switch d := columns[i].(type) {
-		case **int:
+		case *NullInt32:
 			if r.values[i] == nil {
-				*d = nil
+				*d = NullInt32{Valid: false, Int32: 0}
 				break
 			}
-			n := int(r.values[i].(int64))
-			*d = &n
-		case **int64:
+
+			val, ok := r.values[i].(int64)
+			if !ok {
+				return ErrParamTypeMismatch
+			}
+
+			*d = NullInt32{Valid: true, Int32: int32(val)}
+
+		case *NullInt64:
 			if r.values[i] == nil {
-				*d = nil
+				*d = NullInt64{Valid: false, Int64: 0}
 				break
 			}
-			n := r.values[i].(int64)
-			*d = &n
-		case **string:
+
+			val, ok := r.values[i].(int64)
+			if !ok {
+				return ErrParamTypeMismatch
+			}
+
+			*d = NullInt64{Valid: true, Int64: val}
+		case *NullString:
 			if r.values[i] == nil {
-				*d = nil
+				*d = NullString{Valid: false, String: ""}
 				break
 			}
-			n := r.values[i].(string)
-			*d = &n
-		case **float64:
+
+			val, ok := r.values[i].(string)
+			if !ok {
+				return ErrParamTypeMismatch
+			}
+
+			*d = NullString{Valid: true, String: val}
+		case *NullFloat64:
 			if r.values[i] == nil {
-				*d = nil
+				*d = NullFloat64{Valid: false, Float64: 0}
 				break
 			}
-			n := r.values[i].(float64)
-			*d = &n
+
+			val, ok := r.values[i].(float64)
+			if !ok {
+				return ErrParamTypeMismatch
+			}
+
+			*d = NullFloat64{Valid: true, Float64: val}
 		case *[]byte:
 			if r.values[i] == nil {
 				*d = nil
 				break
 			}
-			*d = r.values[i].([]byte)
+
+			val, ok := r.values[i].([]byte)
+			if !ok {
+				return ErrParamTypeMismatch
+			}
+
+			*d = val
 		default:
 			return ErrParamUnknown
 		}
@@ -704,7 +760,7 @@ func (r *result) ColumnName(index int) (string, error) {
 	return r.names[index], nil
 }
 
-func (r *result) NextRow() Row {
+func (r *result) Row() Row {
 	if r.remainingRows <= 0 {
 		return nil
 	}

@@ -160,6 +160,9 @@ retry:
     if (size > page_quota(s->curr)) {
         if (s->curr != s->pages[1]) {
             s->curr = s->pages[1];
+            while ( size > page_quota(s->curr)) {
+                page_expand(s->curr);
+            }
             page_clear(s->curr, s->last_index);
             goto retry;
         }

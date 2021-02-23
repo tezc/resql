@@ -1,0 +1,26 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    name: Go client test
+
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          sudo apt update
+          sudo apt-get install valgrind cmake golang
+          ./build.sh
+          cd bin
+          ./resql &
+          cd ..
+          cd clients/go
+          go test . -count 1 -v
