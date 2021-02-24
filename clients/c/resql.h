@@ -28,12 +28,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #ifdef RESQL_HAVE_CONFIG_H
     #include "config.h"
 #else
-    #define resql_malloc malloc
-    #define resql_calloc calloc
+    #define resql_malloc  malloc
+    #define resql_calloc  calloc
     #define resql_realloc realloc
     #define resql_free    free
 #endif
@@ -233,16 +234,16 @@ void resql_put_sql(resql *c, const char *sql);
  * resql_bind_param_int(c, ":param", "value");
  * resql_bind_index_int(c, 0, "value");
  */
-void resql_bind_param_int(resql *c, const char* param, int64_t val);
-void resql_bind_param_float(resql *c, const char* param, double val);
-void resql_bind_param_text(resql *c, const char* param, const char* val);
-void resql_bind_param_blob(resql *c, const char* param, int len, void* data);
-void resql_bind_param_null(resql *c, const char* param);
+void resql_bind_param_int(resql *c, const char *param, int64_t val);
+void resql_bind_param_float(resql *c, const char *param, double val);
+void resql_bind_param_text(resql *c, const char *param, const char *val);
+void resql_bind_param_blob(resql *c, const char *param, int len, void *data);
+void resql_bind_param_null(resql *c, const char *param);
 
 void resql_bind_index_int(resql *c, int index, int64_t val);
 void resql_bind_index_float(resql *c, int index, double val);
-void resql_bind_index_text(resql *c, int index, const char* val);
-void resql_bind_index_blob(resql *c, int index, int len, void* data);
+void resql_bind_index_text(resql *c, int index, const char *val);
+void resql_bind_index_blob(resql *c, int index, int len, void *data);
 void resql_bind_index_null(resql *c, int index);
 
 /**
@@ -348,6 +349,6 @@ int resql_column_count(resql_result *rs);
  * @param rs result
  * @return   column array.
  */
-struct resql_column* resql_row(resql_result *rs);
+struct resql_column *resql_row(resql_result *rs);
 
 #endif

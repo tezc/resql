@@ -1981,11 +1981,11 @@ static void resql_generate_name(struct resql *c, char *dest)
     int num, len;
     uint64_t ts;
     uint32_t generated[40] = {0};
-    char *end, *p = (char*) generated;
+    char *end, *p = (char *) generated;
 
     ts = sc_time_mono_ms();
 
-    num = (int)((rand() % 16) + 8 + (ts % 4));
+    num = (int) ((rand() % 16) + 8 + (ts % 4));
     len = (num % 16) + 8;
     end = p + (sizeof(generated[0]) * len);
 
@@ -1994,7 +1994,7 @@ static void resql_generate_name(struct resql *c, char *dest)
     memcpy(p, &ts, sizeof(ts));
     p += sizeof(ts);
 
-    while (p + sizeof(num) < end)  {
+    while (p + sizeof(num) < end) {
         num = rand();
         memcpy(p, &num, sizeof(num));
         p += sizeof(num);
@@ -2488,7 +2488,7 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 
     rc = resql_send_req(c, &tmp);
     if (rc != RESQL_OK) {
-         goto error;
+        goto error;
     }
 
     c->rs.buf = tmp;

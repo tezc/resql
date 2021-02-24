@@ -549,6 +549,10 @@ static void test_connect()
                               .source_port = "7689",
                               .timeout = 2000,
                               .uris = "tcp://127.0.0.1:7600"});
+    if (rc != RESQL_OK && client != NULL) {
+        printf("Failed %s \n", resql_errstr(c));
+    }
+
     assert(rc == RESQL_OK);
 
     rc = resql_destroy(client);
