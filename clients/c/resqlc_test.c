@@ -546,7 +546,7 @@ static void test_connect()
                       &(struct resql_config){
                               .cluster_name = "cluster",
                               .source_addr = "127.0.0.1",
-                              .source_port = "7689",
+                              .source_port = "8689",
                               .timeout = 2000,
                               .uris = "tcp://127.0.0.1:7600"});
     if (rc != RESQL_OK && client != NULL) {
