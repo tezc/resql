@@ -2092,10 +2092,6 @@ int resql_create(struct resql **client, struct resql_config *config)
         }
 
         rc = resql_connect(c);
-        if (rc != RESQL_OK) {
-            printf("Error : %s \n", c->err);
-            fflush(stdout);
-        }
         if (rc == RESQL_OK) {
             break;
         }

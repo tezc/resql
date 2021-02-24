@@ -61,13 +61,4 @@ jobs:
           cd clients/c
           mkdir build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Debug
-          make && make check
-          rm -rf *
-          cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=address
-          make && make check
-          rm -rf *
-          cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=undefined
-          make && make check
-          rm -rf *
-          cmake .. -DCMAKE_BUILD_TYPE=Debug
           make && make valgrind
