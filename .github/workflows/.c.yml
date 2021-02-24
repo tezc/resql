@@ -20,6 +20,8 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: |
+          sudo apt update
+          sudo apt-get install valgrind cmake
           ./build.sh
           cd bin
           ./resql &
