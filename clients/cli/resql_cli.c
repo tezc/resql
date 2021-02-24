@@ -156,10 +156,10 @@ void resql_print_vertical(struct resql_result *rs)
             switch (row[i].type) {
             case RESQL_INTEGER:
                 printf("%-*s : %-15llu \n", wmax, row[i].name,
-                       (unsigned long long) row[i].num);
+                       (unsigned long long) row[i].intval);
                 break;
             case RESQL_FLOAT:
-                printf("%-*s : %f \n", wmax, row[i].name, row[i].real);
+                printf("%-*s : %f \n", wmax, row[i].name, row[i].floatval);
                 break;
             case RESQL_TEXT:
                 printf("%-*s : %s \n", wmax, row[i].name, row[i].text);
@@ -282,11 +282,11 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
             switch (row[i].type) {
 
             case RESQL_INTEGER:
-                snprintf(tmp, 128, "%llu", (unsigned long long) row[i].num);
+                snprintf(tmp, 128, "%llu", (unsigned long long) row[i].intval);
                 p[i] = MAX(p[i], strlen(tmp));
                 break;
             case RESQL_FLOAT:
-                snprintf(tmp, 128, "%f", row[i].real);
+                snprintf(tmp, 128, "%f", row[i].floatval);
                 p[i] = MAX(p[i], strlen(tmp));
                 break;
             case RESQL_TEXT:
@@ -335,10 +335,10 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
                 switch (row[i].type) {
 
                 case RESQL_INTEGER:
-                    printf("| %-*llu ", p[i], (unsigned long long) row[i].num);
+                    printf("| %-*llu ", p[i], (unsigned long long) row[i].intval);
                     break;
                 case RESQL_FLOAT:
-                    printf("| %-*f ", p[i], row[i].real);
+                    printf("| %-*f ", p[i], row[i].floatval);
                     break;
                 case RESQL_TEXT:
                     printf("| %-*s ", p[i], row[i].text);

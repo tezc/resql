@@ -129,7 +129,7 @@ static void snapshot_simple()
     client_assert(c, rc == RESQL_OK);
 
     assert(resql_row_count(rs) == 1);
-    assert(resql_row(rs)[0].num == 1000000);
+    assert(resql_row(rs)[0].intval == 1000000);
 
     resql_put_sql(c, "Select * from snapshot;");
     rc = resql_exec(c, false, &rs);

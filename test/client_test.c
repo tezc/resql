@@ -206,9 +206,9 @@ static void client_prepared()
             assert(strcmp("c", row[2].name) == 0);
             assert(strcmp("d", row[3].name) == 0);
 
-            assert(row[0].num == x++);
+            assert(row[0].intval == x++);
             assert(strcmp(row[1].text, "test") == 0);
-            assert(row[2].real == 3.11);
+            assert(row[2].floatval == 3.11);
             assert(row[3].len == 5);
             assert(strcmp(row[3].blob, "blob") == 0);
         }
@@ -326,9 +326,9 @@ static void client_error()
             assert(strcmp("c", row[2].name) == 0);
             assert(strcmp("d", row[3].name) == 0);
 
-            assert(row[0].num == x++);
+            assert(row[0].intval == x++);
             assert(strcmp(row[1].text, "test") == 0);
-            assert(row[2].real == 3.11);
+            assert(row[2].floatval == 3.11);
             assert(row[3].len == 5);
             assert(strcmp(row[3].blob, "blob") == 0);
         }
