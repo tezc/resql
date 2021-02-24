@@ -13,8 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2.1.0
       - name: build
-        env:
-          CC: ${{ matrix.compiler }}
         run: |
           sudo apt update
           sudo apt-get install valgrind cmake default-jdk maven

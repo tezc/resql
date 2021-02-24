@@ -16,8 +16,6 @@ jobs:
         with:
           go-version: '^1.13.1'
       - name: build
-        env:
-          CC: ${{ matrix.compiler }}
         run: |
           sudo apt update
           sudo apt-get install valgrind cmake

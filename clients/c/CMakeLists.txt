@@ -42,7 +42,7 @@ endif ()
            --leak-check=full --show-leak-kinds=all  \
            --error-exitcode=255")
 
-  add_custom_target(valgrind_${PROJECT_NAME} ${CMAKE_COMMAND}
+  add_custom_target(valgrind ${CMAKE_COMMAND}
           -E env CTEST_OUTPUT_ON_FAILURE=1
           ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
           --overwrite MemoryCheckCommandOptions=${MEMORYCHECK_COMMAND_OPTIONS}

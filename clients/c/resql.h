@@ -29,6 +29,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef RESQL_HAVE_CONFIG_H
+    #include "config.h"
+#else
+    #define resql_malloc malloc
+    #define resql_calloc calloc
+    #define resql_realloc realloc
+    #define resql_free    free
+#endif
 
 typedef struct resql_result resql_result;
 typedef struct resql resql;
@@ -112,7 +120,7 @@ struct resql_config
  * Initialize library once when your application starts and terminate once
  * before shutting down.
  *
- * @return '0' on success, negative on failure.
+ * @return 'RESQL_OK' on success, negative on failure.
  */
 int resql_init();
 int resql_term();
@@ -277,9 +285,8 @@ int resql_exec(resql *client, bool readonly, resql_result **rs);
  *
  *
  * @param client client
- * @return       return value, RESQL_OK or RESQL_ERROR.
  */
-int resql_clear(resql *client);
+void resql_clear(resql *client);
 
 /**
  * Resets row iterator, so you can go over the rows again.
@@ -334,6 +341,13 @@ int resql_changes(resql_result *rs);
  */
 int resql_column_count(resql_result *rs);
 
+/**
+ * Get row. Returns struct resql_column list, call resql_column_count() to
+ * get column count;
+ *
+ * @param rs result
+ * @return   column array.
+ */
 struct resql_column* resql_row(resql_result *rs);
 
 #endif

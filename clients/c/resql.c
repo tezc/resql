@@ -107,9 +107,6 @@ struct sc_uri
     char buf[];
 };
 
-#define sc_uri_malloc malloc
-#define sc_uri_free   free
-
 static struct sc_uri *sc_uri_create(const char *str)
 {
     const char *s1 = "%.*s%.*s%.*s%.*s%.*s%.*s%.*s%.*s";
@@ -202,7 +199,7 @@ static struct sc_uri *sc_uri_create(const char *str)
     parts_len -= (query_len != 0);
     parts_len -= (fragment_len != 0);
 
-    uri = sc_uri_malloc(sizeof(*uri) + parts_len + full_len);
+    uri = resql_malloc(sizeof(*uri) + parts_len + full_len);
     if (uri == NULL) {
         return NULL;
     }
@@ -248,18 +245,14 @@ static struct sc_uri *sc_uri_create(const char *str)
     return uri;
 
 error:
-    sc_uri_free(uri);
+    resql_free(uri);
     return NULL;
 }
 
 static void sc_uri_destroy(struct sc_uri *uri)
 {
-    sc_uri_free(uri);
+    resql_free(uri);
 }
-
-#define sc_str_malloc  malloc
-#define sc_str_realloc realloc
-#define sc_str_free    free
 
 struct sc_str
 {
@@ -283,7 +276,7 @@ static char *sc_str_create_len(const char *str, uint32_t len)
         return NULL;
     }
 
-    copy = sc_str_malloc(sc_str_bytes(len));
+    copy = resql_malloc(sc_str_bytes(len));
     if (copy == NULL) {
         return NULL;
     }
@@ -312,7 +305,7 @@ static void sc_str_destroy(char *str)
         return;
     }
 
-    sc_str_free(sc_str_meta(str));
+    resql_free(sc_str_meta(str));
 }
 
 static void swap(char *str, char *d)
@@ -383,12 +376,6 @@ struct sc_buf
     bool ref;
 };
 
-#define sc_buf_malloc  malloc
-#define sc_buf_realloc realloc
-#define sc_buf_free    free
-
-#define sc_buf_min(a, b) ((a) > (b) ? (b) : (a))
-
 // clang-format off
 static inline uint32_t sc_buf_8_len(uint8_t val) { (void) val; return 1;}
 static inline uint32_t sc_buf_32_len(uint32_t val){ (void) val; return 4;}
@@ -427,7 +414,7 @@ static bool sc_buf_init(struct sc_buf *buf, uint32_t cap)
     *buf = (struct sc_buf){0};
 
     if (cap > 0) {
-        mem = sc_buf_malloc(cap);
+        mem = resql_malloc(cap);
         if (mem == NULL) {
             return false;
         }
@@ -441,7 +428,7 @@ static bool sc_buf_init(struct sc_buf *buf, uint32_t cap)
 static void sc_buf_term(struct sc_buf *buf)
 {
     if (!buf->ref) {
-        sc_buf_free(buf->mem);
+        resql_free(buf->mem);
     }
 }
 
@@ -476,12 +463,12 @@ static bool sc_buf_reserve(struct sc_buf *buf, uint32_t len)
 
         if (buf->wpos + len > buf->cap) {
             size = ((buf->cap + len + 4095) / 4096) * 4096;
-            if (size > buf->limit) {
+            if (size > buf->limit || buf->cap >= UINT32_MAX - 4096) {
                 buf->error |= SC_BUF_OOM;
                 return false;
             }
 
-            tmp = sc_buf_realloc(buf->mem, size);
+            tmp = resql_realloc(buf->mem, size);
             if (tmp == NULL) {
                 buf->error |= SC_BUF_OOM;
                 return false;
@@ -863,7 +850,7 @@ typedef SOCKET sc_sock_int;
 
 #else
     #include <sys/socket.h>
-    typedef int sc_sock_int;
+typedef int sc_sock_int;
 #endif
 
 #define SC_SOCK_BUF_SIZE 32768
@@ -907,7 +894,7 @@ struct sc_sock
 };
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <Ws2tcpip.h>
+    #include <Ws2tcpip.h>
     #include <afunix.h>
     #include <assert.h>
 
@@ -974,18 +961,18 @@ static int sc_sock_cleanup()
 
 #else
 
-#include <netdb.h>
-#include <netinet/tcp.h>
-#include <sys/un.h>
-#include <unistd.h>
+    #include <netdb.h>
+    #include <netinet/tcp.h>
+    #include <sys/un.h>
+    #include <unistd.h>
 
-#define sc_close(n)    close(n)
-#define sc_unlink(n)   unlink(n)
-#define SC_ERR         (-1)
-#define SC_INVALID     (-1)
-#define SC_EAGAIN      EAGAIN
-#define SC_EINPROGRESS EINPROGRESS
-#define SC_EINTR       EINTR
+    #define sc_close(n)    close(n)
+    #define sc_unlink(n)   unlink(n)
+    #define SC_ERR         (-1)
+    #define SC_INVALID     (-1)
+    #define SC_EAGAIN      EAGAIN
+    #define SC_EINPROGRESS EINPROGRESS
+    #define SC_EINTR       EINTR
 
 static int sc_sock_startup()
 {
@@ -1023,7 +1010,8 @@ static int sc_sock_set_blocking(struct sc_sock *sock, bool blocking)
 #endif
 
 
-static void sc_sock_init(struct sc_sock *sock, int type, bool blocking, int family)
+static void sc_sock_init(struct sc_sock *sock, int type, bool blocking,
+                         int family)
 {
     sock->fdt.fd = -1;
     sock->fdt.type = type;
@@ -1134,8 +1122,8 @@ static int sc_sock_connect_unix(struct sc_sock *sock, const char *addr)
 }
 
 static int sc_sock_connect(struct sc_sock *sock, const char *dest_addr,
-                    const char *dest_port, const char *source_addr,
-                    const char *source_port)
+                           const char *dest_port, const char *source_addr,
+                           const char *source_port)
 {
     const int bf = SC_SOCK_BUF_SIZE;
     const socklen_t sz = sizeof(bf);
@@ -1391,6 +1379,7 @@ void resql_reset_rows(struct resql_result *rs)
 bool resql_next(struct resql_result *rs)
 {
     enum task_flag flag;
+    size_t size;
 
     sc_buf_set_rpos(&rs->buf, rs->next_result);
 
@@ -1409,7 +1398,8 @@ bool resql_next(struct resql_result *rs)
     case TASK_FLAG_ROW:
         rs->column_count = sc_buf_get_32(&rs->buf);
         if (rs->column_count > rs->column_cap) {
-            rs->row = realloc(rs->row, sizeof(*rs->row) * rs->column_count);
+            size = sizeof(*rs->row) * rs->column_count;
+            rs->row = resql_realloc(rs->row, size);
             rs->column_cap = rs->column_count;
         }
 
@@ -1466,7 +1456,8 @@ struct resql_column *resql_row(struct resql_result *rs)
         case RESQL_BLOB:
             rs->row[i].type = RESQL_BLOB;
             rs->row[i].len = sc_buf_get_32(&rs->buf);
-            rs->row[i].blob = sc_buf_get_blob(&rs->buf, (uint32_t) rs->row[i].len);
+            rs->row[i].blob =
+                    sc_buf_get_blob(&rs->buf, (uint32_t) rs->row[i].len);
             break;
         case RESQL_NULL:
             rs->row[i].type = RESQL_NULL;
@@ -1492,27 +1483,6 @@ int resql_changes(struct resql_result *rs)
     return rs->changes;
 }
 
-const char *resql_column_name(struct resql_result *rs, int index)
-{
-    return rs->row[index].name;
-}
-
-int resql_column_index(resql_result *rs, const char *column)
-{
-    for (int i = 0; i < rs->column_count; i++) {
-        if (strcmp(rs->row[i].name, column) == 0) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-int resql_column_type(struct resql_result *rs, int index)
-{
-    return rs->row[index].type;
-}
-
 int resql_column_count(struct resql_result *rs)
 {
     return rs->column_count;
@@ -1522,15 +1492,9 @@ int resql_column_count(struct resql_result *rs)
 #define MSG_RC_LEN     1u
 #define MSG_MAX_SIZE   (2 * 1000 * 1000 * 1000)
 
-#define MSG_INVALID (-1)
-
-#define MSG_FIXED_HEADER_SIZE 8
-
-#define MSG_SIZE_POS          0
 #define MSG_SIZE_LEN          4
 #define MSG_TYPE_LEN          1
 #define MSG_FIXED_LEN         (MSG_SIZE_LEN + MSG_TYPE_LEN)
-#define MSG_TYPE_POS          4
 #define MSG_SEQ_LEN           8
 #define MSG_READONLY_LEN      1
 #define MSG_CLIENT_REQ_HEADER (MSG_FIXED_LEN + MSG_SEQ_LEN + MSG_READONLY_LEN)
@@ -1553,14 +1517,6 @@ enum msg_type
     MSG_CLIENT_RESP = 0x05,
 };
 
-struct msg_connect_req
-{
-    const char *protocol;
-    enum msg_remote remote;
-    const char *cluster_name;
-    const char *name;
-};
-
 struct msg_connect_resp
 {
     enum msg_rc rc;
@@ -1581,14 +1537,6 @@ struct msg_disconnect_resp
     uint32_t flags;
 };
 
-struct msg_client_req
-{
-    uint64_t seq;
-    bool readonly;
-    unsigned char *buf;
-    uint32_t len;
-};
-
 struct msg_client_resp
 {
     uint32_t len;
@@ -1599,11 +1547,9 @@ struct msg
 {
     union
     {
-        struct msg_connect_req connect_req;
         struct msg_connect_resp connect_resp;
         struct msg_disconnect_req disconnect_req;
         struct msg_disconnect_resp disconnect_resp;
-        struct msg_client_req client_req;
         struct msg_client_resp client_resp;
     };
 
@@ -1751,7 +1697,6 @@ struct resql
 
     bool connected;
     bool statement;
-    bool param;
     bool error;
 
     uint64_t seq;
@@ -1766,7 +1711,6 @@ struct resql
     struct sc_buf resp;
     struct sc_buf req;
     struct msg msg;
-
     char err[256];
 };
 
@@ -1812,9 +1756,8 @@ static void resql_fatal(struct resql *c, const char *fmt, ...)
 
 static int resql_verify_config(struct resql *c, struct resql_config *config)
 {
-    if (config->cluster_name == NULL || config->client_name == NULL ||
-        config->uris == NULL) {
-        resql_err(c, "Cluster name, uris or client name cannot be null.");
+    if (config->cluster_name == NULL || config->uris == NULL) {
+        resql_err(c, "Cluster name and uris cannot be null.");
         return RESQL_CONFIG_ERROR;
     }
 
@@ -1952,6 +1895,7 @@ retry:
 int resql_connect(struct resql *c)
 {
     int rc, family;
+    const char *host;
     struct sc_uri *uri;
 
     if (c->connected) {
@@ -1965,10 +1909,11 @@ int resql_connect(struct resql *c)
     family = strcmp(uri->scheme, "unix") == 0 ? SC_SOCK_UNIX :
              *uri->host == '['                ? SC_SOCK_INET6 :
                                                 SC_SOCK_INET;
+    host = family == SC_SOCK_UNIX ? uri->path : uri->host;
 
     sc_sock_init(&c->sock, 0, false, family);
 
-    rc = sc_sock_connect(&c->sock, uri->host, uri->port, c->source_addr,
+    rc = sc_sock_connect(&c->sock, host, uri->port, c->source_addr,
                          c->source_port);
     if (rc == SC_SOCK_WANT_WRITE) {
         struct pollfd fds = {.fd = c->sock.fdt.fd, .events = POLLOUT};
@@ -2028,19 +1973,63 @@ int resql_term()
     return sc_sock_cleanup();
 }
 
+static void resql_generate_name(struct resql *c, char *dest)
+{
+    static char charset[] = "0123456789"
+                            "abcdefghijklmnopqrstuvwxyz"
+                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
+    int num, len;
+    uint64_t ts;
+    uint32_t generated[40] = {0};
+    char *end, *p = (char*) generated;
+
+    ts = sc_time_mono_ms();
+
+    num = (int)((rand() % 16) + 8 + (ts % 4));
+    len = (num % 16) + 8;
+    end = p + (sizeof(generated[0]) * len);
+
+    memcpy(p, &c, sizeof(c));
+    p += sizeof(c);
+    memcpy(p, &ts, sizeof(ts));
+    p += sizeof(ts);
+
+    while (p + sizeof(num) < end)  {
+        num = rand();
+        memcpy(p, &num, sizeof(num));
+        p += sizeof(num);
+    }
+
+    for (int i = 0; i < len; i++) {
+        dest[i] = charset[generated[i] % sizeof(charset)];
+    }
+
+    dest[len] = '\0';
+}
+
 int resql_create(struct resql **client, struct resql_config *config)
 {
     bool b;
     int rc;
+    uint64_t start;
     char *uris, *save = NULL;
     const char *token;
+    char name[32];
+    const char *user = config->client_name;
     struct resql *c;
     struct sc_uri *u;
 
-    c = calloc(1, sizeof(*c));
+    c = resql_calloc(1, sizeof(*c));
     if (!c) {
         return RESQL_OOM;
     }
+
+    if (!config->client_name) {
+        resql_generate_name(c, name);
+        user = name;
+    }
+
+    *client = c;
 
     b = sc_buf_init(&c->resp, 1024);
     b |= sc_buf_init(&c->req, 1024);
@@ -2055,19 +2044,14 @@ int resql_create(struct resql **client, struct resql_config *config)
         goto error;
     }
 
-    c->name = sc_str_create(config->client_name);
+    c->name = sc_str_create(user);
     c->cluster_name = sc_str_create(config->cluster_name);
-
-    if (config->source_addr) {
-        c->source_addr = sc_str_create(config->source_addr);
-    }
-    if (config->source_port) {
-        c->source_port = sc_str_create(config->source_port);
-    }
+    c->source_addr = sc_str_create(config->source_addr);
+    c->source_port = sc_str_create(config->source_port);
 
     if (!c->name || !c->cluster_name ||
         (!c->source_addr && config->source_addr) ||
-        (c->source_port && config->source_port)) {
+        (!c->source_port && config->source_port)) {
         goto oom;
     }
 
@@ -2084,6 +2068,7 @@ int resql_create(struct resql **client, struct resql_config *config)
     while ((token = sc_str_token_begin(uris, &save, " ")) != NULL) {
         u = sc_uri_create(token);
         if (u == NULL) {
+            rc = RESQL_CONFIG_ERROR;
             resql_err(c, "Cannot parse : %s", token);
             sc_str_destroy(uris);
             goto error;
@@ -2100,8 +2085,7 @@ int resql_create(struct resql **client, struct resql_config *config)
 
     *client = c;
 
-
-    uint64_t start = sc_time_mono_ms();
+    start = sc_time_mono_ms();
     while (true) {
         if (sc_time_mono_ms() - start > c->timeout) {
             return RESQL_ERROR;
@@ -2127,12 +2111,15 @@ oom:
     rc = RESQL_OOM;
     resql_err(c, "Out of memory.");
 error:
-    *client = NULL;
     return rc;
 }
 
 int resql_destroy(struct resql *c)
 {
+    if (!c) {
+        return RESQL_OK;
+    }
+
     if (c->connected) {
         sc_buf_clear(&c->req);
         msg_create_disconnect_req(&c->req, MSG_OK, 0);
@@ -2150,12 +2137,10 @@ int resql_destroy(struct resql *c)
     }
     c->uri_count = 0;
 
-    free(c->rs.row);
+    resql_free(c->rs.row);
     sc_buf_term(&c->req);
     sc_buf_term(&c->resp);
-    *c = (struct resql){0};
-
-    free(c);
+    resql_free(c);
 
     return RESQL_OK;
 }
@@ -2254,6 +2239,7 @@ int resql_prepare(struct resql *c, const char *sql, resql_stmt *stmt)
 
     if (c->statement) {
         resql_err(c, "'Prepare' must be a single operation.");
+        resql_clear(c);
         return RESQL_SQL_ERROR;
     }
 
@@ -2287,6 +2273,7 @@ int resql_del_prepared(struct resql *c, resql_stmt *stmt)
 
     if (c->statement) {
         resql_err(c, "'Delete prepared' must be a single operation.");
+        resql_clear(c);
         return RESQL_SQL_ERROR;
     }
 
@@ -2307,7 +2294,7 @@ int resql_del_prepared(struct resql *c, resql_stmt *stmt)
     return RESQL_OK;
 }
 
-void resql_bind_param_int(resql *c, const char* param, int64_t val)
+void resql_bind_param_int(resql *c, const char *param, int64_t val)
 {
     if (!c->statement) {
         c->error = true;
@@ -2318,10 +2305,10 @@ void resql_bind_param_int(resql *c, const char* param, int64_t val)
     sc_buf_put_8(&c->req, TASK_PARAM_NAME);
     sc_buf_put_str(&c->req, param);
     sc_buf_put_8(&c->req, TASK_PARAM_INTEGER);
-    sc_buf_put_64(&c->req, val);
+    sc_buf_put_64(&c->req, (uint64_t) val);
 }
 
-void resql_bind_param_float(resql *c, const char* param, double val)
+void resql_bind_param_float(resql *c, const char *param, double val)
 {
     if (!c->statement) {
         c->error = true;
@@ -2335,7 +2322,7 @@ void resql_bind_param_float(resql *c, const char* param, double val)
     sc_buf_put_double(&c->req, val);
 }
 
-void resql_bind_param_text(resql *c, const char* param, const char *val)
+void resql_bind_param_text(resql *c, const char *param, const char *val)
 {
     if (!c->statement) {
         c->error = true;
@@ -2349,7 +2336,7 @@ void resql_bind_param_text(resql *c, const char* param, const char *val)
     sc_buf_put_str(&c->req, val);
 }
 
-void resql_bind_param_blob(resql *c, const char* param, int len, void* data)
+void resql_bind_param_blob(resql *c, const char *param, int len, void *data)
 {
     if (!c->statement) {
         c->error = true;
@@ -2363,7 +2350,7 @@ void resql_bind_param_blob(resql *c, const char* param, int len, void* data)
     sc_buf_put_blob(&c->req, data, (uint32_t) len);
 }
 
-void resql_bind_param_null(resql *c, const char* param)
+void resql_bind_param_null(resql *c, const char *param)
 {
     if (!c->statement) {
         c->error = true;
@@ -2387,7 +2374,7 @@ void resql_bind_index_int(resql *c, int index, int64_t val)
     sc_buf_put_8(&c->req, TASK_PARAM_INDEX);
     sc_buf_put_32(&c->req, (uint32_t) index);
     sc_buf_put_8(&c->req, TASK_PARAM_INTEGER);
-    sc_buf_put_64(&c->req, val);
+    sc_buf_put_64(&c->req, (uint64_t) val);
 }
 
 void resql_bind_index_float(resql *c, int index, double val)
@@ -2402,9 +2389,8 @@ void resql_bind_index_float(resql *c, int index, double val)
     sc_buf_put_32(&c->req, (uint32_t) index);
     sc_buf_put_8(&c->req, TASK_PARAM_FLOAT);
     sc_buf_put_double(&c->req, val);
-
 }
-void resql_bind_index_text(resql *c, int index, const char* val)
+void resql_bind_index_text(resql *c, int index, const char *val)
 {
     if (!c->statement) {
         c->error = true;
@@ -2418,7 +2404,7 @@ void resql_bind_index_text(resql *c, int index, const char* val)
     sc_buf_put_str(&c->req, val);
 }
 
-void resql_bind_index_blob(resql *c, int index, int len, void* data)
+void resql_bind_index_blob(resql *c, int index, int len, void *data)
 {
     if (!c->statement) {
         c->error = true;
@@ -2478,18 +2464,16 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 
     if (!c->statement) {
         resql_err(c, "Missing statement.");
-        return RESQL_SQL_ERROR;
+        goto error;
     }
 
     if (c->error) {
-        resql_clear(c);
-        return RESQL_SQL_ERROR;
+        goto error;
     }
 
     if (!sc_buf_valid(&c->req)) {
         resql_err(c, "Out of memory!.");
-        resql_clear(c);
-        return RESQL_SQL_ERROR;
+        goto error;
     }
 
     sc_buf_put_8(&c->req, TASK_FLAG_END);
@@ -2504,7 +2488,7 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 
     rc = resql_send_req(c, &tmp);
     if (rc != RESQL_OK) {
-        return rc;
+         goto error;
     }
 
     c->rs.buf = tmp;
@@ -2513,14 +2497,15 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 
     *rs = &c->rs;
     return RESQL_OK;
+error:
+    resql_clear(c);
+    return RESQL_SQL_ERROR;
 }
 
-int resql_clear(struct resql *c)
+void resql_clear(struct resql *c)
 {
     c->error = false;
     c->statement = false;
     sc_buf_clear(&c->req);
     msg_create_client_req_header(&c->req);
-
-    return RESQL_OK;
 }

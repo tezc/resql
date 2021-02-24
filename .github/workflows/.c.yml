@@ -1,0 +1,68 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    name: C client test on Ubuntu
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [ gcc, clang ]
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          sudo apt update
+          sudo apt-get install valgrind cmake
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Debug
+          make && make check
+          rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=address
+          make && make check
+          rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=undefined
+          make && make check
+          rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug
+          make && make valgrind
+  macos:
+    runs-on: macos-latest
+    name: C client test on Mac OS
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [ gcc, clang ]
+
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          ./build.sh
+          cd bin
+          ./resql &
+          cd ..
+          cd clients/c
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Debug
+          make && make check
+          rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=address
+          make && make check
+          rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=undefined
+          make && make check
+          rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug
+          make && make valgrind
