@@ -57,8 +57,8 @@ struct resql *create_client(const char *name)
 
     struct resql_config settings = {.cluster_name = "cluster",
             .client_name = name,
-            .timeout = 10000,
-            .uris = urls};
+            .timeout_millis = 10000,
+            .urls = urls};
     struct resql *client;
 
     int rc = resql_create(&client, &settings);
