@@ -2658,7 +2658,7 @@ SQLITE_API int sqlite3_complete16(const void *sql);
 */
 SQLITE_API int sqlite3_busy_handler(sqlite3*,int(*)(void*,int),void*);
 
-SQLITE_API void sqlite3_set_max_page_cb(int (*cb)(uint32_t, uint32_t));
+SQLITE_API void sqlite3_set_max_page_cb(int (*cb)(unsigned int, unsigned int));
 
 /*
 ** CAPI3REF: Set A Busy Timeout
