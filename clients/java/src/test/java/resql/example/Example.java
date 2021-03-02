@@ -11,7 +11,10 @@ public class Example {
     public void minimal() {
         try (Resql client = ResqlClient.create(new Config())) {
             client.put("SELECT 'Hello World!'");
-            client.execute(true);
+            ResultSet rs = client.execute(true);
+            for (Row row : rs) {
+                System.out.println(row);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

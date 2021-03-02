@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define test_execute(A) (run(A, #A))
+
 resql *c;
 resql *u;
 
@@ -463,80 +465,80 @@ static void test_connect()
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                                              .cluster_name = "cluster",
-                                             .timeout = 2000,
-                                             .uris = "tcp://1271.0.0.1:7600"});
+                                             .timeout_millis = 2000,
+                                             .urls = "tcp://1271.0.0.1:7600"});
     assert(rc != RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                                              .cluster_name = "cluster2",
-                                             .timeout = 2000,
-                                             .uris = "tcp://127.0.0.1:7600"});
+                                             .timeout_millis = 2000,
+                                             .urls = "tcp://127.0.0.1:7600"});
     assert(rc != RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .cluster_name = "cluster2",
-                              .timeout = 2000,
-                              .uris = "tcp://127.0.0.1:769900"});
+                              .timeout_millis = 2000,
+                              .urls = "tcp://127.0.0.1:769900"});
     assert(rc != RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
-                              .timeout = 2000,
-                              .uris = "tcp://127.0.0.1:7600"});
+                              .timeout_millis = 2000,
+                              .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
-                              .timeout = 2000,
-                              .uris = "tcp://127.0.0.1:7600"});
+                              .timeout_millis = 2000,
+                              .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .cluster_name = "cluster2",
-                              .timeout = 1,
-                              .uris = "tcp://127.0.0.1:7600"});
+                              .timeout_millis = 1,
+                              .urls = "tcp://127.0.0.1:7600"});
     assert(rc != RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
-                      &(struct resql_config){.uris = "tcp://127.0.0.1:7600"});
-    assert(rc != RESQL_OK);
+                      &(struct resql_config){.urls = "tcp://127.0.0.1:7600"});
+    assert(rc == RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){0});
-    assert(rc != RESQL_OK);
+    assert(rc == RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
-                              .timeout = 2000,
-                              .uris = "tcp://127.0.0.1:7600"});
-    assert(rc != RESQL_OK);
+                              .timeout_millis = 2000,
+                              .urls = "tcp://127.0.0.1:7600"});
+    assert(rc == RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
-                              .timeout = 2000,
+                              .timeout_millis = 2000,
                               .cluster_name = "cluster"});
-    assert(rc != RESQL_OK);
+    assert(rc == RESQL_OK);
     assert(resql_destroy(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
-                              .timeout = 2000,
-                              .uris = "tcp://127.0.0.1:7600"});
+                              .timeout_millis = 2000,
+                              .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
 
     rc = resql_destroy(client);
@@ -545,10 +547,10 @@ static void test_connect()
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
-                              .source_addr = "127.0.0.1",
-                              .source_port = "8689",
-                              .timeout = 2000,
-                              .uris = "tcp://127.0.0.1:7600"});
+                              .outgoing_addr = "127.0.0.1",
+                              .outgoing_port = "8689",
+                              .timeout_millis = 2000,
+                              .urls = "tcp://127.0.0.1:7600"});
     if (rc != RESQL_OK && client != NULL) {
         printf("Failed %s \n", resql_errstr(c));
     }
@@ -559,17 +561,280 @@ static void test_connect()
     assert(rc == RESQL_OK);
 }
 
-void run(void (*fn)())
+static void example1()
+{
+    resql *client;
+    struct resql_result *rs;
+    struct resql_column *row;
+
+    resql_create(&client, &(struct resql_config){0});
+
+    resql_put_sql(client, "SELECT 'Hello World!';");
+    resql_exec(client, true, &rs);
+    row = resql_row(rs);
+
+    printf("%s \n", row[0].text);
+
+    resql_destroy(client);
+}
+
+static void example2()
+{
+    int rc;
+    resql *client;
+    struct resql_result *rs;
+    struct resql_column *row;
+
+    struct resql_config conf = {
+            .client_name = "testclient",
+            .cluster_name = "cluster",
+            .timeout_millis = 4000,
+            .urls = "tcp://127.0.0.1:7600",
+    };
+
+    rc = resql_create(&client, &conf);
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+
+    resql_put_sql(client, "SELECT 'Hello World!';");
+    resql_exec(client, true, &rs);
+
+    row = resql_row(rs);
+    printf("%s \n", row[0].text);
+
+    rc = resql_destroy(client);
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+}
+
+static void example3()
+{
+    int rc;
+    resql *client;
+    struct resql_result *rs;
+
+    rc = resql_create(&client, &(struct resql_config){0});
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+
+    resql_put_sql(client, "CREATE TABLE test (key TEXT, value TEXT);");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Clean-up
+    resql_put_sql(client, "DROP TABLE test;");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_destroy(client);
+}
+
+static void example4()
+{
+    int rc;
+    resql *client;
+    struct resql_result *rs;
+
+    rc = resql_create(&client, &(struct resql_config){0});
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+
+    resql_put_sql(client, "CREATE TABLE test (key TEXT, value TEXT);");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Option-1, with parameter name
+    resql_put_sql(client, "INSERT INTO test VALUES(:name,:lastname);");
+    resql_bind_param_text(client, ":name", "jane");
+    resql_bind_param_text(client, ":lastname", "doe");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Option-2, with parameter index
+    resql_put_sql(client, "INSERT INTO test VALUES(?, ?);");
+    resql_bind_index_text(client, 0, "jane");
+    resql_bind_index_text(client, 1, "doe");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Clean-up
+    resql_put_sql(client, "DROP TABLE test;");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_destroy(client);
+}
+
+static void example5()
+{
+    int rc;
+    resql *client;
+    struct resql_result *rs;
+
+    rc = resql_create(&client, &(struct resql_config){0});
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+
+    resql_put_sql(client, "CREATE TABLE test (key TEXT, value TEXT);");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_put_sql(client, "INSERT INTO test VALUES('jane','doe');");
+    resql_put_sql(client, "INSERT INTO test VALUES('jack','doe');");
+    resql_put_sql(client, "INSERT INTO test VALUES('joe','doe');");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_put_sql(client, "SELECT * FROM test;");
+    rc = resql_exec(client, true, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    struct resql_column* row;
+
+    while ((row = resql_row(rs)) != NULL) {
+        printf("name : %s, lastname : %s \n", row[0].text, row[1].text);
+    }
+
+    // Clean-up
+    resql_put_sql(client, "DROP TABLE test;");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_destroy(client);
+}
+
+static void example6()
+{
+    int rc;
+    resql *client;
+    resql_stmt stmt;
+    struct resql_result *rs;
+
+
+    rc = resql_create(&client, &(struct resql_config){0});
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+
+    resql_put_sql(client, "CREATE TABLE test (key TEXT, value TEXT);");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Option-1, indexes
+    rc = resql_prepare(client, "INSERT INTO test VALUES(?, ?);", &stmt);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_put_prepared(client, &stmt);
+    resql_bind_index_text(client, 0, "jane");
+    resql_bind_index_text(client, 1, "doe");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Clean-up if you're not going to use prepared statement again.
+    rc = resql_del_prepared(client, &stmt);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Option-2, parameter names
+
+    rc = resql_prepare(client, "INSERT INTO test VALUES(:name, :lastname);", &stmt);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_put_prepared(client, &stmt);
+    resql_bind_param_text(client, ":name", "jane");
+    resql_bind_param_text(client, ":lastname", "doe");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Clean-up if you're not going to use prepared statement again.
+    rc = resql_del_prepared(client, &stmt);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    // Clean-up
+    resql_put_sql(client, "DROP TABLE test;");
+    rc = resql_exec(client, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(client));
+        exit(1);
+    }
+
+    resql_destroy(client);
+}
+
+void run(void (*fn)(), const char* name)
 {
     int rc;
     resql *client, *unixclient;
     resql_result *rs;
 
+    printf("[ Running ] %s \n", name);
+
     struct resql_config conf = {
             .client_name = "c-client",
             .cluster_name = "cluster",
-            .timeout = 4000,
-            .uris = "tcp://127.0.0.1:7600",
+            .timeout_millis = 4000,
+            .urls = "tcp://127.0.0.1:7600",
     };
 
     rc = resql_create(&client, &conf);
@@ -592,8 +857,8 @@ void run(void (*fn)())
     struct resql_config conf2 = {
             .client_name = "c-client-unix",
             .cluster_name = "cluster",
-            .timeout = 4000,
-            .uris = "unix:///tmp/resql",
+            .timeout_millis = 4000,
+            .urls = "unix:///tmp/resql",
     };
 
     rc = resql_create(&unixclient, &conf2);
@@ -624,6 +889,65 @@ void run(void (*fn)())
         printf("Failed to destroy client \n");
         exit(1);
     }
+
+    printf("[ Passed  ] %s  \n", name);
+}
+
+static void example7()
+{
+    int rc;
+    resql *r;
+    struct resql_result *rs;
+
+    rc = resql_create(&r, &(struct resql_config){0});
+    if (rc != RESQL_OK) {
+        printf("Failed to create client \n");
+        exit(1);
+    }
+
+    resql_put_sql(r, "CREATE TABLE test (key TEXT, value TEXT);");
+    resql_put_sql(r, "INSERT INTO test VALUES('mykey', 1000);");
+    rc = resql_exec(r, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(r));
+        exit(1);
+    }
+
+    // Demo for getAndIncrement atomically.
+    resql_put_sql(r, "SELECT * FROM test WHERE key = 'mykey';");
+    resql_put_sql(r, "UPDATE test SET value = value + 1 WHERE key = 'mykey'");
+    resql_put_sql(r, "SELECT * FROM test WHERE key = 'mykey';");
+    rc = resql_exec(r, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(r));
+        exit(1);
+    }
+
+    // rs has three result sets, each corresponds to operations
+    // that we added into the batch.
+
+    // First operation was SELECT
+    struct resql_column *row = resql_row(rs);
+    printf("Value was : %s \n", row[1].text);
+
+    // Advance to the next result set which is for UPDATE.
+    resql_next(rs);
+    printf("Line changed : %d \n", resql_changes(rs));
+
+    // Advance to the next result set which is for SELECT again.
+    resql_next(rs);
+    row = resql_row(rs);
+    printf("Value is now : %s \n", row[1].text);
+
+    // Clean-up
+    resql_put_sql(r, "DROP TABLE test;");
+    rc = resql_exec(r, false, &rs);
+    if (rc != RESQL_OK) {
+        printf("Operation failed : %s \n", resql_errstr(r));
+        exit(1);
+    }
+
+    resql_destroy(r);
 }
 
 
@@ -634,14 +958,21 @@ int main(int argc, char *argv[])
 
     resql_init();
 
-    run(test_reset);
-    run(test_single_index);
-    run(test_single_param);
-    run(test_prepared_index);
-    run(test_prepared_param);
-    run(test_prepared_param_many);
-    run(test_fail);
-    run(test_connect);
+    test_execute(test_reset);
+    test_execute(test_single_index);
+    test_execute(test_single_param);
+    test_execute(test_prepared_index);
+    test_execute(test_prepared_param);
+    test_execute(test_prepared_param_many);
+    test_execute(test_fail);
+    test_execute(test_connect);
+    test_execute(example1);
+    test_execute(example2);
+    test_execute(example3);
+    test_execute(example4);
+    test_execute(example5);
+    test_execute(example6);
+    test_execute(example7);
 
     resql_term();
 

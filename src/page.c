@@ -161,7 +161,7 @@ int page_expand(struct page *p)
     uint64_t prev_index = p->prev_index;
     uint64_t last_index = page_last_index(p);
     uint64_t entry_count = page_entry_count(p);
-    int64_t cap = (int64_t) (p->map.len * 2);
+    size_t cap = (p->map.len * 2);
     char* path = sc_str_create(p->path);
 
     rc = page_term(p);

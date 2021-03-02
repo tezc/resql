@@ -116,6 +116,8 @@ size_t metric_get_rss(struct metric *metric)
     int fd, count;
     char *p, *x;
 
+    (void) metric;
+
     snprintf(filename, 256, "/proc/%d/stat", getpid());
 
     fd = open(filename, O_RDONLY);
@@ -281,7 +283,7 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     char tmp[128];
     ssize_t sz;
     uint64_t ts, val;
-    struct rusage usage = {{0}};
+    struct rusage usage = (struct rusage){0};
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
 

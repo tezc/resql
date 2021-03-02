@@ -69,9 +69,9 @@ enum resql_rc
 
 struct resql_column
 {
-    enum resql_type type;
-    const char *name;
-    int32_t len;
+    enum resql_type type; // Column type
+    const char *name;     // Column name
+    int32_t len;          // Column value length, applicable to text and blob
 
     union
     {
@@ -91,22 +91,22 @@ struct resql_config
     const char *cluster_name;
 
     /**
-     * Node uris, it's okay to give one uri,
+     * Node urls, it's okay to give one url,
      * client will discover other nodes later.
      *
      * e.g "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602"
      */
-    const char *uris;
+    const char *urls;
 
     /**
      * Outgoing bind address for the client.
      */
-    const char *source_addr;
+    const char *outgoing_addr;
 
     /**
      * Outgoing bind port for client.
      */
-    const char *source_port;
+    const char *outgoing_port;
 
     /**
      * Operation timeout, this applies to initial connection, re-connection if
@@ -114,7 +114,7 @@ struct resql_config
      * RESQL_ERROR. Error message can be acquired by calling
      * resql_errstr();
      */
-    uint32_t timeout;
+    uint32_t timeout_millis;
 };
 
 /**
@@ -130,14 +130,14 @@ int resql_term();
  * Create client and connect to the server.
  *
  * @param c      client
- * @param config config
+ * @param conf config
  * @return       RESQL_OK           : on success, connection established.
  *               RESQL_OOM          : failed to allocate memory for
  *                                        resql object.
  *               RESQL_CONFIG_ERROR : misconfiguration, call
  *                                        resql_errstr() for error message.
  */
-int resql_create(resql **c, struct resql_config *config);
+int resql_create(resql **c, struct resql_config *conf);
 
 /**
  * Destroy client, it will try to close connection gracefully so server can

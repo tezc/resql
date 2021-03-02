@@ -120,8 +120,8 @@ struct server
 
     uint64_t timestamp;
     uint64_t prevote_term;
-    int prevote_count;
-    int vote_count;
+    unsigned int prevote_count;
+    unsigned int vote_count;
     uint64_t round_match;
     uint64_t round_prev_index;
     uint64_t round_index;

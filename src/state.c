@@ -115,6 +115,8 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 
 int state_randomness(sqlite3_vfs *vfs, int size, char *out)
 {
+    (void) vfs;
+
     struct sc_rand *rand;
 
     rand = t_state->readonly ? &t_state->rrand : &t_state->wrand;
@@ -125,14 +127,18 @@ int state_randomness(sqlite3_vfs *vfs, int size, char *out)
 
 int state_currenttime(sqlite3_vfs *vfs, sqlite3_int64 *val)
 {
+    (void) vfs;
+
     const uint64_t unixEpoch = 24405875 * (uint64_t) 8640000;
 
     *val = unixEpoch + t_state->realtime;
     return SQLITE_OK;
 }
 
-int state_max_page(int max, int curr)
+int state_max_page(uint32_t max, uint32_t curr)
 {
+    (void) max;
+
     struct state* state = t_state;
 
     if (state->client && curr > state->max_page) {
@@ -221,6 +227,9 @@ void state_term(struct state *st)
 int state_authorizer(void *user, int action, const char *arg0, const char *arg1,
                      const char *arg2, const char *arg3)
 {
+    (void) arg2;
+    (void) arg3;
+
     uint32_t len;
     struct state *st = user;
 
@@ -620,7 +629,7 @@ void state_on_meta(struct state *st, struct cmd_meta *cmd)
 
         sc_buf_clear(&st->tmp);
 
-        for (int i = 0; i < sc_array_size(node.uris); i++) {
+        for (size_t i = 0; i < sc_array_size(node.uris); i++) {
             sc_buf_put_text(&st->tmp, node.uris[i]->str);
         }
         info_set_urls(info, (char *) st->tmp.mem);
@@ -921,6 +930,9 @@ static int state_del_prepared(struct state *state, struct session *sess,
                               uint64_t index, struct sc_buf *req,
                               struct sc_buf *resp)
 {
+    (void) resp;
+    (void) index;
+
     int rc;
     uint64_t id;
 

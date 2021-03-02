@@ -41,7 +41,6 @@ var ErrInvalidMessage = errors.New("resql: received invalid message")
 var ErrConnFail = errors.New("resql: failed to connect")
 var ErrClusterNameMismatch = errors.New("resql: cluster name mismatch")
 var ErrParamTypeMismatch = errors.New("resql: parameter type mismatch")
-
 var ErrTimeout = errors.New("resql: operation timeout")
 var ErrDisconnected = errors.New("resql: disconnected")
 var ErrNotSingle = errors.New("resql: operation must be a single operation")
@@ -68,12 +67,12 @@ type client struct {
 }
 
 type Config struct {
-	Name        string
-	ClusterName string
-	Timeout     int64
-	SourceAddr  string
-	SourcePort  string
-	Urls        []string
+	ClientName    string
+	ClusterName   string
+	TimeoutMillis int64
+	OutgoingAddr  string
+	OutgoingPort  string
+	Urls          []string
 }
 
 type Resql interface {
@@ -93,8 +92,8 @@ type PreparedStatement interface {
 }
 
 type Row interface {
-	ValueByIndex(index int) (interface{}, error)
-	ValueByColumn(columnName string) (interface{}, error)
+	GetIndex(index int) (interface{}, error)
+	GetColumn(columnName string) (interface{}, error)
 	ColumnName(index int) (string, error)
 	ColumnCount() int
 	Read(columns ...interface{}) error
@@ -123,12 +122,12 @@ type NullInt32 struct {
 
 type NullInt64 struct {
 	Int64 int64
-	Valid bool // Valid is true if Int32 is not NULL
+	Valid bool // Valid is true if Int64 is not NULL
 }
 
 type NullString struct {
 	String string
-	Valid  bool // Valid is true if Int32 is not NULL
+	Valid  bool // Valid is true if String is not NULL
 }
 
 type NullFloat64 struct {
@@ -149,43 +148,57 @@ func randomName() string {
 
 func Create(config *Config) (Resql, error) {
 	var name string
+	var clusterName string
 	var addr net.TCPAddr
 	var err error
+	var timeout int64
+	var urls []string
 
-	if config.Urls == nil {
-		return nil, errors.New("Url cannot be nil")
+	urls = config.Urls
+	if urls == nil {
+		urls = []string{"tcp://127.0.0.1:7600"}
 	}
 
-	name = config.Name
+	timeout = config.TimeoutMillis
+	if timeout == 0 {
+		timeout = math.MaxInt64
+	}
+
+	clusterName = config.ClusterName
+	if len(clusterName) == 0 {
+		clusterName = "cluster"
+	}
+
+	name = config.ClientName
 	if len(name) == 0 {
 		name = randomName()
 	}
 
-	if len(config.SourceAddr) > 0 {
-		addr.IP = net.ParseIP(config.SourceAddr)
+	if len(config.OutgoingAddr) > 0 {
+		addr.IP = net.ParseIP(config.OutgoingAddr)
 		if addr.IP == nil {
-			return nil, fmt.Errorf("invalid source addr %s", config.SourceAddr)
+			return nil, fmt.Errorf("invalid source addr %s", config.OutgoingAddr)
 		}
 	}
 
-	if len(config.SourcePort) > 0 {
-		addr.Port, err = strconv.Atoi(config.SourcePort)
+	if len(config.OutgoingPort) > 0 {
+		addr.Port, err = strconv.Atoi(config.OutgoingPort)
 		if err != nil {
-			return nil, fmt.Errorf("invalid source addr %s", config.SourcePort)
+			return nil, fmt.Errorf("invalid source addr %s", config.OutgoingPort)
 		}
 	}
 
 	s := client{
 		name:        name,
-		clusterName: config.ClusterName,
-		timeout:     config.Timeout,
+		clusterName: clusterName,
+		timeout:     timeout,
 		sourceAddr:  &addr,
 		result: result{
 			indexes: map[string]int{},
 		},
 	}
 
-	for _, urlStr := range config.Urls {
+	for _, urlStr := range urls {
 		u, err := url.Parse(urlStr)
 		if err != nil {
 			return nil, err
@@ -604,7 +617,7 @@ func (r *result) Read(columns ...interface{}) error {
 		return ErrIndexOutOfRange
 	}
 
-	for i, _ := range columns {
+	for i := range columns {
 		switch d := columns[i].(type) {
 		case *NullInt32:
 			if r.values[i] == nil {
@@ -735,7 +748,7 @@ func (r *result) ColumnCount() int {
 	return r.columns
 }
 
-func (r *result) ValueByIndex(index int) (interface{}, error) {
+func (r *result) GetIndex(index int) (interface{}, error) {
 	if index < 0 || index >= len(r.values) {
 		return nil, ErrIndexOutOfRange
 	}
@@ -743,7 +756,7 @@ func (r *result) ValueByIndex(index int) (interface{}, error) {
 	return r.values[index], nil
 }
 
-func (r *result) ValueByColumn(param string) (interface{}, error) {
+func (r *result) GetColumn(param string) (interface{}, error) {
 	v, found := r.indexes[param]
 	if !found {
 		return nil, ErrColumnMissing
