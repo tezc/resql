@@ -30,8 +30,8 @@ int main(int argc, char **argv)
     resql_result *rs;
 
     struct resql_config config = {
-            .uris = "tcp://127.0.0.1:7600",
-            .timeout = 10000,
+            .urls = "tcp://127.0.0.1:7600",
+            .timeout_millis = 10000,
             .client_name = "cli",
             .cluster_name = "cluster",
     };
