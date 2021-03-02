@@ -619,8 +619,8 @@ int main(int argc, char **argv)
     resql_cli_read_cmdline(&s_cli, argc, argv);
 
     struct resql_config config = {
-            .uris = s_cli.uri->str,
-            .timeout = 4000,
+            .urls = s_cli.uri->str,
+            .timeout_millis = 4000,
             .client_name = "cli",
             .cluster_name = "cluster",
     };
