@@ -35,17 +35,17 @@ var c Resql
 
 func TestMain(m *testing.M) {
 	s, err := Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1:7600"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"tcp://127.0.0.1:7600"},
 	})
 
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	c = s
@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 	err = s.Shutdown()
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	os.Exit(ret)
@@ -281,7 +281,7 @@ func TestMany(t *testing.T) {
 	var data []byte
 	var date NullString
 
-	for i, r := 0, rs.Row(); r != nil; i, r = i + 1, rs.Row()  {
+	for i, r := 0, rs.Row(); r != nil; i, r = i+1, rs.Row() {
 		err := r.Read(&id, &name, &points, &data, &date)
 		if err != nil {
 			t.Fatal(err)
@@ -392,7 +392,7 @@ func TestPreparedIndexMulti(t *testing.T) {
 	var data []byte
 	var date NullString
 
-	for i, r := 0, rs.Row(); r != nil; i, r = i + 1, rs.Row()  {
+	for i, r := 0, rs.Row(); r != nil; i, r = i+1, rs.Row() {
 		err := r.Read(&id, &name, &points, &data, &date)
 		if err != nil {
 			t.Fatal(err)
@@ -484,7 +484,7 @@ func TestPreparedParamMulti(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	equal(t, stmt.StatementSql(), "INSERT INTO gotest " +
+	equal(t, stmt.StatementSql(), "INSERT INTO gotest "+
 		"VALUES(:id, :name, :points, :data, :date);")
 
 	for i := 0; i < 1000; i++ {
@@ -513,7 +513,7 @@ func TestPreparedParamMulti(t *testing.T) {
 	var data []byte
 	var date NullString
 
-	for i, r := 0, rs.Row(); r != nil; i, r = i + 1, rs.Row()  {
+	for i, r := 0, rs.Row(); r != nil; i, r = i+1, rs.Row() {
 		err := r.Read(&id, &name, &points, &data, &date)
 		if err != nil {
 			t.Fatal(err)
@@ -610,12 +610,12 @@ func TestFail(t *testing.T) {
 
 func TestConnection(t *testing.T) {
 	_, err := Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"tcx://127.0.0.1:7600"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"tcx://127.0.0.1:7600"},
 	})
 
 	if err == nil {
@@ -623,26 +623,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "errorname",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1:7600"},
-	})
-
-	if err == nil {
-		t.Fatal(err)
-	}
-
-
-	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "x",
-		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1:7600"},
+		ClientName:    "",
+		ClusterName:   "errorname",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"tcp://127.0.0.1:7600"},
 	})
 
 	if err == nil {
@@ -650,12 +636,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "x",
-		Urls:        []string{"tcp://127.0.0.1:7600"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "x",
+		OutgoingPort:  "",
+		Urls:          []string{"tcp://127.0.0.1:7600"},
 	})
 
 	if err == nil {
@@ -663,12 +649,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"@tcp:/1272-0.0.1:**7600"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "x",
+		Urls:          []string{"tcp://127.0.0.1:7600"},
 	})
 
 	if err == nil {
@@ -676,12 +662,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        nil,
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"@tcp:/1272-0.0.1:**7600"},
 	})
 
 	if err == nil {
@@ -689,12 +675,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1:7600", "tcd://127.0.0.1:8000"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"tcp://127.0.0.1:7600", "tcd://127.0.0.1:8000"},
 	})
 
 	if err == nil {
@@ -702,12 +688,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	_, err = Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"tcp://127.0.0.1"},
 	})
 
 	if err == nil {
@@ -715,12 +701,12 @@ func TestConnection(t *testing.T) {
 	}
 
 	s, err := Create(&Config{
-		Name:        "",
-		ClusterName: "cluster",
-		Timeout:     5000,
-		SourceAddr:  "",
-		SourcePort:  "",
-		Urls:        []string{"tcp://127.0.0.1:7600", "tcp://127.0.0.1:7601"},
+		ClientName:    "",
+		ClusterName:   "cluster",
+		TimeoutMillis: 5000,
+		OutgoingAddr:  "",
+		OutgoingPort:  "",
+		Urls:          []string{"tcp://127.0.0.1:7600", "tcp://127.0.0.1:7601"},
 	})
 
 	if err != nil {
@@ -868,40 +854,40 @@ func TestRow2(t *testing.T) {
 		t.Fatal("fail")
 	}
 
-	val, err := r.ValueByColumn("id")
+	val, err := r.GetColumn("id")
 	equal(t, int64(1), val.(int64))
 
-	val, err = r.ValueByColumn("num")
+	val, err = r.GetColumn("num")
 	equal(t, int64(-1), val.(int64))
 
-	val, err = r.ValueByColumn("name")
+	val, err = r.GetColumn("name")
 	equal(t, "jane", val.(string))
 
-	val, err = r.ValueByColumn("points")
+	val, err = r.GetColumn("points")
 	equal(t, 3.22, val.(float64))
 
-	val, err = r.ValueByColumn("data")
+	val, err = r.GetColumn("data")
 	equal(t, []byte("test"), val.([]byte))
 
-	val, err = r.ValueByColumn("date")
+	val, err = r.GetColumn("date")
 	equal(t, val, nil)
 
-	val, err = r.ValueByIndex(0)
+	val, err = r.GetIndex(0)
 	equal(t, int64(1), val.(int64))
 
-	val, err = r.ValueByIndex(1)
+	val, err = r.GetIndex(1)
 	equal(t, int64(-1), val.(int64))
 
-	val, err = r.ValueByIndex(2)
+	val, err = r.GetIndex(2)
 	equal(t, "jane", val.(string))
 
-	val, err = r.ValueByIndex(3)
+	val, err = r.GetIndex(3)
 	equal(t, 3.22, val.(float64))
 
-	val, err = r.ValueByIndex(4)
+	val, err = r.GetIndex(4)
 	equal(t, []byte("test"), val.([]byte))
 
-	val, err = r.ValueByIndex(5)
+	val, err = r.GetIndex(5)
 	equal(t, val, nil)
 
 	equal(t, r.ColumnCount(), 6)
@@ -929,12 +915,12 @@ func TestRow2(t *testing.T) {
 		t.Fatal("fail")
 	}
 
-	val, err = r.ValueByColumn("wrong")
+	val, err = r.GetColumn("wrong")
 	if err == nil {
 		t.Fatal("fail")
 	}
 
-	val, err = r.ValueByIndex(1111)
+	val, err = r.GetIndex(1111)
 	if err == nil {
 		t.Fatal("fail")
 	}
@@ -960,12 +946,12 @@ func TestMultiResultset(t *testing.T) {
 
 	equal(t, rs.LinesChanged(), 1)
 
-	c.PutStatement("SELECT * FROM gotest WHERE key = :key");
-	c.BindParam(":key", "counter1");
-	c.PutStatement("UPDATE gotest SET value = value + 1 WHERE key = :key");
-	c.BindParam(":key", "counter1");
-	c.PutStatement("SELECT * FROM gotest WHERE key = :key");
-	c.BindParam(":key", "counter1");
+	c.PutStatement("SELECT * FROM gotest WHERE key = :key")
+	c.BindParam(":key", "counter1")
+	c.PutStatement("UPDATE gotest SET value = value + 1 WHERE key = :key")
+	c.BindParam(":key", "counter1")
+	c.PutStatement("SELECT * FROM gotest WHERE key = :key")
+	c.BindParam(":key", "counter1")
 
 	rs, err = c.Execute(false)
 	if err != nil {
@@ -997,4 +983,401 @@ func TestMultiResultset(t *testing.T) {
 
 	b = rs.NextResultSet()
 	equal(t, b, false)
+}
+
+func Example0() {
+	s, _ := Create(&Config{})
+	s.PutStatement("SELECT 'Hello World!';")
+	rs, _ := s.Execute(true)
+
+	var col NullString
+	rs.Row().Read(&col)
+	fmt.Println(col.String)
+
+	s.Shutdown()
+
+	// Output: Hello World!
+
+}
+
+func Example1() {
+	s, err := Create(&Config{
+		ClusterName: "cluster",
+		ClientName: "goclient",
+		TimeoutMillis: 5000,
+		Urls: []string{"tcp://127.0.0.1:7600"},
+	})
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("SELECT 'Hello World!';")
+	rs, err := s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	var col NullString
+	rs.Row().Read(&col)
+	fmt.Println(col.String)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output: Hello World!
+}
+
+func Example2() {
+
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("CREATE TABLE test (key TEXT, value TEXT);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+}
+
+func Example3() {
+
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, value TEXT);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Option - 1, with parameter name
+	s.PutStatement("INSERT INTO test VALUES(:name,:lastname);")
+	s.BindParam(":name", "jane")
+	s.BindParam(":lastname", "doe")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Option - 2, with index
+	s.PutStatement("INSERT INTO test VALUES(?,?);")
+	s.BindIndex(0, "jane")
+	s.BindIndex(1, "doe")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+}
+
+func Example4() {
+
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, value TEXT);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Option - 1, with parameter name
+	s.PutStatement("INSERT INTO test VALUES(:name,:lastname);")
+	s.BindParam(":name", "jane")
+	s.BindParam(":lastname", "doe")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Option - 2, with index
+	s.PutStatement("INSERT INTO test VALUES(?,?);")
+	s.BindIndex(0, "jane")
+	s.BindIndex(1, "doe")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+}
+
+func Example5() {
+
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, value TEXT);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("INSERT INTO test VALUES('jane','doe');")
+	s.PutStatement("INSERT INTO test VALUES('jack','doe');")
+	s.PutStatement("INSERT INTO test VALUES('joe','doe');")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("SELECT * FROM test")
+	rs, err := s.Execute(true)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for r := rs.Row(); r != nil; r = rs.Row() {
+		var name, lastname NullString
+
+		err = r.Read(&name, &lastname)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println(name.String, lastname.String)
+	}
+
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+	// jane doe
+	// jack doe
+	// joe doe
+}
+
+func Example6() {
+
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, value TEXT);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Option-1, using indexes
+	p, err := s.Prepare("INSERT INTO test VALUES(?,?)");
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutPrepared(p)
+	s.BindIndex(0, "jane")
+	s.BindIndex(1, "doe")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Clean-up if you're not going to use prepared statement again.
+	err = s.Delete(p)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Option-2, using parameter names
+	p, err = s.Prepare("INSERT INTO test VALUES(:name,:lastname)");
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutPrepared(p)
+	s.BindParam(":name", "jane")
+	s.BindParam(":lastname", "doe")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Clean-up if you're not going to use prepared statement again.
+	err = s.Delete(p)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+}
+
+func Example7() {
+
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, value TEXT);")
+	s.PutStatement("INSERT INTO test VALUES('mykey', 1000);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Demo for getAndIncrement atomically.
+	s.PutStatement("SELECT * FROM test WHERE key = 'mykey';");
+	s.PutStatement("UPDATE test SET value = value + 1 WHERE key = 'mykey'");
+	s.PutStatement("SELECT * FROM test WHERE key = 'mykey';");
+
+	rs, err := s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// rs has three result sets, each corresponds to operations
+	// that we added into the batch.
+
+	// First operation was SELECT
+	for r := rs.Row(); r != nil; r = rs.Row() {
+		val, err := r.GetColumn("value")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Value was :", val)
+	}
+
+
+	// Advance to the next result set which is for UPDATE.
+	rs.NextResultSet()
+	fmt.Println("Changes :", rs.LinesChanged())
+
+	// Advance to the next result set which is for SELECT again.
+	rs.NextResultSet()
+
+	for r := rs.Row(); r != nil; r = rs.Row() {
+		val, err := r.GetColumn("value")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Value is :", val)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+	// Value was : 1000
+	// Changes : 1
+	// Value is : 1001
 }

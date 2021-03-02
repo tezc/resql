@@ -116,52 +116,6 @@ size_t rs_dir_size(const char *path)
     return total_size;
 }
 
-int rs_fallocate(int fd, uint64_t len)
-{
-    size_t file_size; /* Required file size */
-    struct stat buf;  /* Used to hold return values of fstat() */
-
-    if (fstat(fd, &buf)) {
-        return -1;
-    }
-
-    file_size = ((len + 4096 - 1) / 4096) * 4096;
-    if (file_size > buf.st_size) {
-#if HAVE_POSIX_FALLOCATE
-        int err;
-
-        do {
-            err = posix_fallocate(fd, buf.st_size, file_size - buf.st_size);
-        } while (err == EINTR);
-
-        return err;
-#else
-        int block = buf.st_blksize; /* File-system block size */
-        size_t pos = (buf.st_size / block) * block + block - 1;
-
-        for (; pos < file_size + block - 1; pos += block) {
-            if (pos >= file_size) {
-                pos = file_size - 1;
-            }
-
-            ssize_t seek = lseek(fd, pos, SEEK_SET);
-            if (seek == -1) {
-                return -1;
-            }
-
-            ssize_t written = write(fd, "", 1);
-            if (written != 1) {
-                return -1;
-            }
-        }
-
-        return 0;
-#endif
-    }
-
-    return 0;
-}
-
 int rs_set_daemon()
 {
     pid_t pid;
@@ -293,20 +247,6 @@ void *rs_realloc(void *p, size_t size)
 void rs_free(void *p)
 {
     free(p);
-}
-
-char *rs_strdup(const char *str)
-{
-    size_t len;
-    char *dup;
-
-    len = strlen(str);
-    dup = rs_malloc(len + 1);
-
-    memcpy(dup, str, len);
-    dup[len] = '\0';
-
-    return dup;
 }
 
 _Noreturn void rs_on_abort(const char *file, const char *func, int line,

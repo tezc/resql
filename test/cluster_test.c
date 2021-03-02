@@ -98,8 +98,8 @@ void write_test()
 
     struct resql_config settings = {.cluster_name = "cluster",
             .client_name = "any",
-            .timeout = 50000,
-            .uris = uris};
+            .timeout_millis = 50000,
+            .urls = uris};
 
     resql_create(&c, &settings);
 

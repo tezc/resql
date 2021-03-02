@@ -1753,26 +1753,6 @@ static void resql_fatal(struct resql *c, const char *fmt, ...)
     resql_reset(c);
 }
 
-
-static int resql_verify_config(struct resql *c, struct resql_config *config)
-{
-    if (config->cluster_name == NULL || config->uris == NULL) {
-        resql_err(c, "Cluster name and uris cannot be null.");
-        return RESQL_CONFIG_ERROR;
-    }
-
-    if (config->timeout == 0) {
-        config->timeout = 5000;
-    }
-
-    if (config->timeout < 500) {
-        resql_err(c, "Operation timeout must be > 500 .");
-        return RESQL_CONFIG_ERROR;
-    }
-
-    return RESQL_OK;
-}
-
 int resql_copy_uris(struct resql *c, struct msg *msg)
 {
     const int CAP = 16;
@@ -2007,7 +1987,7 @@ static void resql_generate_name(struct resql *c, char *dest)
     dest[len] = '\0';
 }
 
-int resql_create(struct resql **client, struct resql_config *config)
+int resql_create(struct resql **client, struct resql_config *conf)
 {
     bool b;
     int rc;
@@ -2015,7 +1995,7 @@ int resql_create(struct resql **client, struct resql_config *config)
     char *uris, *save = NULL;
     const char *token;
     char name[32];
-    const char *user = config->client_name;
+    const char *user = conf->client_name;
     struct resql *c;
     struct sc_uri *u;
 
@@ -2024,7 +2004,7 @@ int resql_create(struct resql **client, struct resql_config *config)
         return RESQL_OOM;
     }
 
-    if (!config->client_name) {
+    if (!conf->client_name) {
         resql_generate_name(c, name);
         user = name;
     }
@@ -2039,28 +2019,24 @@ int resql_create(struct resql **client, struct resql_config *config)
 
     c->rs = (struct resql_result){0};
 
-    rc = resql_verify_config(c, config);
-    if (rc != RESQL_OK) {
-        goto error;
-    }
-
     c->name = sc_str_create(user);
-    c->cluster_name = sc_str_create(config->cluster_name);
-    c->source_addr = sc_str_create(config->source_addr);
-    c->source_port = sc_str_create(config->source_port);
+    c->cluster_name =
+            sc_str_create(conf->cluster_name ? conf->cluster_name : "cluster");
+
+    c->source_addr = sc_str_create(conf->outgoing_addr);
+    c->source_port = sc_str_create(conf->outgoing_port);
 
     if (!c->name || !c->cluster_name ||
-        (!c->source_addr && config->source_addr) ||
-        (!c->source_port && config->source_port)) {
+        (!c->source_addr && conf->outgoing_addr) ||
+        (!c->source_port && conf->outgoing_port)) {
         goto oom;
     }
 
-    c->timeout = config->timeout;
-
+    c->timeout = conf->timeout_millis != 0 ? conf->timeout_millis : UINT32_MAX;
     c->uri_count = 0;
     c->uri_trial = 0;
 
-    uris = sc_str_create(config->uris);
+    uris = sc_str_create(conf->urls ? conf->urls : "tcp://127.0.0.1:7600");
     if (!uris) {
         goto oom;
     }

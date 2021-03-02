@@ -25,7 +25,6 @@
 #include "c/resql.h"
 #include "linenoise/linenoise.h"
 #include "sc/sc_option.h"
-#include "sc/sc_time.h"
 #include "sc/sc_uri.h"
 
 #include <ctype.h>
@@ -36,9 +35,9 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#define ANSI_RESET   "\x1b[0m"
+#define ANSI_RESET    "\x1b[0m"
 #define COLUMN_HEADER "\x1b[0;35m"
-#define HINT_COLOR 35
+#define HINT_COLOR    35
 
 struct resql_cli
 {
@@ -48,7 +47,6 @@ struct resql_cli
     int count;
 };
 
-#define RESQL_CLI_VERSION     1
 #define RESQL_CLI_VERSION_STR "1"
 
 static struct resql_cli s_cli;
@@ -64,8 +62,7 @@ static void resql_cli_cmdline_usage()
            "\n\n");
 }
 
-void resql_cli_read_cmdline(struct resql_cli *cli, int argc,
-                                char *argv[])
+void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
 {
     static struct sc_option_item options[] = {
             {'c', "command"},
@@ -90,7 +87,7 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc,
                 exit(1);
             }
 
-            s_cli.cmds = realloc(s_cli.cmds, s_cli.count + 1);
+            s_cli.cmds = realloc(s_cli.cmds, (size_t) s_cli.count + 1);
             s_cli.cmds[s_cli.count] = strdup(value);
             s_cli.count++;
             break;
@@ -110,8 +107,6 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc,
         case 'v':
             resql_cli_cmdline_usage();
             exit(0);
-            break;
-
         default:
             printf("resql-cli : Unknown option %s \n", argv[argc]);
             resql_cli_cmdline_usage();
@@ -139,8 +134,8 @@ void resql_print_vertical(struct resql_result *rs)
 
     columns = resql_column_count(rs);
     while ((row = resql_row(rs)) != NULL) {
-        for (int i = 0; i < columns; i++) {
-            wmax = MAX(wmax, strlen(row[i].name));
+        for (uint32_t i = 0; i < columns; i++) {
+            wmax = MAX(wmax, (int) strlen(row[i].name));
         }
     }
 
@@ -152,7 +147,7 @@ void resql_print_vertical(struct resql_result *rs)
         rownum++;
 
         columns = resql_column_count(rs);
-        for (int i = 0; i < columns; i++) {
+        for (size_t i = 0; i < columns; i++) {
             switch (row[i].type) {
             case RESQL_INTEGER:
                 printf("%-*s : %-15llu \n", wmax, row[i].name,
@@ -179,7 +174,7 @@ void resql_print_vertical(struct resql_result *rs)
     }
 }
 
-void resql_print_seperator(int total, int *columns)
+void resql_print_seperator(int total, const int *columns)
 {
     int x = -1;
     int pos = 0;
@@ -236,6 +231,8 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
     char tmp[128];
     bool vertical = s_cli.vertical;
 
+    (void) cli;
+
     resql_put_sql(client, buf);
 
     rc = resql_exec(client, false, &rs);
@@ -269,8 +266,8 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
 
     columns = resql_column_count(rs);
     while ((row = resql_row(rs)) != NULL) {
-        for (int i = 0; i < columns; i++) {
-            p[i] = MAX(p[i], strlen(row[i].name));
+        for (size_t i = 0; i < columns; i++) {
+            p[i] = MAX(p[i], (int) strlen(row[i].name));
         }
     }
 
@@ -278,26 +275,26 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
 
     while ((row = resql_row(rs)) != NULL) {
         columns = resql_column_count(rs);
-        for (int i = 0; i < columns; i++) {
+        for (uint32_t i = 0; i < columns; i++) {
             switch (row[i].type) {
 
             case RESQL_INTEGER:
                 snprintf(tmp, 128, "%llu", (unsigned long long) row[i].intval);
-                p[i] = MAX(p[i], strlen(tmp));
+                p[i] = MAX(p[i], (int) strlen(tmp));
                 break;
             case RESQL_FLOAT:
                 snprintf(tmp, 128, "%f", row[i].floatval);
-                p[i] = MAX(p[i], strlen(tmp));
+                p[i] = MAX(p[i], (int) strlen(tmp));
                 break;
             case RESQL_TEXT:
                 p[i] = MAX(p[i], row[i].len);
                 break;
             case RESQL_BLOB:
                 snprintf(tmp, 128, "%lu bytes", (unsigned long) row[i].len);
-                p[i] = MAX(p[i], strlen(tmp));
+                p[i] = MAX(p[i], (int) strlen(tmp));
                 break;
             case RESQL_NULL:
-                p[i] = MAX(p[i], strlen("null"));
+                p[i] = MAX(p[i], (int) strlen("null"));
                 break;
             default:
                 printf("Error, result set corrupt! \n");
@@ -322,7 +319,7 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
         resql_print_seperator(total, p);
         columns = resql_column_count(rs);
         row = resql_row(rs);
-        for (int i = 0; i < columns; i++) {
+        for (uint32_t i = 0; i < columns; i++) {
             printf("|" COLUMN_HEADER " %-*s " ANSI_RESET, p[i], row[i].name);
         }
         printf("|\n");
@@ -331,11 +328,12 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
 
         do {
             columns = resql_column_count(rs);
-            for (int i = 0; i < columns; i++) {
+            for (uint32_t i = 0; i < columns; i++) {
                 switch (row[i].type) {
 
                 case RESQL_INTEGER:
-                    printf("| %-*llu ", p[i], (unsigned long long) row[i].intval);
+                    printf("| %-*llu ", p[i],
+                           (unsigned long long) row[i].intval);
                     break;
                 case RESQL_FLOAT:
                     printf("| %-*f ", p[i], row[i].floatval);
@@ -371,7 +369,7 @@ out:
 static const char *commands[] = {".tables",  ".schema",    ".help",
                                  ".indexes", ".alltables", ".allindexes",
                                  ".vertical"};
-static const int command_count = sizeof(commands) / sizeof(commands[0]);
+static const size_t command_count = sizeof(commands) / sizeof(commands[0]);
 const char *curr;
 
 int sort(const void *c1, const void *c2)
@@ -380,9 +378,9 @@ int sort(const void *c1, const void *c2)
     const char *s2 = *(const char **) c2;
     int s1_match = 0, s2_match = 0;
     int cmp;
-    int s1_len = strlen(s1);
-    int s2_len = strlen(s2);
-    int curr_len = strlen(curr);
+    int s1_len = (int) strlen(s1);
+    int s2_len = (int) strlen(s2);
+    int curr_len = (int) strlen(curr);
 
     cmp = s1_len > curr_len ? curr_len : s1_len;
     for (int i = 0; i < cmp; i++) {
@@ -405,8 +403,9 @@ int sort(const void *c1, const void *c2)
 
 void completion(const char *buf, linenoiseCompletions *lc)
 {
-    int len = strlen30(buf);
-    int i, head, rc;
+    int rc;
+    size_t len = (size_t) strlen30(buf);
+    size_t i, head;
     char line[1000];
     char *tmp[command_count];
     struct resql_column *row;
@@ -419,7 +418,7 @@ void completion(const char *buf, linenoiseCompletions *lc)
     if (buf[0] == '.' && strncmp(".schema ", buf, strlen(".schema ")) != 0) {
         memcpy(tmp, commands, sizeof(commands));
         curr = buf;
-        qsort(tmp, command_count, sizeof(char *), sort);
+        qsort(tmp, (size_t) command_count, sizeof(char *), sort);
 
         for (i = 0; i < command_count; i++) {
             linenoiseAddCompletion(lc, tmp[i]);
@@ -437,10 +436,10 @@ void completion(const char *buf, linenoiseCompletions *lc)
     }
 
     head = i + 1;
-    memcpy(line, buf, head);
+    memcpy(line, buf, (size_t) head);
 
     resql_put_sql(client, "SELECT DISTINCT candidate COLLATE nocase"
-                              "  FROM completion(:head, :all) ORDER BY 1");
+                          "  FROM completion(:head, :all) ORDER BY 1");
     resql_bind_param_text(client, ":head", &buf[head]);
     resql_bind_param_text(client, ":all", buf);
 
@@ -453,7 +452,7 @@ void completion(const char *buf, linenoiseCompletions *lc)
     if (rs != NULL) {
         while ((row = resql_row(rs)) != NULL) {
             if (head + row[0].len < sizeof(line) - 1) {
-                memcpy(line + head, row[0].text, row[0].len + 1);
+                memcpy(line + head, row[0].text, (size_t) row[0].len + 1);
                 linenoiseAddCompletion(lc, line);
             }
         }
@@ -482,7 +481,7 @@ char *hints(const char *buf, int *color, int *bold)
             return strdup(".tables");
         }
 
-        for (int j = 0; j < command_count; j++) {
+        for (size_t j = 0; j < command_count; j++) {
             if (strncmp(commands[0], buf, strlen(commands[0])) == 0) {
                 return NULL;
             }
@@ -511,7 +510,7 @@ char *hints(const char *buf, int *color, int *bold)
     head = i + 1;
 
     resql_put_sql(client, "SELECT DISTINCT candidate COLLATE nocase"
-                              "  FROM completion(:head, :all) ORDER BY 1");
+                          "  FROM completion(:head, :all) ORDER BY 1");
     resql_bind_param_text(client, ":head", &buf[head]);
     resql_bind_param_text(client, ":all", buf);
 
@@ -537,28 +536,26 @@ char *hints(const char *buf, int *color, int *bold)
 
 void resql_print_user_tables()
 {
-    resql_cli_rep(
-            &s_cli, "SELECT name FROM sqlite_master WHERE type ='table' AND "
-                    "name NOT LIKE 'sqlite_%' AND name NOT LIKE 'resql_%'");
+    resql_cli_rep(&s_cli,
+                  "SELECT name FROM sqlite_master WHERE type ='table' AND "
+                  "name NOT LIKE 'sqlite_%' AND name NOT LIKE 'resql_%'");
 }
 
 void resql_print_all_tables()
 {
-    resql_cli_rep(&s_cli,
-                      "SELECT name FROM sqlite_master WHERE type ='table'");
+    resql_cli_rep(&s_cli, "SELECT name FROM sqlite_master WHERE type ='table'");
 }
 
 void resql_print_user_indexes()
 {
-    resql_cli_rep(
-            &s_cli, "SELECT name FROM sqlite_master WHERE type ='index' AND "
-                    "name NOT LIKE 'sqlite_%' AND name NOT LIKE 'resql_%'");
+    resql_cli_rep(&s_cli,
+                  "SELECT name FROM sqlite_master WHERE type ='index' AND "
+                  "name NOT LIKE 'sqlite_%' AND name NOT LIKE 'resql_%'");
 }
 
 void resql_print_all_indexes()
 {
-    resql_cli_rep(&s_cli,
-                      "SELECT name FROM sqlite_master WHERE type ='index'");
+    resql_cli_rep(&s_cli, "SELECT name FROM sqlite_master WHERE type ='index'");
 }
 
 void resql_print_schema(char *buf)
@@ -599,6 +596,8 @@ void resql_cli_init(struct resql_cli *cli)
 
 static void resql_signal(int sig)
 {
+    (void) sig;
+
     printf("Shutting down.. \n");
     exit(0);
 }
@@ -620,8 +619,8 @@ int main(int argc, char **argv)
     resql_cli_read_cmdline(&s_cli, argc, argv);
 
     struct resql_config config = {
-            .uris = s_cli.uri->str,
-            .timeout = 4000,
+            .urls = s_cli.uri->str,
+            .timeout_millis = 4000,
             .client_name = "cli",
             .cluster_name = "cluster",
     };

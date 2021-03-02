@@ -188,6 +188,19 @@ class Result implements ResultSet, Iterator<Row> {
                 throw new ResqlSQLException(e);
             }
         }
+
+        @Override
+        public String toString() {
+            StringBuilder s = new StringBuilder();
+            for (Object o : columnValues) {
+                if (s.length() > 0) {
+                    s.append(", ");
+                }
+                s.append(o);
+            }
+
+            return s.toString();
+        }
     }
 
 }

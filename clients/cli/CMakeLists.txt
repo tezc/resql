@@ -4,8 +4,6 @@ add_executable(resql-cli
         ../c/resql.c
         ../../deps/linenoise/linenoise.h
         ../../deps/linenoise/linenoise.c
-        ../../deps/sc/sc_time.h
-        ../../deps/sc/sc_time.c
         ../../deps/sc/sc_uri.h
         ../../deps/sc/sc_uri.c
         ../../deps/sc/sc_option.h

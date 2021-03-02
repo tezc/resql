@@ -72,21 +72,21 @@ struct settings_item
 
 // clang-format off
 static struct settings_item settings_list[] = {
-        {SETTINGS_STRING,  SETTINGS_NODE_NODE_NAME,       "node",     "node-name"       },
-        {SETTINGS_STRING,  SETTINGS_NODE_BIND_URI,        "node",     "bind-uri"        },
-        {SETTINGS_STRING,  SETTINGS_NODE_ADVERTISE_URI,   "node",     "advertise-uri"   },
-        {SETTINGS_STRING,  SETTINGS_NODE_SOURCE_ADDR,     "node",     "source-addr"     },
-        {SETTINGS_STRING,  SETTINGS_NODE_SOURCE_PORT,     "node",     "source-port"     },
-        {SETTINGS_STRING,  SETTINGS_NODE_LOG_LEVEL,       "node",     "log-level"       },
-        {SETTINGS_STRING,  SETTINGS_NODE_LOG_DESTINATION, "node",     "log-destination" },
-        {SETTINGS_STRING,  SETTINGS_NODE_DIRECTORY,       "node",     "directory"       },
-        {SETTINGS_BOOL,    SETTINGS_NODE_IN_MEMORY,       "node",     "in-memory"       },
+        {SETTINGS_STRING,  SETTINGS_NODE_NODE_NAME,        "node",     "node-name"       },
+        {SETTINGS_STRING,  SETTINGS_NODE_BIND_URI,         "node",     "bind-uri"        },
+        {SETTINGS_STRING,  SETTINGS_NODE_ADVERTISE_URI,    "node",     "advertise-uri"   },
+        {SETTINGS_STRING,  SETTINGS_NODE_SOURCE_ADDR,      "node",     "source-addr"     },
+        {SETTINGS_STRING,  SETTINGS_NODE_SOURCE_PORT,      "node",     "source-port"     },
+        {SETTINGS_STRING,  SETTINGS_NODE_LOG_LEVEL,        "node",     "log-level"       },
+        {SETTINGS_STRING,  SETTINGS_NODE_LOG_DESTINATION,  "node",     "log-destination" },
+        {SETTINGS_STRING,  SETTINGS_NODE_DIRECTORY,        "node",     "directory"       },
+        {SETTINGS_BOOL,    SETTINGS_NODE_IN_MEMORY,        "node",     "in-memory"       },
 
-        {SETTINGS_STRING,  SETTINGS_CLUSTER_NAME,         "cluster",  "name"            },
-        {SETTINGS_STRING,  SETTINGS_CLUSTER_NODE,         "cluster",  "node"            },
+        {SETTINGS_STRING,  SETTINGS_CLUSTER_NAME,          "cluster",  "name"            },
+        {SETTINGS_STRING,  SETTINGS_CLUSTER_NODE,          "cluster",  "node"            },
 
-        {SETTINGS_BOOL,    SETTINGS_CMDLINE_EMPTY,        "cmd-line", "empty"           },
-        {SETTINGS_STRING,  SETTINGS_CMDLINE_SETTINGS_FILE,    "cmd-line", "settings-file"     },
+        {SETTINGS_BOOL,    SETTINGS_CMDLINE_EMPTY,         "cmd-line", "empty"           },
+        {SETTINGS_STRING,  SETTINGS_CMDLINE_SETTINGS_FILE, "cmd-line", "settings-file"   },
 };
 // clang-format on
 
@@ -94,7 +94,7 @@ static const int settings_size = sizeof(settings_list) / sizeof(struct settings_
 
 void settings_init(struct settings *c)
 {
-    *c = (struct settings){{0}};
+    *c = (struct settings){0};
 
     c->node.name = sc_str_create("");
     c->node.bind_uri = sc_str_create("");
@@ -185,6 +185,8 @@ void settings_read_cmdline(struct settings *c, int argc, char *argv[])
 static int settings_add(void *arg, int line, const char *section, const char *key,
                       const char *value)
 {
+    (void) line;
+
     struct settings *c = arg;
     enum settings_index index = SETTINGS_INVALID;
 

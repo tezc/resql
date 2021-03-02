@@ -103,7 +103,6 @@ void rs_vasprintf(char **buf, const char *fmt, va_list args);
 char* rs_strncpy(char *dest, const char* src, size_t max);
 
 size_t rs_dir_size(const char *path);
-int rs_fallocate(int fd, uint64_t len);
 
 int rs_set_daemon();
 int rs_write_pid_file(char *path);
@@ -113,7 +112,6 @@ void *rs_malloc(size_t size);
 void *rs_calloc(size_t n, size_t size);
 void *rs_realloc(void *p, size_t size);
 void rs_free(void *p);
-char *rs_strdup(const char *p);
 
 void rs_rand_init();
 unsigned int rs_rand();

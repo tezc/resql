@@ -406,6 +406,8 @@ out:
 
 int aux_read_info(struct aux *aux, struct info *n, sqlite3_stmt *stmt)
 {
+    (void) aux;
+
     n->name = sc_str_create((char *) sqlite3_column_text(stmt, 0));
     n->connected = sc_str_create((char *) sqlite3_column_text(stmt, 1));
     n->role = sc_str_create((char *) sqlite3_column_text(stmt, 2));

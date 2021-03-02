@@ -330,6 +330,8 @@ static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd,
     struct sc_sock in;
     struct conn *conn;
 
+    (void) event;
+
     rc = sc_sock_accept(endpoint, &in);
     if (rc != SC_SOCK_OK) {
         return;
@@ -343,6 +345,9 @@ static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd,
 
 static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 {
+    (void) ev;
+    (void) fd;
+
     char c;
     size_t size;
 
@@ -354,6 +359,8 @@ static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 
 static void server_on_signal(struct server *s, struct sc_sock_fd *fd)
 {
+    (void) fd;
+
     uint64_t val;
 
     sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
@@ -467,6 +474,8 @@ static void server_write_term_start_cmd(struct server *s)
 static void server_on_node_disconnect(struct server *s, struct node *node,
                                       enum msg_rc rc)
 {
+    (void) rc;
+
     sc_log_info("Node disconnected : %s \n", node->name);
     node_disconnect(node);
 
@@ -474,7 +483,7 @@ static void server_on_node_disconnect(struct server *s, struct node *node,
         s->leader = NULL;
     }
 
-    for (int i = 0; i < sc_array_size(s->connected_nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(s->connected_nodes); i++) {
         if (s->connected_nodes[i] == node) {
             sc_array_del_unordered(s->connected_nodes, i);
             if (s->role == SERVER_ROLE_LEADER) {
@@ -598,6 +607,8 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
 static void server_on_connect_resp(struct server *s, struct sc_sock_fd *fd,
                                    uint32_t event)
 {
+    (void) event;
+
     int rc;
     struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
     struct conn *conn = rs_entry(sock, struct conn, sock);
@@ -632,6 +643,8 @@ disconnect:
 static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
                                     uint32_t event)
 {
+    (void) event;
+
     int rc;
     struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
     struct conn *conn = rs_entry(sock, struct conn, sock);
@@ -776,6 +789,8 @@ static void server_on_election_timeout(struct server *s)
 
 void server_on_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
 {
+    (void) timeout;
+
     struct server *s = arg;
 
     switch (type) {
@@ -1265,6 +1280,8 @@ void server_on_snapshot_resp(struct server *s, struct node *node,
 
 void server_on_info_req(struct server *s, struct node *node, struct msg *msg)
 {
+    (void) s;
+
     sc_buf_clear(&node->info);
     sc_buf_put_raw(&node->info, msg->info_req.buf, msg->info_req.len);
 }
@@ -1272,6 +1289,9 @@ void server_on_info_req(struct server *s, struct node *node, struct msg *msg)
 void server_on_shutdown_req(struct server *s, struct node *node,
                             struct msg *msg)
 {
+    (void) node;
+    (void) msg;
+
     sc_log_info("Received shutdown request.. \n");
     s->stop_requested = true;
 }
@@ -1493,6 +1513,8 @@ static void server_on_client_connect_applied(struct server *s,
 static void server_on_client_disconnect_applied(struct server *s,
                                                 struct session *sess)
 {
+    (void) s;
+    (void) sess;
 }
 
 static void server_on_applied_client_req(struct server *s, uint64_t cid,
@@ -1515,6 +1537,8 @@ static void server_on_applied_client_req(struct server *s, uint64_t cid,
 static void server_on_applied_entry(struct server *s, uint64_t index,
                                     char *entry, struct session *sess)
 {
+    (void) index;
+
     enum cmd_id type = entry_flags(entry);
 
     switch (type) {
@@ -1656,7 +1680,7 @@ static void server_handle_jobs(struct server *s)
             char *name = job.data;
 
             if (*name == '*') {
-                for (int i = 0; i < sc_array_size(s->connected_nodes); i++) {
+                for (size_t i = 0; i < sc_array_size(s->connected_nodes); i++) {
                     node = s->connected_nodes[i];
                     msg_create_shutdown_req(&node->conn.out, true);
                     conn_flush(&node->conn);
@@ -1763,6 +1787,8 @@ static void server_flush(struct server *s)
 static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
                                   uint32_t event)
 {
+    (void) event;
+
     int rc;
     enum msg_rc resp_code = MSG_OK;
     struct msg msg;
