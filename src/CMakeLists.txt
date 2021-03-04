@@ -38,8 +38,6 @@ add_library(resql-server STATIC
         msg.c
         rs.h
         rs.c
-        ../clients/c/resql.h
-        ../clients/c/resql.c
         ../deps/sqlite/sqlite3ext.h
         ../deps/sqlite/sqlite3.h
         ../deps/sqlite/sqlite3.c

@@ -2,7 +2,9 @@
 
 ## Overview
 - bin/ : output dir, ./build.sh will generate server executable and cli here.  
-- clients/ : c, cli, java and go clients, each directory is independent.  
+- c/ : c client
+- go/ : go client
+- java/ : java client
 - deps/ : c dependencies  
 - main/ : main executable for server. tests build server as library to create multiple instance in the same process.  
 - src/ : server source code  

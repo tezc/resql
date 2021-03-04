@@ -36,8 +36,6 @@ add_executable(resql
         ../src/msg.c
         ../src/rs.h
         ../src/rs.c
-        ../clients/c/resql.h
-        ../clients/c/resql.c
         ../deps/sqlite/sqlite3.h
         ../deps/sqlite/sqlite3.c
         ../deps/sqlite/sqlite3ext.h
@@ -105,8 +103,8 @@ if (${PGO} MATCHES "generate")
         link_libraries(gcov)
     endif ()
 
-    add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/clients/c/resql.c)
-    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR}/clients)
+    add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/c/resql.c)
+    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR})
     install(TARGETS resql-trainer RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 elseif (${PGO} MATCHES "use")
     MESSAGE("Profile will be used.")

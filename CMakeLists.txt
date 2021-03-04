@@ -352,7 +352,7 @@ set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_COMMON} ${C_
 # -------------------- Subfolder Start ------------------------- #
 
 add_subdirectory(main)
-add_subdirectory(clients/cli)
+add_subdirectory(cli)
 
 if (RESQL_BUILD_TESTS)
     add_subdirectory(src)

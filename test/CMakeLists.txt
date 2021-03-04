@@ -1,9 +1,10 @@
 set(CMAKE_C_STANDARD 11)
 include_directories(../src)
 
-add_library(resql-test test_util.c)
+add_library(resql-test test_util.c ../c/resql.c)
 target_link_libraries(resql-test PUBLIC resql-server)
 
+target_include_directories(resql-test PUBLIC ..)
 target_include_directories(resql-test PUBLIC ../src)
 target_include_directories(resql-test PUBLIC ../clients)
 
