@@ -30,6 +30,8 @@ int sqlite3_completion_init(sqlite3 *db, char **pzErrMsg,
 
 void aux_random(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
+    (void) argv;
+
     assert(argc == 0);
     int64_t val;
 

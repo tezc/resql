@@ -4,10 +4,36 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>resql</groupId>
+    <groupId>com.github.tezc</groupId>
     <artifactId>resql</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.0.1</version>
     <packaging>jar</packaging>
+
+    <name>Resql Java Client</name>
+    <description>Resql Java Client</description>
+    <url>https://github.com/tezc/resql</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Ozan Tezcan</name>
+            <email>ozan.vx@gmail.com</email>
+            <organization>resql</organization>
+            <organizationUrl>http://github.com/tezc/resql</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/tezc/resql.git</connection>
+        <developerConnection>scm:git:ssh://github.com:tezc/resql.git</developerConnection>
+        <url>http://github.com/tezc/resql/tree/master</url>
+    </scm>
 
     <properties>
         <maven.compiler.plugin.version>2.5.1</maven.compiler.plugin.version>
@@ -16,6 +42,13 @@
         <jmh.version>1.27</jmh.version>
         <hamcrest.version>1.3</hamcrest.version>
     </properties>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <build>
         <directory>${project.basedir}/target</directory>
@@ -63,6 +96,66 @@
                     </properties>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.7</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.5</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.0.1</version>
+                <configuration>
+                    <javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
+                    <source>8</source>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
 
     </build>
