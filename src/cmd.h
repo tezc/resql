@@ -51,7 +51,6 @@ struct cmd_start_term
 struct cmd_client_connect
 {
     const char *name;
-    const char *passwd;
     const char *local;
     const char *remote;
 };

@@ -171,7 +171,6 @@ void settings_read_cmdline(struct settings *c, int argc, char *argv[])
         case 'v':
             settings_cmdline_usage();
             exit(0);
-            break;
         case '?':
         default:
             printf("resql: " ANSI_RED "Unknown option '%s'.\n" ANSI_RESET,

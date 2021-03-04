@@ -574,7 +574,7 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
     int rc;
     bool found = false;
     const char *name = msg->connect_req.name;
-    struct node *n;
+    struct node *n = NULL;
 
     sc_list_del(&s->pending_conns, &pending->list);
     conn_clear_events(pending);

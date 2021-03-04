@@ -27,11 +27,7 @@
 
 #include <string.h>
 
-const char* meta_role_str [] = {
-        "leader",
-        "follower",
-        "joined"
-};
+const char *meta_role_str[] = {"leader", "follower", "joined"};
 
 void meta_node_init(struct meta_node *n, struct sc_uri *uri)
 {
@@ -83,7 +79,7 @@ void meta_node_decode(struct meta_node *n, struct sc_buf *buf)
 
     count = sc_buf_get_32(buf);
 
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         uri = sc_uri_create(sc_buf_get_str(buf));
         if (!uri) {
             rs_abort("meta");
@@ -99,7 +95,7 @@ void meta_init(struct meta *m, const char *cluster_name)
 
     m->name = sc_str_create(cluster_name);
     m->uris = sc_str_create("");
-    
+
     sc_array_create(m->nodes, 3);
 }
 
@@ -196,7 +192,7 @@ void meta_decode(struct meta *m, struct sc_buf *buf)
     m->voter = sc_buf_get_32(buf);
 
     count = sc_buf_get_32(buf);
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         meta_node_decode(&n, buf);
         sc_array_add(m->nodes, n);
     }
@@ -213,7 +209,7 @@ static void meta_update(struct meta *m)
     uint32_t voter = 0;
     struct sc_buf tmp;
 
-    for (int i = 0; i<  sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (m->nodes[i].role != META_JOINED) {
             voter++;
         }
@@ -223,18 +219,18 @@ static void meta_update(struct meta *m)
 
     sc_buf_init(&tmp, 1024);
 
-    for (int i = 0; i<  sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (m->nodes[i].role == META_LEADER) {
-            for (int j = 0; j < sc_array_size(m->nodes[i].uris); j++) {
+            for (size_t j = 0; j < sc_array_size(m->nodes[i].uris); j++) {
                 sc_buf_put_text(&tmp, "%s ", m->nodes[i].uris[j]->str);
             }
             break;
         }
     }
 
-    for (int i = 0; i<  sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (m->nodes[i].role != META_LEADER) {
-            for (int j = 0; j < sc_array_size(m->nodes[i].uris); j++) {
+            for (size_t j = 0; j < sc_array_size(m->nodes[i].uris); j++) {
                 sc_buf_put_text(&tmp, "%s ", m->nodes[i].uris[j]->str);
             }
         }
@@ -247,11 +243,11 @@ static void meta_update(struct meta *m)
 bool meta_add(struct meta *m, struct sc_uri *uri)
 {
     struct meta_node node;
-    struct meta* tmp;
+    struct meta *tmp;
 
     assert(m->prev == NULL);
 
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, uri->userinfo) == 0) {
             return false;
         }
@@ -270,14 +266,14 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
     return true;
 }
 
-bool meta_remove(struct meta *m, const char* name)
+bool meta_remove(struct meta *m, const char *name)
 {
     bool found = false;
-    struct meta* tmp;
+    struct meta *tmp;
 
     assert(m->prev == NULL);
 
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, name) == 0) {
             found = true;
             break;
@@ -294,8 +290,8 @@ bool meta_remove(struct meta *m, const char* name)
     meta_copy(tmp, m);
     m->prev = tmp;
 
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
-        if (strcmp(m->nodes[i].name,name) == 0) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
+        if (strcmp(m->nodes[i].name, name) == 0) {
             sc_array_del(m->nodes, i);
             break;
         }
@@ -306,9 +302,9 @@ bool meta_remove(struct meta *m, const char* name)
     return true;
 }
 
-bool meta_exists(struct meta *m, const char* name)
+bool meta_exists(struct meta *m, const char *name)
 {
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, name) == 0) {
             return true;
         }
@@ -317,7 +313,7 @@ bool meta_exists(struct meta *m, const char* name)
     return false;
 }
 
-void meta_remove_prev(struct meta* m)
+void meta_remove_prev(struct meta *m)
 {
     assert(m->prev != NULL);
 
@@ -328,7 +324,7 @@ void meta_remove_prev(struct meta* m)
 
 void meta_set_connected(struct meta *m, const char *name)
 {
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, name) == 0) {
             m->nodes[i].connected = true;
             break;
@@ -336,9 +332,9 @@ void meta_set_connected(struct meta *m, const char *name)
     }
 }
 
-void meta_set_disconnected(struct meta* m, const char* name)
+void meta_set_disconnected(struct meta *m, const char *name)
 {
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, name) == 0) {
             m->nodes[i].connected = false;
             break;
@@ -348,16 +344,16 @@ void meta_set_disconnected(struct meta* m, const char* name)
 
 void meta_clear_connection(struct meta *m)
 {
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         m->nodes[i].connected = false;
     }
 }
 
 void meta_set_leader(struct meta *m, const char *name)
 {
-    bool found;
+    bool found = false;
 
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, name) == 0) {
             m->nodes[i].role = META_LEADER;
             found = true;
@@ -399,7 +395,7 @@ int meta_parse_uris(struct meta *m, char *addrs)
 
         found = false;
 
-        for (int i = 0; i < sc_array_size(m->nodes); i++) {
+        for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
             if (strcmp(uri->userinfo, m->nodes[i].name) == 0) {
                 sc_array_add(m->nodes[i].uris, uri);
                 found = true;
@@ -433,7 +429,7 @@ void meta_print(struct meta *m, struct sc_buf *buf)
     sc_buf_put_text(buf, "| Cluster : %s \n", m->name);
     sc_buf_put_text(buf, "| Term    : %lu \n", (unsigned long) m->term);
 
-    for (int i = 0; i < sc_array_size(m->nodes); i++) {
+    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         sc_buf_put_text(buf, "| Node    : %s, Role : %s \n", m->nodes[i].name,
                         meta_role_str[m->nodes[i].role]);
     }

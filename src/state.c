@@ -86,7 +86,7 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
             ret = state->cb.remove_node(state->cb.arg, (const char *) value);
             sqlite3_result_text(ctx, ret, -1, NULL);
         }
-    } else if (strcmp((char*) cmd, "shutdown") == 0) {
+    } else if (strcmp((char *) cmd, "shutdown") == 0) {
         if (argc != 2) {
             sqlite3_result_error(ctx, usage_remove_node, -1);
             return;
@@ -97,7 +97,7 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
             ret = state->cb.shutdown(state->cb.arg, (const char *) value);
             sqlite3_result_text(ctx, ret, -1, NULL);
         }
-    } else if (strcmp((char*)cmd, "max-size") == 0) {
+    } else if (strcmp((char *) cmd, "max-size") == 0) {
         if (argc < 1 || argc > 2) {
             sqlite3_result_error(ctx, usage_max_size, -1);
             return;
@@ -139,7 +139,7 @@ int state_max_page(uint32_t max, uint32_t curr)
 {
     (void) max;
 
-    struct state* state = t_state;
+    struct state *state = t_state;
 
     if (state->client && curr > state->max_page) {
         return -1;
@@ -682,7 +682,7 @@ void state_on_timestamp(struct state *st, uint64_t realtime, uint64_t monotonic)
     st->monotonic = monotonic;
     st->realtime = realtime;
 
-    sc_list_foreach_safe(&st->disconnects, tmp, it) {
+    sc_list_foreach_safe (&st->disconnects, tmp, it) {
         sess = sc_list_entry(it, struct session, list);
         if (st->timestamp - sess->disconnect_time > 10000) {
             aux_del_session(&st->aux, sess);
@@ -711,7 +711,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
                                          struct sc_buf *req,
                                          struct sc_buf *resp)
 {
-    int rc, type, idx = 1;
+    int rc, type, idx;
     const char *param;
 
     while ((type = sc_buf_get_8(req)) != TASK_FLAG_END) {
@@ -733,7 +733,6 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
         default:
             st->last_err = "Invalid message";
             return RS_ERROR;
-            break;
         }
 
         type = sc_buf_get_8(req);
@@ -785,7 +784,6 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
         default:
             st->last_err = "Invalid message";
             return RS_ERROR;
-            break;
         }
     }
 
@@ -1012,7 +1010,6 @@ static int state_exec_non_stmt_task(struct state *st, struct session *sess,
         break;
     default:
         return RS_NOOP;
-        break;
     }
 
     if (rc == RS_ERROR) {
@@ -1280,7 +1277,7 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         sc_rand_init(&st->wrand, (unsigned char *) init.rand);
         sc_rand_init(&st->rrand, (unsigned char *) init.rand);
         return NULL;
-    } break;
+    }
     case CMD_META: {
         struct cmd_meta m;
         m = cmd_decode_meta(&cmd);
@@ -1291,24 +1288,23 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         s = cmd_decode_term_start(&cmd);
         state_on_term_start(st, &s);
         return NULL;
-    } break;
+    }
     case CMD_CLIENT_REQUEST:
         st->client = true;
         return state_on_client_request(st, index, entry);
-        break;
     case CMD_CLIENT_CONNECT: {
         struct cmd_client_connect c;
         c = cmd_decode_client_connect(&cmd);
 
         return state_on_client_connect(st, c.name, c.local, c.remote);
-    } break;
+    }
 
     case CMD_CLIENT_DISCONNECT: {
         struct cmd_client_disconnect c;
         c = cmd_decode_client_disconnect(&cmd);
 
         return state_on_client_disconnect(st, c.name, c.clean);
-    } break;
+    }
 
     case CMD_TIMESTAMP: {
         struct cmd_timestamp t;
@@ -1318,10 +1314,9 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
     case CMD_INFO: {
         state_on_info(st, &cmd);
         return NULL;
-    } break;
+    }
     default:
         rs_abort("");
-        break;
     }
 
     return NULL;
