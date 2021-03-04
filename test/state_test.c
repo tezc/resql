@@ -88,7 +88,7 @@ void state_simple()
         rs_abort("");
     }
 
-    resql_destroy(client);
+    resql_shutdown(client);
     server_stop(server);
 }
 

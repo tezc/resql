@@ -141,7 +141,7 @@ static void restart_simple()
         } while (resql_next(rs));
     }
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }
@@ -192,7 +192,7 @@ static void restart_simple2()
         abort();
     }
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }
