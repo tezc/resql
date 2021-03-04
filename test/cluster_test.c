@@ -128,7 +128,7 @@ void write_test()
 
     server_stop(s0);
     server_stop(s1);
-    resql_destroy(c);
+    resql_shutdown(c);
 }
 
 int main()

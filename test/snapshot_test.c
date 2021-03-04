@@ -148,7 +148,7 @@ static void snapshot_simple()
 
     assert(resql_next(rs) == false);
 
-    rc = resql_destroy(c);
+    rc = resql_shutdown(c);
     if (rc != RS_OK) {
         abort();
     }

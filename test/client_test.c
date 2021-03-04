@@ -129,7 +129,7 @@ static void client_simple()
         } while (resql_next(rs));
     }
 
-    int rc = resql_destroy(client);
+    int rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }
@@ -215,7 +215,7 @@ static void client_prepared()
     } while (resql_next(rs));
 
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }
@@ -340,7 +340,7 @@ static void client_error()
     assert(rc == RESQL_OK);
 
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }
@@ -395,7 +395,7 @@ static void client_many()
         } while (resql_next(rs));
     }
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }
@@ -455,7 +455,7 @@ static void client_big()
 
     free(p);
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RS_OK) {
         abort();
     }

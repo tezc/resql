@@ -39,6 +39,10 @@
     #define resql_free    free
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct resql_result resql_result;
 typedef struct resql resql;
 typedef uint64_t resql_stmt;
@@ -140,7 +144,7 @@ int resql_term();
 int resql_create(resql **c, struct resql_config *conf);
 
 /**
- * Destroy client, it will try to close connection gracefully so server can
+ * Shutdown client, it will try to close connection gracefully so server can
  * free allocated resources. It will deallocate resql object, so it's not
  * safe to use client object after this call.
  *
@@ -148,7 +152,7 @@ int resql_create(resql **c, struct resql_config *conf);
  * @return  RESQL_OK    : on success
  *          RESQL_ERROR : on error, e.g connection problem.
  */
-int resql_destroy(resql *c);
+int resql_shutdown(resql *c);
 
 /**
  *  Get last error string.
@@ -160,7 +164,7 @@ const char *resql_errstr(resql *c);
 
 /**
  * Prepared statement. If client exists gracefully by calling
- * resql_destroy(), client's prepared statements are deallocated on the
+ * resql_shutdown(), client's prepared statements are deallocated on the
  * server automatically. This operation cannot be pipelined with others.
  *
  * parametered statements and indexed statements are supported.
@@ -181,7 +185,7 @@ int resql_prepare(resql *c, const char *sql, resql_stmt *stmt);
 
 /**
  * Delete prepared statement. If client exists gracefully by calling
- * resql_destroy(), client's prepared statements are deallocated on the
+ * resql_shutdown(), client's prepared statements are deallocated on the
  * server automatically. This operation cannot be pipelined with others.
  *
  * @param c    client
@@ -350,5 +354,9 @@ int resql_column_count(resql_result *rs);
  * @return   column array.
  */
 struct resql_column *resql_row(resql_result *rs);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

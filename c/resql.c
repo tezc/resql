@@ -2090,7 +2090,7 @@ error:
     return rc;
 }
 
-int resql_destroy(struct resql *c)
+int resql_shutdown(struct resql *c)
 {
     if (!c) {
         return RESQL_OK;

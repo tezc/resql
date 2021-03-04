@@ -684,7 +684,7 @@ int main(int argc, char **argv)
     free(line);
 
     printf("Shutting down.. \n");
-    resql_destroy(client);
+    resql_shutdown(client);
 
     return 0;
 }
