@@ -468,7 +468,7 @@ static void test_connect()
                                              .timeout_millis = 2000,
                                              .urls = "tcp://1271.0.0.1:7600"});
     assert(rc != RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
@@ -476,7 +476,7 @@ static void test_connect()
                                              .timeout_millis = 2000,
                                              .urls = "tcp://127.0.0.1:7600"});
     assert(rc != RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
@@ -484,7 +484,7 @@ static void test_connect()
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:769900"});
     assert(rc != RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
@@ -492,7 +492,7 @@ static void test_connect()
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
@@ -500,7 +500,7 @@ static void test_connect()
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
@@ -508,31 +508,31 @@ static void test_connect()
                               .timeout_millis = 1,
                               .urls = "tcp://127.0.0.1:7600"});
     assert(rc != RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){0});
     assert(rc == RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .timeout_millis = 2000,
                               .cluster_name = "cluster"});
     assert(rc == RESQL_OK);
-    assert(resql_destroy(client) == RESQL_OK);
+    assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
@@ -541,7 +541,7 @@ static void test_connect()
                               .urls = "tcp://127.0.0.1:7600"});
     assert(rc == RESQL_OK);
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     assert(rc == RESQL_OK);
 
     rc = resql_create(&client,
@@ -557,7 +557,7 @@ static void test_connect()
 
     assert(rc == RESQL_OK);
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     assert(rc == RESQL_OK);
 }
 
@@ -575,7 +575,7 @@ static void example1()
 
     printf("%s \n", row[0].text);
 
-    resql_destroy(client);
+    resql_shutdown(client);
 }
 
 static void example2()
@@ -604,7 +604,7 @@ static void example2()
     row = resql_row(rs);
     printf("%s \n", row[0].text);
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RESQL_OK) {
         printf("Failed to create client \n");
         exit(1);
@@ -638,7 +638,7 @@ static void example3()
         exit(1);
     }
 
-    resql_destroy(client);
+    resql_shutdown(client);
 }
 
 static void example4()
@@ -688,7 +688,7 @@ static void example4()
         exit(1);
     }
 
-    resql_destroy(client);
+    resql_shutdown(client);
 }
 
 static void example5()
@@ -740,7 +740,7 @@ static void example5()
         exit(1);
     }
 
-    resql_destroy(client);
+    resql_shutdown(client);
 }
 
 static void example6()
@@ -819,7 +819,7 @@ static void example6()
         exit(1);
     }
 
-    resql_destroy(client);
+    resql_shutdown(client);
 }
 
 void run(void (*fn)(), const char* name)
@@ -878,13 +878,13 @@ void run(void (*fn)(), const char* name)
         exit(1);
     }
 
-    rc = resql_destroy(client);
+    rc = resql_shutdown(client);
     if (rc != RESQL_OK) {
         printf("Failed to destroy client \n");
         exit(1);
     }
 
-    rc = resql_destroy(unixclient);
+    rc = resql_shutdown(unixclient);
     if (rc != RESQL_OK) {
         printf("Failed to destroy client \n");
         exit(1);
@@ -947,7 +947,7 @@ static void example7()
         exit(1);
     }
 
-    resql_destroy(r);
+    resql_shutdown(r);
 }
 
 
