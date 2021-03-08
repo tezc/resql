@@ -342,7 +342,7 @@ int rs_systemd_notify(const char *msg)
         return -1;
     }
 
-    fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    fd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (fd < 0) {
         sc_log_error("systemd : Failed to create socket. \n");
         return -1;
