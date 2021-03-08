@@ -31,23 +31,24 @@ struct server *create_node_0()
 {
     char *options[] = {"", "-e"};
 
+    int rc;
     struct conf settings;
+    struct server *server;
 
     conf_init(&settings);
     conf_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");
-    sc_str_set(&settings.node.bind_uri,
-               "tcp://node0@127.0.0.1:7600 unix:///tmp/var0");
+    sc_str_set(&settings.node.bind_uri, "tcp://node0@127.0.0.1:7600");
     sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:7600");
-    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
+    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
     sc_str_set(&settings.node.dir, "/tmp/node0");
     settings.node.in_memory = true;
 
-    struct server *server = server_create(&settings);
+    server = server_create(&settings);
 
-    int rc = server_start(server, true);
+    rc = server_start(server, true);
     if (rc != RS_OK) {
         abort();
     }
@@ -59,23 +60,53 @@ struct server *create_node_1()
 {
     char *options[] = {"", "-e"};
 
+    int rc;
     struct conf settings;
+    struct server *server;
 
     conf_init(&settings);
     conf_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node1");
-    sc_str_set(&settings.node.bind_uri,
-               "tcp://node1@127.0.0.1:7601 unix:///tmp/var1");
+    sc_str_set(&settings.node.bind_uri, "tcp://node1@127.0.0.1:7601");
     sc_str_set(&settings.node.ad_uri, "tcp://node1@127.0.0.1:7601");
-    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
+    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
     sc_str_set(&settings.node.dir, "/tmp/node1");
     settings.node.in_memory = true;
 
-    struct server *server = server_create(&settings);
+    server = server_create(&settings);
 
-    int rc = server_start(server, true);
+    rc = server_start(server, true);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    return server;
+}
+
+struct server *create_node_2()
+{
+    char *options[] = {"", "-e"};
+
+    int rc;
+    struct conf settings;
+    struct server *server;
+
+    conf_init(&settings);
+    conf_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
+
+    sc_str_set(&settings.node.log_level, "DEBUG");
+    sc_str_set(&settings.node.name, "node2");
+    sc_str_set(&settings.node.bind_uri, "tcp://node2@127.0.0.1:7602");
+    sc_str_set(&settings.node.ad_uri, "tcp://node2@127.0.0.1:7602");
+    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601 tcp://node2@127.0.0.1:7602");
+    sc_str_set(&settings.node.dir, "/tmp/node2");
+    settings.node.in_memory = true;
+
+    server = server_create(&settings);
+
+    rc = server_start(server, true);
     if (rc != RS_OK) {
         abort();
     }
@@ -91,34 +122,32 @@ void write_test()
     const char *uris =
             "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
-    struct server *s0, *s1;
+    struct server *s0, *s1, *s2;
 
     s0 = create_node_0();
     s1 = create_node_1();
+    s2 = create_node_2();
 
     struct resql_config settings = {.cluster_name = "cluster",
             .client_name = "any",
             .timeout_millis = 50000,
             .urls = uris};
 
-    resql_create(&c, &settings);
+    rc = resql_create(&c, &settings);
+    assert(rc == RESQL_OK);
 
+    resql_put_sql(c, "DROP TABLE IF EXISTS snapshot;");
     resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
 
     rc = resql_exec(c, false, &rs);
-    if (rc != RESQL_OK) {
-        rs_abort("");
-    }
+    client_assert(c, rc == RESQL_OK);
 
     for (int i = 0; i < 1000; i++) {
-        for (int j = 0; j < 1000; j++) {
-            char tmp[32];
-            snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
+        char tmp[32];
+        snprintf(tmp, sizeof(tmp), "%d", i);
 
-            resql_put_sql(
-                    c, "INSERT INTO snapshot VALUES(:key, 'value')");
-            resql_bind_param_text(c, ":key", tmp);
-        }
+        resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
+        resql_bind_param_text(c, ":key", tmp);
 
         rc = resql_exec(c, false, &rs);
         if (rc != RESQL_OK) {
@@ -126,9 +155,26 @@ void write_test()
         }
     }
 
+    //server_stop(s0);
+
+    for (int i = 1000; i < 2000; i++) {
+        char tmp[32];
+        snprintf(tmp, sizeof(tmp), "%d", i);
+
+        resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
+        resql_bind_param_text(c, ":key", tmp);
+
+        rc = resql_exec(c, false, &rs);
+        if (rc != RESQL_OK) {
+            rs_abort("");
+        }
+    }
+
+
+    resql_shutdown(c);
     server_stop(s0);
     server_stop(s1);
-    resql_shutdown(c);
+    server_stop(s2);
 }
 
 int main()

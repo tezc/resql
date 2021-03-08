@@ -116,5 +116,7 @@ void rs_free(void *p);
 void rs_rand_init();
 unsigned int rs_rand();
 
+int rs_systemd_notify(const char* msg);
+
 
 #endif

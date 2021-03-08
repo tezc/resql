@@ -18,23 +18,24 @@
  */
 
 
+#include "conf.h"
 #include "server.h"
-#include "settings.h"
 
 int main(int argc, char *argv[])
 {
     int rc;
-    struct settings settings;
+    struct conf config;
     struct server *server;
 
     server_global_init();
 
-    settings_init(&settings);
-    settings_read_cmdline(&settings, argc, argv);
-    settings_read_file(&settings, settings.cmdline.settings_file);
+    conf_init(&config);
+    conf_read_cmdline(&config, argc, argv);
+    conf_read_file(&config, config.cmdline.config_file);
 
-    server = server_create(&settings);
+    server = server_create(&config);
     rc = server_start(server, false);
+    server_destroy(server);
 
     server_global_shutdown();
 

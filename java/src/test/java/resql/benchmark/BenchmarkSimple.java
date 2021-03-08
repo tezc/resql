@@ -36,24 +36,44 @@ import resql.PreparedStatement;
 import resql.Resql;
 import resql.ResqlClient;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
 
 public class BenchmarkSimple {
 
+    @Test
     public void launchBenchmark() throws Exception {
+
+        Resql client = ResqlClient.create(new Config());
+
+        client.put("DROP TABLE IF EXISTS multi;");
+        client.put("CREATE TABLE multi (id INTEGER PRIMARY KEY, name TEXT, " +
+                           "points FLOAT, data BLOB, date TEXT);");
+        client.execute(false);
+
+        for (int i = 0; i < 1000; i++) {
+            client.put("INSERT INTO multi VALUES(?, ?, ?, ?, ?);");
+            client.bind(0, i);
+            client.bind(1, "jane" + i);
+            client.bind(2, 3.221 + i);
+            client.bind(3, ("blob" + i).getBytes(StandardCharsets.UTF_8));
+            client.bind(4, null);
+        }
+        client.execute(false);
+        client.shutdown();
 
 
         Options opt = new OptionsBuilder().include(
                 this.getClass().getName() + ".*")
                                           .mode(Mode.SampleTime)
                                           .timeUnit(TimeUnit.MICROSECONDS)
-                                          .warmupTime(TimeValue.seconds(2))
+                                          .warmupTime(TimeValue.seconds(5))
                                           .warmupIterations(1)
                                           .measurementTime(
                                                   TimeValue.seconds(5))
                                           .measurementIterations(1)
-                                          .threads(10)
+                                          .threads(4)
                                           .forks(1)
                                           .shouldFailOnError(true)
                                           .build();
@@ -70,9 +90,6 @@ public class BenchmarkSimple {
         @Setup(Level.Trial)
         public void initialize() {
             client = ResqlClient.create(new Config());
-            client.put("CREATE TABLE IF NOT EXISTS multi (id INTEGER PRIMARY KEY, name TEXT, " +
-                               "points FLOAT, data BLOB, date TEXT);");
-            client.execute(false);
             p = client.prepare("SELECT * FROM multi WHERE id = ?;");
         }
 

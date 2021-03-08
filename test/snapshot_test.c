@@ -53,10 +53,10 @@ struct server *create_node_0()
 {
     char *options[] = {""};
 
-    struct settings settings;
+    struct conf settings;
 
-    settings_init(&settings);
-    settings_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
+    conf_init(&settings);
+    conf_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");

@@ -28,6 +28,7 @@ int main(int argc, char **argv)
     int ops =0 ;
     resql *c;
     resql_result *rs;
+    resql_stmt stmt;
 
     struct resql_config config = {
             .urls = "tcp://127.0.0.1:7600",
@@ -66,6 +67,23 @@ int main(int argc, char **argv)
     for (int i = 0; i < 10000; i++) {
         ops++;
         resql_put_sql(c, "SELECT * FROM test WHERE key = ?;");
+        resql_bind_index_int(c, 0, i % 1000);
+        rc = resql_exec(c, true, &rs);
+        if (rc != RESQL_OK) {
+            printf("Failed : %s \n", resql_errstr(c));
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    rc = resql_prepare(c, "SELECT * FROM test WHERE key = ?;", &stmt);
+    if (rc != RESQL_OK) {
+        printf("Failed : %s \n", resql_errstr(c));
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < 10000; i++) {
+        ops++;
+        resql_put_prepared(c, &stmt);
         resql_bind_index_int(c, 0, i % 1000);
         rc = resql_exec(c, true, &rs);
         if (rc != RESQL_OK) {

@@ -22,8 +22,8 @@
 #include "c/resql.h"
 #include "sc/sc_uri.h"
 
+#include <conf.h>
 #include <server.h>
-#include <settings.h>
 #include <stdio.h>
 #include <unistd.h>
 

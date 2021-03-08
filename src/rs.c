@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -300,4 +301,70 @@ unsigned int rs_rand()
     sc_rand_read(&rc4, &val, sizeof(val));
 
     return val;
+}
+
+#include <netinet/ip.h>
+#include <sys/un.h>
+
+union sockaddr_union
+{
+    struct sockaddr sa;
+    struct sockaddr_in in4;
+    struct sockaddr_in6 in6;
+    struct sockaddr_un un;
+    struct sockaddr_storage storage;
+};
+
+int rs_systemd_notify(const char *msg)
+{
+    int fd, rc = 0;
+    const char *s;
+    union sockaddr_union addr = {.sa.sa_family = AF_UNIX};
+    struct iovec iovec = {.iov_base = (char *) msg, .iov_len = strlen(msg)};
+    struct msghdr msghdr = {.msg_name = &addr,
+                            .msg_iov = &iovec,
+                            .msg_iovlen = 1};
+    if (!msg) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    s = getenv("NOTIFY_SOCKET");
+    if (!s) {
+        errno = EINVAL;
+        sc_log_error("systemd : NOTIFY_SOCKET variable is missing. \n");
+        return -1;
+    }
+
+    if ((s[0] != '@' && s[0] != '/') || s[1] == '\0') {
+        errno = ENOENT;
+        sc_log_error("systemd : NOTIFY_SOCKET path is invalid %s \n", s);
+        return -1;
+    }
+
+    fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        sc_log_error("systemd : Failed to create socket. \n");
+        return -1;
+    }
+
+    strncpy(addr.un.sun_path, s, sizeof(addr.un.sun_path) - 1);
+    if (addr.un.sun_path[0] == '@') {
+        addr.un.sun_path[0] = '\0';
+    }
+
+    msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(s);
+    if (msghdr.msg_namelen > sizeof(struct sockaddr_un)) {
+        msghdr.msg_namelen = sizeof(struct sockaddr_un);
+    }
+
+    rc = sendmsg(fd, &msghdr, MSG_NOSIGNAL);
+    if (rc < 0) {
+        sc_log_error("systemd : Failed to send msg : %s. \n", strerror(errno));
+        rc = -1;
+    }
+
+    close(fd);
+
+    return rc > 0 ? 0 : -1;
 }
