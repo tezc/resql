@@ -104,7 +104,6 @@ char* rs_strncpy(char *dest, const char* src, size_t max);
 
 size_t rs_dir_size(const char *path);
 
-int rs_set_daemon();
 int rs_write_pid_file(char *path);
 int rs_delete_pid_file(char *path);
 
@@ -115,8 +114,6 @@ void rs_free(void *p);
 
 void rs_rand_init();
 unsigned int rs_rand();
-
-int rs_systemd_notify(const char* msg);
 
 
 #endif

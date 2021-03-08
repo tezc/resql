@@ -236,13 +236,26 @@ const char *sc_sock_local_str(struct sc_sock *sock, char *buf, size_t len);
 const char *sc_sock_remote_str(struct sc_sock *sock, char *buf, size_t len);
 
 /**
- * Print socket in format "Local(127.0.0.1:7600), Remote(180.20.20.3:9000)"
+ * Print socket in format "Local(127.0.0.1:8080), Remote(180.20.20.3:9000)"
  *
  * @param sock sock
  * @param buf  buf
  * @param len  buf len
  */
 void sc_sock_print(struct sc_sock *sock, char *buf, size_t len);
+
+
+/**
+ * Linux only. Helper function make your application a daemon with systemd.
+ * e.g
+ * sc_sock_notify_systemd("READY=1\n");           // Tell systemd app started
+ * sc_sock_notify_systemd("STATUS=doing work\n"); // Tell systemd app doing sth
+ * sc_sock_notify_systemd("STOPPING=1\n")       ; // Tell systemd app will stop
+ *
+ * @param msg msg with systemd protocol format
+ * @return    '0' on success, negative on error, errno will be set.
+ */
+int sc_sock_notify_systemd(const char *msg);
 
 
 struct sc_sock_pipe

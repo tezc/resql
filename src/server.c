@@ -397,7 +397,7 @@ static void server_on_signal(struct server *s, struct sc_sock_fd *fd)
     sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
 
     if (s->conf.cmdline.systemd) {
-        rs_systemd_notify("STOPPING=1\n");
+        sc_sock_notify_systemd("STOPPING=1\n");
     }
 
     sc_log_info("Received shutdown command, shutting down. \n");
@@ -1876,7 +1876,7 @@ static void *server_run(void *arg)
     server_prepare_start(s);
 
     if (s->conf.cmdline.systemd) {
-        rc = rs_systemd_notify("READY=1\n");
+        rc = sc_sock_notify_systemd("READY=1\n");
         if (rc != 0) {
             sc_log_error("systemd failed : %s \n", strerror(errno));
             exit(EXIT_FAILURE);
@@ -1934,7 +1934,7 @@ static void *server_run(void *arg)
     state_close(&s->state);
 
     if (s->conf.cmdline.systemd) {
-        rs_systemd_notify("STATUS=Shutdown task has been completed!\n");
+        sc_sock_notify_systemd("STATUS=Shutdown task has been completed!\n");
     }
 
     return (void *) RS_OK;
