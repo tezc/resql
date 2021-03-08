@@ -140,7 +140,7 @@ struct server
 void server_global_init();
 void server_global_shutdown();
 
-struct server *server_create(struct conf *settings);
+struct server *server_create(struct conf *conf);
 void server_destroy(struct server *server);
 
 int server_start(struct server *server, bool new_thread);

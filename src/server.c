@@ -70,13 +70,13 @@ void server_global_shutdown()
     state_global_shutdown();
 }
 
-struct server *server_create(struct conf *settings)
+struct server *server_create(struct conf *conf)
 {
     int rc;
     struct server *s;
 
-    if (settings->cmdline.wipe) {
-        rc = file_clear_dir(s->conf.node.dir, RS_STORE_EXTENSION);
+    if (conf->cmdline.wipe) {
+        rc = file_clear_dir(conf->node.dir, RS_STORE_EXTENSION);
         if (rc != RS_OK) {
             rs_abort("file_clear_dir failed. \n");
         }
@@ -85,24 +85,24 @@ struct server *server_create(struct conf *settings)
         exit(EXIT_SUCCESS);
     }
 
-    if (sc_log_set_level(settings->node.log_level) != 0) {
-        rs_exit("Invalid log level : '%s' \n", settings->node.log_level);
+    if (sc_log_set_level(conf->node.log_level) != 0) {
+        rs_exit("Invalid log level : '%s' \n", conf->node.log_level);
     }
 
-    if (strcasecmp(settings->node.log_dest, "stdout") != 0) {
+    if (strcasecmp(conf->node.log_dest, "stdout") != 0) {
         sc_log_set_stdout(false);
         sc_log_set_file("log.prev.txt", "log.current.txt");
     }
 
     s = rs_calloc(1, sizeof(*s));
-    s->conf = *settings;
+    s->conf = *conf;
 
-    rc = file_mkdir(settings->node.dir);
+    rc = file_mkdir(conf->node.dir);
     if (rc != RS_OK) {
-        rs_exit("Failed to create dir : '%s' \n", settings->node.dir);
+        rs_exit("Failed to create dir : '%s' \n", conf->node.dir);
     }
 
-    rs_write_pid_file(settings->node.dir);
+    rs_write_pid_file(conf->node.dir);
     sc_thread_init(&s->thread);
 
     meta_init(&s->meta, s->conf.cluster.name);
@@ -1467,7 +1467,6 @@ static void server_prepare_start(struct server *s)
     const char *token;
     struct node *node;
     struct meta_node n;
-    struct sc_uri *uri = NULL;
 
     conf_print(&s->conf);
     server_prepare_cluster(s);
