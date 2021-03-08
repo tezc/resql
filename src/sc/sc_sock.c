@@ -175,6 +175,7 @@ static int sc_sock_close(struct sc_sock *sock)
     int rc = 0;
 
     if (sock->fdt.fd != -1) {
+
         rc = sc_close(sock->fdt.fd);
         sock->fdt.fd = -1;
     }

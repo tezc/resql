@@ -22,10 +22,10 @@
  * SOFTWARE.
  */
 
-#include "c/resql.h"
-#include "linenoise/linenoise.h"
-#include "sc/sc_option.h"
-#include "sc/sc_uri.h"
+#include "resql.h"
+#include "linenoise.h"
+#include "sc_option.h"
+#include "sc_uri.h"
 
 #include <ctype.h>
 #include <signal.h>

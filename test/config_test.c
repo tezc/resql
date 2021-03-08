@@ -17,15 +17,16 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "settings.h"
+#include "conf.h"
+
 #include "test_util.h"
 
 static void config_tests(void)
 {
-    struct settings settings;
+    struct conf settings;
 
-    settings_init(&settings);
-    settings_term(&settings);
+    conf_init(&settings);
+    conf_term(&settings);
 }
 
 int main(void)

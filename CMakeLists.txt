@@ -19,7 +19,7 @@ include(CheckCSourceRuns)
 include(CheckIncludeFiles)
 include(CheckIPOSupported)
 include(CTest)
-include(CPack)
+
 # -------------------- Includes end -----------------------------#
 
 
@@ -351,11 +351,10 @@ set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_COMMON} ${C_
 
 # -------------------- Subfolder Start ------------------------- #
 
-add_subdirectory(main)
-add_subdirectory(cli)
+add_subdirectory(src)
+add_subdirectory(util/cli)
 
 if (RESQL_BUILD_TESTS)
-    add_subdirectory(src)
     add_subdirectory(test)
     add_subdirectory(test/example)
 endif ()

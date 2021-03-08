@@ -18,13 +18,13 @@
  */
 
 
-#ifndef RESQL_SETTINGS_H
-#define RESQL_SETTINGS_H
+#ifndef RESQL_CONF_H
+#define RESQL_CONF_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-struct settings
+struct conf
 {
     struct
     {
@@ -47,19 +47,21 @@ struct settings
 
     struct
     {
+        bool systemd;
         bool empty;
-        char *settings_file;
+        bool wipe;
+        char *config_file;
     } cmdline;
 
     char err[128];
 };
 
-void settings_init(struct settings *c);
-void settings_term(struct settings *c);
+void conf_init(struct conf *c);
+void conf_term(struct conf *c);
 
-void settings_read_cmdline(struct settings *c, int argc, char *argv[]);
-void settings_read_file(struct settings *c, const char *path);
-void settings_print(struct settings *c);
+void conf_read_cmdline(struct conf *c, int argc, char **argv);
+void conf_read_file(struct conf *c, const char *path);
+void conf_print(struct conf *c);
 
 
 #endif

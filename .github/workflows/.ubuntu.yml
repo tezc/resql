@@ -26,3 +26,6 @@ jobs:
           cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=undefined
           make -j
           make check
+          rm -rf *
+          cd ..
+          ./build.sh

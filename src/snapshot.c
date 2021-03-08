@@ -47,11 +47,11 @@ void snapshot_init(struct snapshot *ss, struct server *server)
     int rc;
 
     ss->server = server;
-    ss->path = sc_str_create_fmt("%s/%s", server->settings.node.dir,
+    ss->path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
                                  "snapshot.resql");
-    ss->tmp_path = sc_str_create_fmt("%s/%s", server->settings.node.dir,
+    ss->tmp_path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
                                      "snapshot.tmp.resql");
-    ss->tmp_recv_path = sc_str_create_fmt("%s/%s", server->settings.node.dir,
+    ss->tmp_recv_path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
                                           "snapshot.tmp.recv.resql");
     ss->tmp = NULL;
     ss->recv_index = 0;
@@ -192,7 +192,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 
     uint64_t start = sc_time_mono_ns();
 
-    state_init(&state, (struct state_cb){0}, ss->server->settings.node.dir, "");
+    state_init(&state, (struct state_cb){0}, ss->server->conf.node.dir, "");
 
     rc = state_read_for_snapshot(&state);
     if (rc != RS_OK) {
@@ -229,7 +229,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 void snapshot_set_thread_name(struct snapshot *ss)
 {
     char buf[128];
-    const char *node = ss->server->settings.node.name;
+    const char *node = ss->server->conf.node.name;
 
     rs_snprintf(buf, sizeof(buf), "%s-%s", node, "snapshot");
     sc_log_set_thread_name(buf);

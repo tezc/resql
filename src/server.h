@@ -21,9 +21,9 @@
 #ifndef RESQL_SERVER_H
 #define RESQL_SERVER_H
 
+#include "conf.h"
 #include "metric.h"
 #include "msg.h"
-#include "settings.h"
 #include "snapshot.h"
 #include "state.h"
 #include "store.h"
@@ -73,16 +73,22 @@ struct server_job
     void* data;
 };
 
+struct server_endpoint
+{
+    struct sc_uri *uri;
+    struct sc_sock *sock;
+};
+
 struct server
 {
     struct sc_thread thread;
-    struct settings settings;
+    struct conf conf;
     struct metric metric;
     struct sc_sock_poll loop;
     struct sc_sock_pipe efd;
     struct sc_sock_pipe sigfd;
     struct sc_timer timer;
-    struct sc_sock **endpoints;
+    struct server_endpoint *endpoints;
     struct sc_list pending_conns;
     struct sc_buf buf;
     struct sc_map_sv clients;
@@ -134,7 +140,8 @@ struct server
 void server_global_init();
 void server_global_shutdown();
 
-struct server *server_create(struct settings *settings);
+struct server *server_create(struct conf *settings);
+void server_destroy(struct server *server);
 
 int server_start(struct server *server, bool new_thread);
 int server_stop(struct server *server);

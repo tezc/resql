@@ -13,6 +13,7 @@ _deps
 backup
 cmake-build*
 build
-bin/resql*
+bin/resql
+bin/resql-cli
 bin/pgo
 bin/build

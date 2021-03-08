@@ -19,6 +19,7 @@
 
 #include "client.h"
 #include "cmd.h"
+#include "conf.h"
 #include "conn.h"
 #include "file.h"
 #include "metric.h"
@@ -27,7 +28,6 @@
 #include "rs.h"
 #include "server.h"
 #include "session.h"
-#include "settings.h"
 #include "state.h"
 
 #include "sc/sc.h"
@@ -43,6 +43,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SERVER_ELECTION_TIMEOUT 1000
 #define SERVER_BATCH_SIZE       (SC_SOCK_BUF_SIZE - 128)
@@ -69,13 +70,23 @@ void server_global_shutdown()
     state_global_shutdown();
 }
 
-struct server *server_create(struct settings *settings)
+struct server *server_create(struct conf *settings)
 {
     int rc;
     struct server *s;
 
+    if (settings->cmdline.wipe) {
+        rc = file_clear_dir(s->conf.node.dir, RS_STORE_EXTENSION);
+        if (rc != RS_OK) {
+            rs_abort("file_clear_dir failed. \n");
+        }
+
+        sc_log_info("Cleared database. \n");
+        exit(EXIT_SUCCESS);
+    }
+
     if (sc_log_set_level(settings->node.log_level) != 0) {
-        rs_exit("Invalid log level : '%s'", settings->node.log_level);
+        rs_exit("Invalid log level : '%s' \n", settings->node.log_level);
     }
 
     if (strcasecmp(settings->node.log_dest, "stdout") != 0) {
@@ -84,17 +95,17 @@ struct server *server_create(struct settings *settings)
     }
 
     s = rs_calloc(1, sizeof(*s));
-    s->settings = *settings;
+    s->conf = *settings;
 
     rc = file_mkdir(settings->node.dir);
     if (rc != RS_OK) {
-        rs_exit("Failed to create dir : '%s'", settings->node.dir);
+        rs_exit("Failed to create dir : '%s' \n", settings->node.dir);
     }
 
     rs_write_pid_file(settings->node.dir);
     sc_thread_init(&s->thread);
 
-    meta_init(&s->meta, s->settings.cluster.name);
+    meta_init(&s->meta, s->conf.cluster.name);
     sc_sock_poll_init(&s->loop);
     sc_sock_pipe_init(&s->efd, SERVER_FD_TASK);
     sc_sock_poll_add(&s->loop, &s->efd.fdt, SC_SOCK_READ, &s->efd.fdt);
@@ -128,9 +139,10 @@ struct server *server_create(struct settings *settings)
 
 void server_destroy(struct server *s)
 {
+    int rc;
     struct node *node;
     struct client *client;
-    struct sc_sock *sock;
+    struct server_endpoint endp;
     struct server_job job;
 
     snapshot_term(&s->ss);
@@ -159,10 +171,19 @@ void server_destroy(struct server *s)
     sc_map_term_sv(&s->clients);
     sc_map_term_64v(&s->vclients);
 
-    sc_array_foreach (s->endpoints, sock) {
-        sc_sock_term(sock);
-        rs_free(sock);
+    sc_array_foreach (s->endpoints, endp) {
+        if (strcmp(endp.uri->scheme, "unix") == 0) {
+            rc = unlink(endp.uri->path);
+            if (rc != 0) {
+                sc_log_error("Failed to unlink : %s \n", endp.uri->path);
+            }
+        }
+
+        sc_uri_destroy(endp.uri);
+        sc_sock_term(endp.sock);
+        rs_free(endp.sock);
     }
+
     sc_array_destroy(s->endpoints);
 
     sc_queue_foreach (s->jobs, job) {
@@ -179,22 +200,22 @@ void server_destroy(struct server *s)
     sc_str_destroy(s->meta_path);
     sc_str_destroy(s->meta_tmp_path);
     sc_buf_term(&s->tmp);
-    rs_delete_pid_file(s->settings.node.dir);
-    settings_term(&s->settings);
+    rs_delete_pid_file(s->conf.node.dir);
+    conf_term(&s->conf);
     rs_free(s);
 }
 
 void server_prepare_cluster(struct server *s)
 {
     int rc;
-    const char *path = s->settings.node.dir;
+    const char *path = s->conf.node.dir;
 
     s->meta_path = sc_str_create_fmt("%s/%s", path, DEF_META_FILE);
     s->meta_tmp_path = sc_str_create_fmt("%s/%s", path, DEF_META_TMP);
     s->cluster_up = false;
     s->role = SERVER_ROLE_FOLLOWER;
     s->leader = NULL;
-    s->own = node_create(s->settings.node.name, s, false);
+    s->own = node_create(s->conf.node.name, s, false);
 
     sc_array_add(s->nodes, s->own);
 
@@ -203,7 +224,7 @@ void server_prepare_cluster(struct server *s)
                           .remove_node = server_remove_node,
                           .shutdown = server_shutdown};
 
-    state_init(&s->state, cb, path, s->settings.cluster.name);
+    state_init(&s->state, cb, path, s->conf.cluster.name);
     snapshot_init(&s->ss, s);
 
     rc = file_remove_if_exists(s->meta_tmp_path);
@@ -211,8 +232,8 @@ void server_prepare_cluster(struct server *s)
         rs_abort("remove");
     }
 
-    if (s->settings.cmdline.empty) {
-        rc = file_clear_dir(s->settings.node.dir, RS_STORE_EXTENSION);
+    if (s->conf.cmdline.empty) {
+        rc = file_clear_dir(s->conf.node.dir, RS_STORE_EXTENSION);
         if (rc != RS_OK) {
             rs_abort("cleardir");
         }
@@ -255,7 +276,7 @@ void server_read_meta(struct server *s)
     }
 
     if (!file_exists_at(s->meta_path)) {
-        meta_parse_uris(&s->meta, s->settings.cluster.nodes);
+        meta_parse_uris(&s->meta, s->conf.cluster.nodes);
         server_write_meta(s);
     } else {
         file_init(&file);
@@ -283,8 +304,8 @@ void server_read_meta(struct server *s)
     meta_print(&s->meta, &s->tmp);
     sc_log_info(sc_buf_rbuf(&s->tmp));
 
-    state_open(&s->state, s->settings.node.in_memory);
-    store_init(&s->store, s->settings.node.dir, s->state.term, s->state.index);
+    state_open(&s->state, s->conf.node.in_memory);
+    store_init(&s->store, s->conf.node.dir, s->state.term, s->state.index);
     snapshot_open(&s->ss, s->state.ss_path, s->state.term, s->state.index);
 
     s->commit_index = s->state.index;
@@ -297,27 +318,37 @@ void server_update_meta(struct server *s, uint64_t term, const char *voted_for)
     server_write_meta(s);
 }
 
-static void server_listen(struct server *s, struct sc_uri *uri)
+static void server_listen(struct server *s, const char* addr)
 {
     int family, rc;
     const char *host;
-    struct sc_sock *endpoint;
+    struct sc_uri *uri;
+    struct sc_sock *sock;
+    struct server_endpoint e;
+
+    uri = sc_uri_create(addr);
+    if (!uri) {
+        rs_exit("Failed to parse bind url : %s \n", addr);
+    }
 
     family = strcmp(uri->scheme, "unix") == 0 ? SC_SOCK_UNIX :
              *uri->host == '['                ? SC_SOCK_INET6 :
                                                 SC_SOCK_INET;
-    endpoint = rs_malloc(sizeof(*endpoint));
-    sc_sock_init(endpoint, SERVER_FD_INCOMING_CONN, false, family);
+    sock = rs_malloc(sizeof(*sock));
+    sc_sock_init(sock, SERVER_FD_INCOMING_CONN, false, family);
 
     host = (family == SC_SOCK_UNIX) ? uri->path : uri->host;
-    rc = sc_sock_listen(endpoint, host, uri->port);
+    rc = sc_sock_listen(sock, host, uri->port);
     if (rc != RS_OK) {
         rs_exit("Failed to listen at : %s, reason : %s \n", uri->str,
-                sc_sock_error(endpoint));
+                sc_sock_error(sock));
     }
 
-    sc_array_add(s->endpoints, endpoint);
-    sc_sock_poll_add(&s->loop, &endpoint->fdt, SC_SOCK_READ, &endpoint->fdt);
+    e.uri = uri;
+    e.sock = sock;
+
+    sc_array_add(s->endpoints, e);
+    sc_sock_poll_add(&s->loop, &sock->fdt, SC_SOCK_READ, &sock->fdt);
 
     sc_log_info("Listening at : %s \n", uri->str);
 }
@@ -364,6 +395,10 @@ static void server_on_signal(struct server *s, struct sc_sock_fd *fd)
     uint64_t val;
 
     sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
+
+    if (s->conf.cmdline.systemd) {
+        rs_systemd_notify("STOPPING=1\n");
+    }
 
     sc_log_info("Received shutdown command, shutting down. \n");
     s->stop_requested = true;
@@ -452,8 +487,8 @@ static void server_write_meta_cmd(struct server *s)
     assert(s->leader == s->own);
 
     meta_clear_connection(&s->meta);
-    meta_set_leader(&s->meta, s->settings.node.name);
-    meta_set_connected(&s->meta, s->settings.node.name);
+    meta_set_leader(&s->meta, s->conf.node.name);
+    meta_set_connected(&s->meta, s->conf.node.name);
 
     sc_array_foreach (s->connected_nodes, node) {
         meta_set_connected(&s->meta, node->name);
@@ -656,8 +691,8 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
         return;
     }
 
-    msg_create_connect_req(&node->conn.out, MSG_NODE, s->settings.cluster.name,
-                           s->settings.node.name);
+    msg_create_connect_req(&node->conn.out, MSG_NODE, s->conf.cluster.name,
+                           s->conf.node.name);
 
     rc = conn_flush(&node->conn);
     if (rc != RS_OK) {
@@ -717,7 +752,7 @@ static void server_check_prevote_count(struct server *s)
     struct node *node;
 
     if (s->prevote_count >= s->meta.voter / 2 + 1) {
-        server_update_meta(s, s->prevote_term, s->settings.node.name);
+        server_update_meta(s, s->prevote_term, s->conf.node.name);
         s->vote_count = 1;
 
         sc_array_foreach (s->connected_nodes, node) {
@@ -751,7 +786,8 @@ static void server_on_election_timeout(struct server *s)
         return;
     }
 
-    if (s->leader != NULL && SERVER_ELECTION_TIMEOUT < s->timestamp - s->leader->in_timestamp) {
+    if (s->leader != NULL &&
+        SERVER_ELECTION_TIMEOUT < s->timestamp - s->leader->in_timestamp) {
         return;
     }
 
@@ -805,7 +841,7 @@ void server_on_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
         rc = node_try_connect(node);
         if (rc == RS_OK) {
             msg_create_connect_req(&node->conn.out, MSG_NODE,
-                                   s->settings.cluster.name, s->settings.node.name);
+                                   s->conf.cluster.name, s->conf.node.name);
             rc = conn_flush(&node->conn);
             if (rc != RS_OK) {
                 server_on_node_disconnect(s, node, MSG_ERR);
@@ -826,7 +862,7 @@ void server_on_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
 
         if (s->role == SERVER_ROLE_LEADER) {
             sc_buf_clear(&s->tmp);
-            sc_buf_put_str(&s->tmp, s->settings.node.name);
+            sc_buf_put_str(&s->tmp, s->conf.node.name);
             sc_buf_put_blob(&s->tmp, sc_buf_rbuf(&s->own->info),
                             sc_buf_size(&s->own->info));
 
@@ -1235,10 +1271,9 @@ void server_on_snapshot_req(struct server *s, struct node *node,
         state_term(&s->state);
         store_term(&s->store);
 
-        state_init(&s->state, cb, s->settings.node.dir, s->settings.cluster.name);
-        state_open(&s->state, s->settings.node.in_memory);
-        store_init(&s->store, s->settings.node.dir, s->state.term,
-                   s->state.index);
+        state_init(&s->state, cb, s->conf.node.dir, s->conf.cluster.name);
+        state_open(&s->state, s->conf.node.in_memory);
+        store_init(&s->store, s->conf.node.dir, s->state.term, s->state.index);
         snapshot_open(&s->ss, s->state.ss_path, s->state.term, s->state.index);
         s->commit_index = s->state.index;
     }
@@ -1434,23 +1469,17 @@ static void server_prepare_start(struct server *s)
     struct meta_node n;
     struct sc_uri *uri = NULL;
 
-    settings_print(&s->settings);
+    conf_print(&s->conf);
     server_prepare_cluster(s);
     server_read_meta(s);
 
-    uris = s->settings.node.bind_uri;
+    uris = s->conf.node.bind_uri;
     while ((token = sc_str_token_begin(uris, &save, " ")) != NULL) {
-        uri = sc_uri_create(token);
-        if (uri == NULL) {
-            rs_exit("Failed to parse bind uris \n");
-        }
-
-        server_listen(s, uri);
-        sc_uri_destroy(uri);
+        server_listen(s, token);
     }
 
     sc_array_foreach (s->meta.nodes, n) {
-        if (strcmp(n.name, s->settings.node.name) == 0) {
+        if (strcmp(n.name, s->conf.node.name) == 0) {
             continue;
         }
 
@@ -1687,7 +1716,7 @@ static void server_handle_jobs(struct server *s)
                 }
             }
 
-            if (*name == '*' || strcmp(name, s->settings.node.name) == 0) {
+            if (*name == '*' || strcmp(name, s->conf.node.name) == 0) {
                 server_on_shutdown_req(s, NULL, NULL);
             }
         } break;
@@ -1762,8 +1791,6 @@ static void server_flush(struct server *s)
 
         conn_flush(&node->conn);
         node->next_index += count;
-
-
     }
 
     if (s->own->next_index <= s->store.last_index) {
@@ -1813,7 +1840,7 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
         goto disconnect;
     }
 
-    rc = strcmp(msg.connect_req.cluster_name, s->settings.cluster.name);
+    rc = strcmp(msg.connect_req.cluster_name, s->conf.cluster.name);
     if (rc != 0) {
         resp_code = MSG_CLUSTER_NAME_MISMATCH;
         goto disconnect;
@@ -1836,17 +1863,27 @@ disconnect:
 
 static void *server_run(void *arg)
 {
+    int rc;
     int events = 0, retry = 1;
     uint32_t timeo, event;
     struct sc_sock_fd *fd;
     struct server *s = arg;
     struct sc_sock_poll *loop = &s->loop;
 
-    sc_log_set_thread_name(s->settings.node.name);
-    metric_init(&s->metric, s->settings.node.dir);
+    sc_log_set_thread_name(s->conf.node.name);
+    metric_init(&s->metric, s->conf.node.dir);
     rs_rand_init();
 
     server_prepare_start(s);
+
+    if (s->conf.cmdline.systemd) {
+        rc = rs_systemd_notify("READY=1\n");
+        if (rc != 0) {
+            sc_log_error("systemd failed : %s \n", strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+
     sc_log_info("Resql[v%s] has been started.. \n", RS_VERSION_STR);
 
     while (!s->stop_requested) {
@@ -1894,9 +1931,12 @@ static void *server_run(void *arg)
         server_flush(s);
     }
 
-
-    sc_log_info("Node[%s] is shutting down \n", s->settings.node.name);
+    sc_log_info("Node[%s] is shutting down \n", s->conf.node.name);
     state_close(&s->state);
+
+    if (s->conf.cmdline.systemd) {
+        rs_systemd_notify("STATUS=Shutdown task has been completed!\n");
+    }
 
     return (void *) RS_OK;
 }
