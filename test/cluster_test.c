@@ -34,13 +34,13 @@ struct server *create_node_0()
     struct conf settings;
 
     conf_init(&settings);
-    conf_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
+    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");
-    sc_str_set(&settings.node.bind_uri,
+    sc_str_set(&settings.node.bind_url,
                "tcp://node0@127.0.0.1:7600 unix:///tmp/var0");
-    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:7600");
+    sc_str_set(&settings.node.ad_url, "tcp://node0@127.0.0.1:7600");
     sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
     sc_str_set(&settings.node.dir, "/tmp/node0");
     settings.node.in_memory = true;
@@ -62,13 +62,13 @@ struct server *create_node_1()
     struct conf settings;
 
     conf_init(&settings);
-    conf_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
+    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node1");
-    sc_str_set(&settings.node.bind_uri,
+    sc_str_set(&settings.node.bind_url,
                "tcp://node1@127.0.0.1:7601 unix:///tmp/var1");
-    sc_str_set(&settings.node.ad_uri, "tcp://node1@127.0.0.1:7601");
+    sc_str_set(&settings.node.ad_url, "tcp://node1@127.0.0.1:7601");
     sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
     sc_str_set(&settings.node.dir, "/tmp/node1");
     settings.node.in_memory = true;

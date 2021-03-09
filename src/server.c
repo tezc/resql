@@ -1472,7 +1472,7 @@ static void server_prepare_start(struct server *s)
     server_prepare_cluster(s);
     server_read_meta(s);
 
-    uris = s->conf.node.bind_uri;
+    uris = s->conf.node.bind_url;
     while ((token = sc_str_token_begin(uris, &save, " ")) != NULL) {
         server_listen(s, token);
     }
