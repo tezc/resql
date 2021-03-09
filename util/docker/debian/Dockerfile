@@ -26,7 +26,21 @@ RUN set -x \
 	&& cd /usr/src/resql \
 	&& ./build.sh \
 	&& ./build.sh --install \
-	&& resql --version
+	\
+	&& cd / && rm -rf /usr/src/resql \
+	\
+	apt-mark auto '.*' > /dev/null \
+	[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
+	find /usr/local -type f -executable -exec ldd '{}' ';' \
+		| awk '/=>/ { print $(NF-1) }' \
+		| sort -u \
+		| xargs -r dpkg-query --search \
+		| cut -d: -f1 \
+		| sort -u \
+		| xargs -r apt-mark manual \
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+	\
+	resql --version
 
 RUN mkdir /data && chown resql:resql /data
 VOLUME /data

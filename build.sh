@@ -59,8 +59,11 @@ cd ..
 
 ./resql -e > /dev/null &
 server_pid=$!
+echo "Server has been stared successfully."
+
 ./resql-trainer > /dev/null &
 trainer_pid=$!
+echo "Trainer has been stared successfully."
 
 wait $trainer_pid
 status=$?
