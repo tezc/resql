@@ -26,6 +26,7 @@
 #include "sc/sc_log.h"
 #include "sc/sc_option.h"
 #include "sc/sc_str.h"
+#include "sc/sc_time.h"
 
 #include <errno.h>
 #include <string.h>
@@ -104,11 +105,49 @@ static struct conf_item conf_list[] = {
 
 static const int conf_size = sizeof(conf_list) / sizeof(struct conf_item);
 
+static void conf_generate_name(struct conf *c, char *dest)
+{
+    static char charset[] = "0123456789"
+                            "abcdefghijklmnopqrstuvwxyz"
+                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
+    int num, len;
+    uint64_t ts;
+    uint32_t generated[40] = {0};
+    char *end, *p = (char *) generated;
+
+    ts = sc_time_mono_ms();
+
+    num = (int) ((rand() % 8) + 8 + (ts % 4));
+    len = (num % 8) + 8;
+    end = p + (sizeof(generated[0]) * len);
+
+    memcpy(p, &c, sizeof(c));
+    p += sizeof(c);
+    memcpy(p, &ts, sizeof(ts));
+    p += sizeof(ts);
+
+    while (p + sizeof(num) < end) {
+        num = rand();
+        memcpy(p, &num, sizeof(num));
+        p += sizeof(num);
+    }
+
+    for (int i = 0; i < len; i++) {
+        dest[i] = charset[generated[i] % sizeof(charset)];
+    }
+
+    dest[len] = '\0';
+}
+
 void conf_init(struct conf *c)
 {
     *c = (struct conf){0};
 
-    c->node.name = sc_str_create("");
+    char name[32];
+
+    conf_generate_name(c, name);
+
+    c->node.name = sc_str_create(name);
     c->node.bind_url = sc_str_create("tcp://127.0.0.1:7600");
     c->node.ad_url = sc_str_create("tcp://127.0.0.1:7600");
     c->node.source_addr = sc_str_create("");
@@ -402,11 +441,6 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
             conf_cmdline_usage();
             exit(1);
         }
-    }
-
-    if (*c->node.name == '\0') {
-        printf("resql : Missing node name. Please configure node name. \n");
-        exit(1);
     }
 }
 

@@ -253,6 +253,8 @@ void server_write_meta(struct server *s)
     }
 
     sc_buf_clear(&s->tmp);
+    sc_buf_put_str(&s->tmp, s->conf.node.name);
+    sc_buf_put_str(&s->tmp, s->voted_for);
     meta_encode(&s->meta, &s->tmp);
 
     file_write(&file, sc_buf_rbuf(&s->tmp), sc_buf_size(&s->tmp));
@@ -297,6 +299,8 @@ void server_read_meta(struct server *s)
         file_term(&file);
 
         sc_buf_mark_write(&s->tmp, size);
+        sc_str_set(&s->conf.node.name, sc_buf_get_str(&s->tmp));
+        sc_str_set(&s->voted_for, sc_buf_get_str(&s->tmp));
         meta_decode(&s->meta, &s->tmp);
     }
 
@@ -1468,9 +1472,9 @@ static void server_prepare_start(struct server *s)
     struct node *node;
     struct meta_node n;
 
-    conf_print(&s->conf);
     server_prepare_cluster(s);
     server_read_meta(s);
+    conf_print(&s->conf);
 
     uris = s->conf.node.bind_url;
     while ((token = sc_str_token_begin(uris, &save, " ")) != NULL) {
@@ -1869,11 +1873,11 @@ static void *server_run(void *arg)
     struct server *s = arg;
     struct sc_sock_poll *loop = &s->loop;
 
-    sc_log_set_thread_name(s->conf.node.name);
     metric_init(&s->metric, s->conf.node.dir);
     rs_rand_init();
 
     server_prepare_start(s);
+    sc_log_set_thread_name(s->conf.node.name);
 
     if (s->conf.cmdline.systemd) {
         rc = sc_sock_notify_systemd("READY=1\n");
