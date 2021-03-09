@@ -17,3 +17,4 @@ bin/resql
 bin/resql-cli
 bin/pgo
 bin/build
+bin/*.resql

@@ -29,6 +29,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #define ANSI_RESET "\x1b[0m"
 #define ANSI_RED                                                               \
@@ -108,8 +109,8 @@ void conf_init(struct conf *c)
     *c = (struct conf){0};
 
     c->node.name = sc_str_create("");
-    c->node.bind_url = sc_str_create("");
-    c->node.ad_url = sc_str_create("");
+    c->node.bind_url = sc_str_create("tcp://127.0.0.1:7600");
+    c->node.ad_url = sc_str_create("tcp://127.0.0.1:7600");
     c->node.source_addr = sc_str_create("");
     c->node.source_port = sc_str_create("");
     c->node.log_dest = sc_str_create("stdout");
@@ -156,11 +157,13 @@ static void conf_cmdline_usage()
            "                                                                                                                     \n"
            " You can also pass config file options from command line with. e.g : --node-log-level=debug                          \n"
            " Format is --[section]-[config]=value                                                                                \n"
+           "                                                                                                                     \n"
            " e.g :  in resql.conf :                                                                                              \n"
            " [node]                                                                                                              \n"
            " directory = /tmp/data                                                                                               \n"
            "                                                                                                                     \n"
-           "on command line : resql --node-directory=/tmp/data                                                                   \n"
+           " on command line : resql --node-directory=/tmp/data                                                                  \n"
+           "                                                                                                                     \n"
            " If same config is passed from command line and it exists in the resql.ini, command line has higher precedence.      \n"
            "                                                                                                                     \n"
            "\n\n");
@@ -312,12 +315,17 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
     }
 
     if (read_file) {
-        rc = sc_ini_parse_file(c, conf_add, c->cmdline.config_file);
-        if (rc != 0) {
-            fprintf(stderr, "Failed to find valid config file at : %s \n",
-                    c->cmdline.config_file);
-            fprintf(stderr, "Reason : %s \n", c->err);
-            exit(EXIT_FAILURE);
+        if (access(c->cmdline.config_file, F_OK) != 0) {
+            printf("Warning. There is no config file at %s. \n",
+                   c->cmdline.config_file);
+        } else {
+            rc = sc_ini_parse_file(c, conf_add, c->cmdline.config_file);
+            if (rc != 0) {
+                fprintf(stderr, "Failed to find valid config file at : %s \n",
+                        c->cmdline.config_file);
+                fprintf(stderr, "Reason : %s \n", c->err);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
@@ -394,6 +402,11 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
             conf_cmdline_usage();
             exit(1);
         }
+    }
+
+    if (*c->node.name == '\0') {
+        printf("resql : Missing node name. Please configure node name. \n");
+        exit(1);
     }
 }
 

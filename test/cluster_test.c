@@ -34,7 +34,6 @@ struct server *create_node_0()
     struct conf settings;
 
     conf_init(&settings);
-    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node0");
@@ -43,6 +42,8 @@ struct server *create_node_0()
     sc_str_set(&settings.node.ad_url, "tcp://node0@127.0.0.1:7600");
     sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
     sc_str_set(&settings.node.dir, "/tmp/node0");
+    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
+
     settings.node.in_memory = true;
 
     struct server *server = server_create(&settings);
@@ -62,7 +63,6 @@ struct server *create_node_1()
     struct conf settings;
 
     conf_init(&settings);
-    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
 
     sc_str_set(&settings.node.log_level, "DEBUG");
     sc_str_set(&settings.node.name, "node1");
@@ -72,6 +72,7 @@ struct server *create_node_1()
     sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
     sc_str_set(&settings.node.dir, "/tmp/node1");
     settings.node.in_memory = true;
+    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
 
     struct server *server = server_create(&settings);
 
