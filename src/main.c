@@ -30,8 +30,7 @@ int main(int argc, char *argv[])
     server_global_init();
 
     conf_init(&config);
-    conf_read_cmdline(&config, argc, argv);
-    conf_read_file(&config, config.cmdline.config_file);
+    conf_read_config(&config, true, argc, argv);
 
     server = server_create(&config);
     rc = server_start(server, false);

@@ -82,9 +82,6 @@ enum rs_rc
     RS_FULL = -16
 };
 
-extern thread_local char rs_err_str[128];
-extern thread_local int rs_err;
-
 #define rs_exp(fmt, ...) fmt, __VA_ARGS__
 
 #define rs_abort(...)                                                          \

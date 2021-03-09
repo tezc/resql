@@ -29,8 +29,8 @@ struct conf
     struct
     {
         char *name;
-        char *bind_uri;
-        char *ad_uri;
+        char *bind_url;
+        char *ad_url;
         char *source_addr;
         char *source_port;
         char *log_level;
@@ -47,6 +47,12 @@ struct conf
 
     struct
     {
+        bool fsync;
+        int64_t heartbeat;
+    } advanced;
+
+    struct
+    {
         bool systemd;
         bool empty;
         bool wipe;
@@ -59,8 +65,7 @@ struct conf
 void conf_init(struct conf *c);
 void conf_term(struct conf *c);
 
-void conf_read_cmdline(struct conf *c, int argc, char **argv);
-void conf_read_file(struct conf *c, const char *path);
+void conf_read_config(struct conf *c, bool read_file, int argc, char **argv);
 void conf_print(struct conf *c);
 
 
