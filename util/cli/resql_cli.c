@@ -67,7 +67,7 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
     static struct sc_option_item options[] = {
             {'c', "command"},
             {'h', "help"},
-            {'u', "uri "},
+            {'u', "uri"},
             {'v', "version"},
     };
 
@@ -93,7 +93,7 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
             break;
         case 'u': {
             struct sc_uri *uri;
-            uri = sc_uri_create(optarg);
+            uri = sc_uri_create(value);
             if (uri == NULL) {
                 printf("resql: Error parsing uri %s \n", optarg);
                 exit(1);
