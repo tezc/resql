@@ -6,7 +6,7 @@
 
     <groupId>com.github.tezc</groupId>
     <artifactId>resql</artifactId>
-    <version>0.0.2-latest</version>
+    <version>0.0.3-latest</version>
     <packaging>jar</packaging>
 
     <name>Resql Java Client</name>
@@ -126,7 +126,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
-                <version>1.5</version>
+                <version>1.6</version>
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
@@ -134,6 +134,14 @@
                         <goals>
                             <goal>sign</goal>
                         </goals>
+                        <configuration>
+                            <!-- Prevent gpg from using pinentry programs -->
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                            <passphraseServerId>gpg.passphrase</passphraseServerId>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

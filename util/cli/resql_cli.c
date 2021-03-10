@@ -47,7 +47,7 @@ struct resql_cli
     int count;
 };
 
-#define RESQL_CLI_VERSION "0.0.2-latest"
+#define RESQL_CLI_VERSION "0.0.3-latest"
 
 static struct resql_cli s_cli;
 static struct resql *client;
