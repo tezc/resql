@@ -287,7 +287,7 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
 
-    sc_buf_put_str(buf, RS_VERSION_STR);
+    sc_buf_put_str(buf, RS_VERSION);
     sc_buf_put_str(buf, RS_GIT_BRANCH);
     sc_buf_put_str(buf, RS_GIT_COMMIT);
     sc_buf_put_fmt(buf, "%s %s %s", m->utsname.sysname, m->utsname.release,
