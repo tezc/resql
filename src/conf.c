@@ -148,7 +148,7 @@ void conf_term(struct conf *c)
 
 static void conf_cmdline_usage()
 {
-    printf("\n\n resql version : %s \n\n", RS_VERSION_STR);
+    printf("\n\n resql version : %s \n\n", RS_VERSION);
     printf(" -c=<file>    --config=<file>       Config file path, default is './resql.ini'                                       \n"
            " -e           --empty               Clear persistent data and start. Be warned!, this option will wipe out database. \n"
            " -h           --help                Print this help and exit                                                         \n"
