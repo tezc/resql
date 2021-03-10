@@ -33,7 +33,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/poll.h>
+#include <poll.h>
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <assert.h>

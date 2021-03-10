@@ -83,7 +83,7 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
         switch (ch) {
         case 'c':
             if (value == NULL) {
-                printf("Invalid c option : %s \n", value);
+                printf("Invalid -c option \n");
                 exit(1);
             }
 
