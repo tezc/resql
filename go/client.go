@@ -49,6 +49,8 @@ var ErrColumnMissing = errors.New("resql: column does not exist")
 var ErrIndexOutOfRange = errors.New("resql : index is out of range")
 var ErrSessionDoesNotExist = errors.New("resql : session does not exist on the server")
 
+const Version = "0.0.2-latest"
+
 type client struct {
 	name         string
 	clusterName  string

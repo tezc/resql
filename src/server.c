@@ -1887,7 +1887,7 @@ static void *server_run(void *arg)
         }
     }
 
-    sc_log_info("Resql[v%s] has been started.. \n", RS_VERSION_STR);
+    sc_log_info("Resql[v%s] has been started.. \n", RS_VERSION);
 
     while (!s->stop_requested) {
         s->timestamp = sc_time_mono_ms();

@@ -6,9 +6,11 @@ add_executable(resql-cli
         sc_option.c
         linenoise.h
         linenoise.c
-        resql.h
-        resql.c
+        ${CMAKE_SOURCE_DIR}/c/resql.h
+        ${CMAKE_SOURCE_DIR}/c/resql.c
         )
+
+target_include_directories(resql-cli PRIVATE ${CMAKE_SOURCE_DIR}/c)
 set_source_files_properties(
         linenoise.h
         linenoise.c

@@ -6,7 +6,7 @@
 
     <groupId>com.github.tezc</groupId>
     <artifactId>resql</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.2-latest</version>
     <packaging>jar</packaging>
 
     <name>Resql Java Client</name>
