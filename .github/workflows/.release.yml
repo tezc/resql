@@ -35,6 +35,8 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/debian/Dockerfile)
           git commit -am "bump version to ${{ github.event.inputs.release }}"
           git push origin master
+          git tag ${{ github.event.inputs.release }}
+          git push origin --tags
   release-maven:
     needs: create-release-commit
     runs-on: ubuntu-latest
