@@ -15,7 +15,7 @@ RUN set -x \
 		make \
 		cmake \
 	\
-	&& wget -O resql.tar.gz "https://github.com/tezc/resql/archive/$RESQL_VERSION.tar.gz" \
+	&& wget -O resql.tar.gz "https://github.com/tezc/resql/archive/v$RESQL_VERSION.tar.gz" \
 	&& mkdir -p /usr/src/resql \
 	&& tar -xzf resql.tar.gz -C /usr/src/resql --strip-components=1 \
 	&& rm resql.tar.gz \
