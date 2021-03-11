@@ -1,0 +1,38 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      current-version:
+        description: 'current-version'
+        required: true
+      release-version:
+        description: 'release-version'
+        required: true
+      next-version:
+        description: 'next-version'
+        required: true
+jobs:
+  docker-debian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token : ${{ secrets.GIT_TOKEN }}
+      - name: Commit report
+        run: |
+          git config --global user.name tezc
+          git config --global user.email tezc@users.noreply.github.com
+          git config --global user.name
+          git config --global user.email
+          git checkout -b ${{ github.event.inputs.release-version }}
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" c/resql.h)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" go/client.go)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" java/src/main/java/resql/Resql.java)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" java/pom.xml)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" src/rs.h)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" util/cli/resql_cli.c)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" util/docker/alpine/Dockerfile)
+          (set -x; sed -i "s/${{ github.event.inputs.current-version }}/${{ github.event.inputs.release-version }}/g" util/docker/debian/Dockerfile)
+          git commit -am "bump version to ${{ github.event.inputs.release-version }}"
+          git push origin ${{ github.event.inputs.release-version }}
