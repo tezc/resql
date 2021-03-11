@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define RS_VERSION  "0.0.4"
+#define RS_VERSION  "0.0.5"
 
 #ifdef RS_COMPILER_GIT_BRANCH
     #define RS_GIT_BRANCH RS_COMPILER_GIT_BRANCH

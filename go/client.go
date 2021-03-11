@@ -49,7 +49,7 @@ var ErrColumnMissing = errors.New("resql: column does not exist")
 var ErrIndexOutOfRange = errors.New("resql : index is out of range")
 var ErrSessionDoesNotExist = errors.New("resql : session does not exist on the server")
 
-const Version = "0.0.4"
+const Version = "0.0.5"
 
 type client struct {
 	name         string
