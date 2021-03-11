@@ -33,9 +33,10 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/cli/resql_cli.c)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/alpine/Dockerfile)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/debian/Dockerfile)
-          git commit -am "[skip-ci] bump version to v${{ github.event.inputs.release }}"
+          git commit -am "[skip ci] bump version to v${{ github.event.inputs.release }}"
           git push origin master
           git tag v${{ github.event.inputs.release }}
+          git tag go/resql/v${{ github.event.inputs.release }}
           git push origin --tags
 
   release-maven:
@@ -82,7 +83,7 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.13.1'
-      - run: GOPROXY=https://proxy.golang.org GO111MODULE=on go get github.com/tezc/resql/go/resql@v${{ github.event.inputs.release }}
+      - run: GOPROXY=https://proxy.golang.org GO111MODULE=on go get github.com/tezc/resql/go/resql@v{{ github.event.inputs.release }}
 
   release-docker-debian:
     needs: create-release-commit
@@ -135,7 +136,7 @@ jobs:
           tags: tezc/resql:${{ github.event.inputs.release }}-alpine
 
   update-next-version:
-    needs: [release-maven, release-docker-debian, release-docker-alpine]
+    needs: create-release-commit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -156,5 +157,5 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/cli/resql_cli.c)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/alpine/Dockerfile)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/debian/Dockerfile)
-          git commit -am "[skip-ci] bump version to v${{ github.event.inputs.next }}"
+          git commit -am "[skip ci] bump version to v${{ github.event.inputs.next }}"
           git push origin master
