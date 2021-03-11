@@ -53,4 +53,4 @@ jobs:
           context: util/docker/alpine
           platforms: linux/amd64,linux/arm64,
           push: true
-          tags: tezc/resql-alpine:${{ github.event.inputs.version }}
+          tags: tezc/resql:${{ github.event.inputs.version }}-alpine

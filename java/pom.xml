@@ -32,7 +32,7 @@
     <scm>
         <connection>scm:git:git://github.com/tezc/resql.git</connection>
         <developerConnection>scm:git:ssh://github.com:tezc/resql.git</developerConnection>
-        <url>http://github.com/tezc/resql/tree/master</url>
+        <url>http://github.com/tezc/resql/tree/0.0.3-latest</url>
     </scm>
 
     <properties>
