@@ -2,7 +2,7 @@ FROM alpine:3.13
 
 RUN addgroup -g 11211 resql && adduser -D -u 11211 -G resql resql
 
-ENV RESQL_VERSION 0.0.7
+ENV RESQL_VERSION 0.0.8
 
 RUN set -x \
 	\
@@ -45,4 +45,4 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 
 USER resql
 EXPOSE 7600
-CMD ["resql", "--node-bind-url=tcp://0.0.0.0:7600"]
+CMD ["resql", "--node-bind-url=tcp://0.0.0.0.8600"]
