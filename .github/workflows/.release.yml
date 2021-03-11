@@ -33,17 +33,18 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/cli/resql_cli.c)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/alpine/Dockerfile)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/debian/Dockerfile)
-          git commit -am "bump version to ${{ github.event.inputs.release }}"
+          git commit -am "bump version to v${{ github.event.inputs.release }}"
           git push origin master
-          git tag ${{ github.event.inputs.release }}
+          git tag v${{ github.event.inputs.release }}
           git push origin --tags
+
   release-maven:
     needs: create-release-commit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: ${{ github.event.inputs.release }}
+          ref: v${{ github.event.inputs.release }}
       - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
@@ -74,6 +75,15 @@ jobs:
           MAVEN_CENTRAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 
+  release-go-doc:
+    needs: create-release-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13.1'
+      - run: GOPROXY=https://proxy.golang.org GO111MODULE=on go get github.com/tezc/resql/go/@v${{ github.event.inputs.release }}
+
   release-docker-debian:
     needs: create-release-commit
     runs-on: ubuntu-latest
@@ -81,7 +91,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          ref: ${{ github.event.inputs.release }}
+          ref: v${{ github.event.inputs.release }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
@@ -98,6 +108,7 @@ jobs:
           platforms: linux/amd64,linux/arm64,
           push: true
           tags: tezc/resql:${{ github.event.inputs.release }}
+
   release-docker-alpine:
     needs: create-release-commit
     runs-on: ubuntu-latest
@@ -105,7 +116,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          ref: ${{ github.event.inputs.release }}
+          ref: v${{ github.event.inputs.release }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
@@ -122,12 +133,14 @@ jobs:
           platforms: linux/amd64,linux/arm64,
           push: true
           tags: tezc/resql:${{ github.event.inputs.release }}-alpine
+
   update-next-version:
     needs: [release-maven, release-docker-debian, release-docker-alpine]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
+          ref: v${{ github.event.inputs.release }}
           token: ${{ secrets.GIT_TOKEN }}
       - name: Commit report
         run: |
@@ -143,5 +156,5 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/cli/resql_cli.c)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/alpine/Dockerfile)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/debian/Dockerfile)
-          git commit -am "bump version to ${{ github.event.inputs.next }}"
+          git commit -am "bump version to v${{ github.event.inputs.next }}"
           git push origin master
