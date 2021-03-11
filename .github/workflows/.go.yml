@@ -23,5 +23,5 @@ jobs:
           cd bin
           ./resql &
           cd ..
-          cd go
+          cd go/resql
           go test . -count 1 -v
