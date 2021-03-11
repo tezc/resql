@@ -26,7 +26,7 @@ jobs:
           git config --global user.name
           git config --global user.email
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" c/resql.h)
-          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" go/client.go)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" go/resql/client.go)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" java/src/main/java/resql/Resql.java)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" java/pom.xml)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" src/rs.h)
@@ -149,7 +149,7 @@ jobs:
           git config --global user.email
           git pull
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" c/resql.h)
-          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" go/client.go)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" go/resql/client.go)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" java/src/main/java/resql/Resql.java)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" java/pom.xml)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" src/rs.h)
