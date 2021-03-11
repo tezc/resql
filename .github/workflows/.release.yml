@@ -36,6 +36,7 @@ jobs:
           git commit -am "bump version to ${{ github.event.inputs.release }}"
           git push origin master
   release-maven:
+    needs: create-release-commit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -70,6 +71,7 @@ jobs:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 
   release-docker-debian:
+    needs: create-release-commit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -91,6 +93,7 @@ jobs:
           push: true
           tags: tezc/resql:${{ github.event.inputs.release }}
   release-docker-alpine:
+    needs: create-release-commit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -112,6 +115,7 @@ jobs:
           push: true
           tags: tezc/resql:${{ github.event.inputs.release }}-alpine
   update-next-version:
+    needs: [release-maven, release-docker-debian, release-docker-alpine]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
