@@ -22,7 +22,7 @@
 // SOFTWARE.
 //
 
-package resql
+package goresql
 
 import (
 	"bytes"

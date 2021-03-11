@@ -22,7 +22,7 @@
 // SOFTWARE.
 //
 
-package resql
+package goresql
 
 import (
 	"encoding/binary"
@@ -42,9 +42,9 @@ const (
 	MinRead         = 512
 )
 
-var ErrTooLarge = errors.New("resql.Buffer: too large")
-var errEmpty = errors.New("resql.Buffer: buffer empty")
-var errNegativeRead = errors.New("bytes.Buffer: reader returned negative count from Read")
+var ErrTooLarge = errors.New("goresql.Buffer: too large")
+var errEmpty = errors.New("goresql.Buffer: buffer empty")
+var errNegativeRead = errors.New("goresql.Buffer: reader returned negative count from Read")
 
 type Buffer struct {
 	buf []byte // contents are the bytes buf[off : len(buf)]
