@@ -26,7 +26,7 @@ jobs:
           cd bin
           ./resql &
           cd ..
-          cd c
+          cd c-client
           mkdir build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Debug
           make && make check
@@ -58,7 +58,7 @@ jobs:
           cd bin
           ./resql &
           cd ..
-          cd c
+          cd c-client
           mkdir build && cd build
           cmake .. -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=address
           make && make check

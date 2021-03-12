@@ -115,7 +115,7 @@ add_compile_options(-DSC_HAVE_CONFIG_H)
 target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
 #target_include_directories(resql-server PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
-add_library(resql-test test_util.c ../c/resql.c)
+add_library(resql-test test_util.c ../c-client/resql.c)
 target_link_libraries(resql-test PUBLIC resql-server)
 target_include_directories(resql-test PUBLIC ../)
 target_include_directories(resql-test PUBLIC ../src)
