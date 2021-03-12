@@ -6,7 +6,7 @@
 
     <groupId>com.github.tezc</groupId>
     <artifactId>resql</artifactId>
-    <version>0.0.13-latest</version>
+    <version>0.0.13</version>
     <packaging>jar</packaging>
 
     <name>Resql Java Client</name>
@@ -32,7 +32,7 @@
     <scm>
         <connection>scm:git:git://github.com/tezc/resql.git</connection>
         <developerConnection>scm:git:ssh://github.com:tezc/resql.git</developerConnection>
-        <url>http://github.com/tezc/resql/tree/v0.0.13-latest</url>
+        <url>http://github.com/tezc/resql/tree/v0.0.13</url>
     </scm>
 
     <properties>
