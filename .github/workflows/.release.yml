@@ -108,7 +108,7 @@ jobs:
           context: util/docker/debian
           platforms: linux/amd64,linux/arm64,
           push: true
-          tags: tezc/resql:${{ github.event.inputs.release }}
+          tags: tezc/resql tezc/resql:${{ github.event.inputs.release }}
 
   release-docker-alpine:
     needs: create-release-commit
@@ -133,7 +133,7 @@ jobs:
           context: util/docker/alpine
           platforms: linux/amd64,linux/arm64,
           push: true
-          tags: tezc/resql:${{ github.event.inputs.release }}-alpine
+          tags: tezc/resql:alpine tezc/resql:${{ github.event.inputs.release }}-alpine
 
   update-next-version:
     needs: create-release-commit
