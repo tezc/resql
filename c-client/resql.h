@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define RESQL_VERSION "0.0.14"
+#define RESQL_VERSION "0.0.15-latest"
 
 #ifdef RESQL_HAVE_CONFIG_H
     #include "config.h"
