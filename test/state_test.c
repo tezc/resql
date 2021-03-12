@@ -21,7 +21,7 @@
 #include "server.h"
 #include "test_util.h"
 
-#include "c/resql.h"
+#include "resql.h"
 
 struct server *create_node_0()
 {

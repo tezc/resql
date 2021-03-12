@@ -19,7 +19,7 @@
 
 #include "test_util.h"
 
-#include "c/resql.h"
+#include "resql.h"
 #include "sc/sc_uri.h"
 
 #include <conf.h>
