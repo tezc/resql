@@ -54,7 +54,7 @@ jobs:
 
       - name: Build with Maven
         run: |
-          cd java
+          cd java-client
           mvn -B package -DskipTests --file pom.xml
 
       - name: Set up Apache Maven Central
@@ -69,7 +69,7 @@ jobs:
 
       - name: Publish to Apache Maven Central
         run: |
-          cd java
+          cd java-client
           mvn deploy --batch-mode -DskipTests --no-transfer-progress
         env:
           MAVEN_USERNAME: tezc
@@ -108,7 +108,7 @@ jobs:
           context: util/docker/debian
           platforms: linux/amd64,linux/arm64,
           push: true
-          tags: tezc/resql tezc/resql:${{ github.event.inputs.release }}
+          tags: tezc/resql:latest,tezc/resql:${{ github.event.inputs.release }}
 
   release-docker-alpine:
     needs: create-release-commit
@@ -133,7 +133,7 @@ jobs:
           context: util/docker/alpine
           platforms: linux/amd64,linux/arm64,
           push: true
-          tags: tezc/resql:alpine tezc/resql:${{ github.event.inputs.release }}-alpine
+          tags: tezc/resql:alpine,tezc/resql:${{ github.event.inputs.release }}-alpine
 
   update-next-version:
     needs: create-release-commit
