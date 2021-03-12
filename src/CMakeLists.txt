@@ -104,7 +104,7 @@ if (${PGO} MATCHES "generate")
     endif ()
 
     add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/c-client/resql.c)
-    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR}/c-client)
     install(TARGETS resql-trainer RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 elseif (${PGO} MATCHES "use")
     MESSAGE("Profile will be used.")
