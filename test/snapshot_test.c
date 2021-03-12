@@ -21,7 +21,7 @@
 #include "rs.h"
 #include "test_util.h"
 
-#include "c/resql.h"
+#include "resql.h"
 
 #include <sc/sc_log.h>
 #include <unistd.h>

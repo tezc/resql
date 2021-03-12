@@ -2,13 +2,12 @@
 
 ## Overview
 - bin/ : output dir, ./build.sh will generate server executable and cli here.  
-- c/ : c client
-- go/ : go client
-- java/ : java client
-- deps/ : c dependencies  
-- main/ : main executable for server. tests build server as library to create multiple instance in the same process.  
+- c-client/ : c client
+- goresql/ : go client
+- java-client/ : java client
 - src/ : server source code  
 - tests/ : server tests
+- util/ : cli, docker
 
 ## Build
 ```

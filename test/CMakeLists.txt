@@ -117,7 +117,7 @@ target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
 
 add_library(resql-test test_util.c ../c-client/resql.c)
 target_link_libraries(resql-test PUBLIC resql-server)
-target_include_directories(resql-test PUBLIC ../)
+target_include_directories(resql-test PUBLIC ../c-client)
 target_include_directories(resql-test PUBLIC ../src)
 
 enable_testing()

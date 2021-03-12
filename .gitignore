@@ -18,3 +18,4 @@ bin/resql-cli
 bin/pgo
 bin/build
 bin/*.resql
+bin/.pid

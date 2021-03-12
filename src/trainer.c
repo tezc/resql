@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "c/resql.h"
+#include "resql.h"
 
 #include <stdio.h>
 #include <stdlib.h>
