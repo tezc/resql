@@ -23,5 +23,5 @@ jobs:
           cd bin
           ./resql &
           cd ..
-          cd goresql/resql
+          cd goresql
           go test . -count 1 -v
