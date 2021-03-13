@@ -2,6 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 cwd=$(pwd)
+cmake_opt=""
 
 if [ "$#" -ne 0 ]; then
   if [ "$1" = --install ]; then
@@ -17,6 +18,8 @@ if [ "$#" -ne 0 ]; then
     (set -x; rm -rf /usr/local/bin/resql /usr/local/bin/resql-cli)
     (set -x; rm -rf /etc/resql.ini)
     exit 0
+  elif [ "$1" = --docker ]; then
+    cmake_opt=-DMARCH_NATIVE=OFF
   else
     echo "Unknown option : $1";
     exit 1
@@ -52,7 +55,7 @@ cd bin
 rm -rf resql resql-cli build pgo
 mkdir build pgo
 cd build
-cmake ../.. -DPGO=generate
+cmake ../.. -DPGO=generate $cmake_opt
 make -j 1 && make install
 echo "First step has been completed successfully."
 cd ..
@@ -84,6 +87,6 @@ echo "Tests has been completed successfully."
 ./resql -w
 rm -rf resql resql-cli build/*
 cd build
-cmake ../.. -DPGO=use
+cmake ../.. -DPGO=use $cmake_opt
 make -j 1 && make install
 cd ../..

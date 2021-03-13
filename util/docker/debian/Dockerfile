@@ -53,4 +53,4 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 
 USER resql
 EXPOSE 7600
-CMD ["resql", "--node-bind-url=tcp://0.0.0.0.15-latest600"]
+CMD ["resql", "--node-bind-url=tcp://0.0.0.0:7600"]
