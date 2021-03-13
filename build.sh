@@ -60,7 +60,7 @@ make -j 1 && make install
 echo "First step has been completed successfully."
 cd ..
 
-./resql -e > /dev/null &
+./resql -e --node-bind-url=tcp://127.0.0.1:9717 > /dev/null &
 server_pid=$!
 echo "Server has been stared successfully."
 
