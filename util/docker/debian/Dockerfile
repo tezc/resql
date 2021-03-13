@@ -2,7 +2,7 @@ FROM debian:buster-slim
 
 RUN groupadd --system --gid 11211 resql && useradd --system --gid resql --uid 11211 resql
 
-ENV RESQL_VERSION 0.0.15
+ENV RESQL_VERSION 0.0.16-latest
 
 RUN set -eux; \
 	\
