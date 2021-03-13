@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     resql_stmt stmt;
 
     struct resql_config config = {
-            .urls = "tcp://127.0.0.1:7600",
+            .urls = "tcp://127.0.0.1:9717",
             .timeout_millis = 10000,
             .client_name = "cli",
             .cluster_name = "cluster",
