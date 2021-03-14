@@ -739,7 +739,7 @@ func (r *result) NextResultSet() bool {
 		r.rowCount = int(r.buf.ReadUint32())
 		r.remainingRows = r.rowCount
 	case flagDone:
-		r.linesChanged = int(r.buf.ReadUint32())
+		break
 	default:
 		panic("Unexpected value")
 	}
