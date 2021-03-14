@@ -389,4 +389,23 @@ public class BasicTest {
         assert (i == 1000);
 
     }
+
+    @Test
+    public void testReturning() {
+        client.put("INSERT INTO basic VALUES('jane', 'doe') RETURNING *;");
+        ResultSet rs = client.execute(false);
+
+
+        assert (rs.linesChanged() == 1);
+        assert (rs.rowCount() == 1);
+
+        for (Row row : rs) {
+            assert(row.getColumnName(0).equals("name"));
+            assert(row.getColumnName(1).equals("lastname"));
+            assert(row.get(0).equals("jane"));
+            assert(row.get(1).equals("doe"));
+        }
+
+        assert (!rs.nextResultSet());
+    }
 }

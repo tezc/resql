@@ -117,6 +117,7 @@ class Result implements ResultSet, Iterator<Row> {
         }
 
         nextResultSet = buf.position() + buf.getInt();
+        linesChanged = buf.getInt();
 
         switch (buf.get()) {
             case Msg.FLAG_ROW:
@@ -131,7 +132,6 @@ class Result implements ResultSet, Iterator<Row> {
                 remainingRows = rowCount;
                 break;
             case Msg.FLAG_DONE:
-                linesChanged = buf.getInt();
                 break;
             default:
                 throw new ResqlException("Unexpected value");

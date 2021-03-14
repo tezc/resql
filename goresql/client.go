@@ -724,6 +724,7 @@ func (r *result) NextResultSet() bool {
 	}
 
 	r.nextResultSet = r.buf.Offset() + int(r.buf.ReadUint32())
+	r.linesChanged = int(r.buf.ReadUint32())
 
 	switch flag = r.buf.ReadUint8(); flag {
 	case flagRow:

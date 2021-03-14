@@ -244,6 +244,47 @@ func TestSingle(t *testing.T) {
 	equal(t, date.Valid, false)
 }
 
+func TestReturning(t *testing.T) {
+
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	c.PutStatement("CREATE TABLE gotest (id INTEGER PRIMARY KEY, name TEXT, " +
+		"points FLOAT, data BLOB, date TEXT);")
+
+	_, err := c.Execute(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.PutStatement("INSERT INTO gotest VALUES(?, ?, ?, ?, ?) RETURNING *;")
+	c.BindIndex(0, 0)
+	c.BindIndex(1, "jane")
+	c.BindIndex(2, 3.22)
+	c.BindIndex(3, []byte("test"))
+	c.BindIndex(4, nil)
+
+	rs, err := c.Execute(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var id NullInt32
+	var name NullString
+	var points NullFloat64
+	var data []byte
+	var date NullString
+
+	err = rs.Row().Read(&id, &name, &points, &data, &date)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	equal(t, id.Int32, int32(0))
+	equal(t, name.String, "jane")
+	equal(t, points.Float64, 3.22)
+	equal(t, data, []byte("test"))
+	equal(t, date.Valid, false)
+}
+
 func TestMany(t *testing.T) {
 
 	c.PutStatement("DROP TABLE IF EXISTS gotest;")
@@ -1021,7 +1062,7 @@ func Example1() {
 	}
 
 	var col NullString
-	rs.Row().Read(&col)
+	_ = rs.Row().Read(&col)
 	fmt.Println(col.String)
 
 	err = s.Shutdown()

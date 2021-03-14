@@ -788,10 +788,9 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     }
 
     rc = sqlite3_step(stmt);
-    if (rc == SQLITE_DONE) {
-        sc_buf_put_8(resp, TASK_FLAG_DONE);
-        sc_buf_put_32(resp, sqlite3_changes(st->aux.db));
-    } else if (rc == SQLITE_ROW) {
+    sc_buf_put_32(resp, sqlite3_changes(st->aux.db));
+
+    if (rc == SQLITE_ROW) {
         sc_buf_put_8(resp, TASK_FLAG_ROW);
 
         int column_count = sqlite3_column_count(stmt);
@@ -860,6 +859,8 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     if (rc != SQLITE_DONE) {
         goto error;
     }
+
+    sc_buf_put_8(resp, TASK_FLAG_DONE);
 
     return RS_OK;
 
