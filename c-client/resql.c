@@ -1390,7 +1390,7 @@ bool resql_next(struct resql_result *rs)
     rs->next_result = sc_buf_rpos(&rs->buf) + sc_buf_get_32(&rs->buf);
     rs->row_count = -1;
     rs->remaining_rows = -1;
-    rs->changes = -1;
+    rs->changes = sc_buf_get_32(&rs->buf);
 
     flag = (enum task_flag) sc_buf_get_8(&rs->buf);
 
@@ -1413,7 +1413,6 @@ bool resql_next(struct resql_result *rs)
         rs->changes = -1;
         break;
     case TASK_FLAG_DONE:
-        rs->changes = sc_buf_get_32(&rs->buf);
         break;
     default:
         // TODO: Check error here to verify server

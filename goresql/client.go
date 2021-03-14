@@ -724,6 +724,7 @@ func (r *result) NextResultSet() bool {
 	}
 
 	r.nextResultSet = r.buf.Offset() + int(r.buf.ReadUint32())
+	r.linesChanged = int(r.buf.ReadUint32())
 
 	switch flag = r.buf.ReadUint8(); flag {
 	case flagRow:
@@ -738,7 +739,7 @@ func (r *result) NextResultSet() bool {
 		r.rowCount = int(r.buf.ReadUint32())
 		r.remainingRows = r.rowCount
 	case flagDone:
-		r.linesChanged = int(r.buf.ReadUint32())
+		break
 	default:
 		panic("Unexpected value")
 	}
