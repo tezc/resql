@@ -37,19 +37,19 @@ struct node
     struct sc_timer *timer;
     struct conn conn;
 
+    struct sc_list list;
     struct sc_uri **uris;
     uint64_t conn_timer;
     uint64_t interval;
     char *name;
 
-    uint64_t next_index;
-    uint64_t match_index;
-    uint64_t round_index;
-    uint64_t append_inflight;
+    uint64_t next;
+    uint64_t match;
+    uint64_t round;
 
     uint64_t ss_pos;
     uint64_t ss_index;
-    uint64_t ss_inflight;
+    uint64_t msg_inflight;
 
     int id;
     bool known;

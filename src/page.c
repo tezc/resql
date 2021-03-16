@@ -371,7 +371,7 @@ void page_remove_after(struct page *p, uint64_t index)
         return;
     }
 
-    entry = page_entry_at(p, index);
+    entry = page_entry_at(p, index + 1);
     if (entry == NULL) {
         return;
     }
@@ -381,9 +381,9 @@ void page_remove_after(struct page *p, uint64_t index)
     sc_buf_set_32(&p->buf, PAGE_END_MARK);
 
     p->flush_pos = sc_min(pos - 4, p->flush_pos);
-    page_fsync(p, index - 1);
+    page_fsync(p, index);
 
-    for (int i = 0; i < index - p->prev_index - 1; i++) {
+    while (p->prev_index + sc_array_size(p->entries) > index) {
         sc_array_del_last(p->entries);
     }
 }

@@ -36,12 +36,13 @@ struct node *node_create(const char *name, struct server *server, bool connect)
     n->loop = &server->loop;
     n->timer = &server->timer;
     n->name = sc_str_create(name);
-    n->next_index = 1;
-    n->round_index = 0;
-    n->match_index = 0;
+    n->next = 1;
+    n->round = 0;
+    n->match = 0;
     n->conn_timer = SC_TIMER_INVALID;
     n->interval = 64;
 
+    sc_list_init(&n->list);
     sc_queue_create(n->uris, 2);
     conn_init(&n->conn, n->loop, n->timer);
     sc_buf_init(&n->info, 1024);
@@ -57,6 +58,7 @@ void node_destroy(struct node *n)
 {
     struct sc_uri *uri;
 
+    sc_list_del(NULL, &n->list);
     conn_term(&n->conn);
     sc_str_destroy(n->name);
     sc_timer_cancel(n->timer, &n->conn_timer);
@@ -72,25 +74,25 @@ void node_destroy(struct node *n)
 
 void node_disconnect(struct node *n)
 {
+    sc_list_del(NULL, &n->list);
     conn_disconnect(&n->conn);
     node_clear_indexes(n);
 }
 
 void node_update_indexes(struct node *n, uint64_t round, uint64_t match)
 {
-    n->round_index = round;
-    n->match_index = match;
+    n->round = round;
+    n->match = match;
 }
 
 void node_clear_indexes(struct node *n)
 {
-    n->next_index = 1;
-    n->match_index = 0;
-    n->round_index = 0;
-    n->append_inflight = 0;
+    n->next = 1;
+    n->match = 0;
+    n->round = 0;
     n->ss_index = 0;
     n->ss_pos = 0;
-    n->ss_inflight = 0;
+    n->msg_inflight = 0;
 }
 
 void node_add_uris(struct node *n, struct sc_uri **uris)

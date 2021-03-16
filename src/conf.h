@@ -48,7 +48,7 @@ struct conf
     struct
     {
         bool fsync;
-        int64_t heartbeat;
+        uint64_t heartbeat;
     } advanced;
 
     struct

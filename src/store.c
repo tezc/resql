@@ -22,16 +22,16 @@
 #include "page.h"
 #include "store.h"
 
+#include "sc/sc.h"
 #include "sc/sc_array.h"
 #include "sc/sc_log.h"
-#include "sc/sc.h"
 
 #include <limits.h>
 #include <string.h>
 
 #define STORE_MAX_ENTRY_SIZE (512 * 1024 * 1024)
-#define DEF_PAGE_FILE_0     "page.0.resql"
-#define DEF_PAGE_FILE_1     "page.1.resql"
+#define DEF_PAGE_FILE_0      "page.0.resql"
+#define DEF_PAGE_FILE_1      "page.1.resql"
 
 static void store_swap(struct store *s)
 {
@@ -160,7 +160,7 @@ retry:
     if (size > page_quota(s->curr)) {
         if (s->curr != s->pages[1]) {
             s->curr = s->pages[1];
-            while ( size > page_quota(s->curr)) {
+            while (size > page_quota(s->curr)) {
                 page_expand(s->curr);
             }
             page_clear(s->curr, s->last_index);
@@ -236,9 +236,8 @@ uint64_t store_prev_term_of(struct store *s, uint64_t index)
     return entry != NULL ? entry_term(entry) : s->ss_term;
 }
 
-void store_get_entries(struct store *s, uint64_t index, uint32_t limit,
-                       char **entries, uint32_t *size,
-                       uint32_t *count)
+void store_entries(struct store *s, uint64_t index, uint32_t limit,
+                   char **entries, uint32_t *size, uint32_t *count)
 {
     page_get_entries(s->pages[0], index, limit, entries, size, count);
     if (*entries == NULL) {

@@ -247,7 +247,7 @@ static int conf_add(void *arg, int line, const char *section, const char *key,
                      section, key, value);
             return -1;
         }
-        c->advanced.heartbeat = val;
+        c->advanced.heartbeat = (uint64_t) val;
     } break;
     default:
         snprintf(c->err, sizeof(c->err),
