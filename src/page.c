@@ -362,10 +362,6 @@ void page_remove_after(struct page *p, uint64_t index)
     uint32_t pos;
     char *entry;
 
-    if (index > p->prev_index + sc_array_size(p->entries)) {
-        return;
-    }
-
     if (index <= p->prev_index) {
         page_clear(p, p->prev_index);
         return;

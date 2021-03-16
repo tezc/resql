@@ -698,9 +698,8 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
 
 static void server_schedule_election(struct server *s)
 {
-    uint32_t timeout = s->conf.advanced.heartbeat + (rs_rand() % 1024);
-    s->election_timer =
-            sc_timer_add(&s->timer, timeout, SERVER_TIMER_ELECTION, NULL);
+    uint32_t t = s->conf.advanced.heartbeat + (rs_rand() % 1024);
+    s->election_timer = sc_timer_add(&s->timer, t, SERVER_TIMER_ELECTION, NULL);
 }
 
 static void server_become_leader(struct server *s)
@@ -1134,7 +1133,9 @@ retry:
         index++;
     }
 
-    store_flush(&s->store);
+    if (s->conf.advanced.fsync) {
+        store_flush(&s->store);
+    }
 
     msg_create_append_resp(&node->conn.out, s->meta.term, s->store.last_index,
                            req->round, true);
@@ -1656,7 +1657,6 @@ static void server_check_commit(struct server *s)
         }
 
         s->commit = match;
-        sc_log_info("Commit is :%lu set \n", s->commit);
     }
 
     if (!s->ss_inprogress && s->commit >= store_ss_index(&s->store)) {
@@ -1683,8 +1683,8 @@ static void server_check_commit(struct server *s)
                                   c->msg.client_req.len, &c->conn.out);
         client_processed(c);
 
-        if (rc != RS_OK) {
-            conn_disconnect(&c->conn);
+        if (rc != RS_OK || conn_flush(&c->conn) != RS_OK) {
+            server_on_client_disconnect(s, c, MSG_ERR);
         }
     }
 }
@@ -1838,7 +1838,9 @@ flush:
     }
 
     if (s->own->next <= s->store.last_index) {
-        store_flush(&s->store);
+        if (s->conf.advanced.fsync) {
+            store_flush(&s->store);
+        }
         s->own->match = s->store.last_index;
         s->own->next = s->store.last_index + 1;
     }
