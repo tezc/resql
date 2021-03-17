@@ -17,8 +17,6 @@ centos8_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   container:
     image: fedora
-    cpu: 1
-    memory: 2G
   test_script:
     - yum -y install gcc make cmake
     - mkdir build-debug && cd build-debug
