@@ -29,7 +29,7 @@ centos8_task:
 freebsd_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   freebsd_instance:
-    image_family: freebsd-12-2
+    image_family: freebsd-12-1
     cpu: 1
     memory: 2G
   test_script:
