@@ -962,6 +962,7 @@ static int sc_sock_cleanup()
 #else
 
     #include <netdb.h>
+    #include <netinet/in.h>
     #include <netinet/tcp.h>
     #include <sys/un.h>
     #include <unistd.h>
