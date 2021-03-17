@@ -16,21 +16,29 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef RESQL_TEST_UTIL_H
-#define RESQL_TEST_UTIL_H
 
-#define test_execute(A) (test_util_run(A, #A))
+#include "resql.h"
+#include "test_util.h"
 
-#define client_assert(c, b)                                                    \
-    do {                                                                       \
-        if (!(b)) {                                                            \
-            rs_abort("%s \n", resql_errstr(c));                            \
-        }                                                                      \
-    } while (0)
+#include <assert.h>
 
-void test_util_run(void (*test_fn)(void), const char *fn_name);
+void test_join()
+{
+    int rc;
+    resql *c;
 
-struct server* test_server_create(int id);
-void test_server_stop(int id);
+    test_server_create(0);
 
-#endif
+    rc = resql_create(&c, &(struct resql_config){0});
+    assert(rc == RESQL_OK);
+
+    resql_shutdown(c);
+
+    test_server_stop(0);
+}
+
+int main()
+{
+    test_execute(test_join);
+    return 0;
+}

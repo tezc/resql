@@ -42,3 +42,92 @@ void test_util_run(void (*test_fn)(void), const char *fn_name)
     test_fn();
     sc_log_info("[ Passed  ] %s  \n", fn_name);
 }
+
+static struct server* cluster[9];
+static int count;
+
+static const char* names[] = {
+        "node0",
+        "node1",
+        "node2",
+        "node3",
+        "node4",
+        "node5",
+        "node6",
+        "node7",
+        "node8",
+        "node9",
+};
+
+static const char* urls[] = {
+        "tcp://node0@127.0.0.1:7600",
+        "tcp://node1@127.0.0.1:7601",
+        "tcp://node2@127.0.0.1:7602",
+        "tcp://node3@127.0.0.1:7603",
+        "tcp://node4@127.0.0.1:7604",
+        "tcp://node5@127.0.0.1:7605",
+        "tcp://node6@127.0.0.1:7606",
+        "tcp://node7@127.0.0.1:7607",
+        "tcp://node8@127.0.0.1:7608",
+};
+
+static const char* dirs[] = {
+        "/tmp/node0",
+        "/tmp/node1",
+        "/tmp/node2",
+        "/tmp/node3",
+        "/tmp/node4",
+        "/tmp/node5",
+        "/tmp/node6",
+        "/tmp/node7",
+        "/tmp/node8",
+};
+
+struct server* test_server_create(int id)
+{
+    char *opt[] = {"", "-e"};
+
+    int rc;
+    struct conf conf;
+    struct server *s;
+
+    assert(id >= 0 && id <= 9);
+    assert(cluster[id] == NULL);
+
+    conf_init(&conf);
+
+    sc_str_set(&conf.node.log_level, "DEBUG");
+    sc_str_set(&conf.node.name, names[id]);
+    sc_str_set(&conf.node.bind_url, urls[id]);
+    sc_str_set(&conf.node.ad_url, urls[id]);
+    sc_str_set(&conf.cluster.nodes, count != 0 ? urls[count - 1] : urls[id]);
+    sc_str_set(&conf.node.dir, dirs[id]);
+
+    conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
+
+    s = server_create(&conf);
+
+    rc = server_start(s, true);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    cluster[id] = s;
+    count++;
+
+    return s;
+}
+
+void test_server_stop(int id)
+{
+    int rc;
+
+    assert(id >= 0 && id <= count);
+    assert(cluster[id] != NULL);
+
+    rc = server_stop(cluster[id]);
+    cluster[id] = NULL;
+    count--;
+
+    assert(rc == RS_OK);
+}

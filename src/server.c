@@ -183,8 +183,9 @@ void server_destroy(struct server *s)
         sc_sock_term(endp.sock);
         rs_free(endp.sock);
     }
-
     sc_array_destroy(s->endpoints);
+
+
 
     sc_queue_foreach (s->jobs, job) {
         rs_free(job.data);
@@ -202,6 +203,10 @@ void server_destroy(struct server *s)
     sc_buf_term(&s->tmp);
     rs_delete_pid_file(s->conf.node.dir);
     conf_term(&s->conf);
+
+    sc_sock_pipe_term(&s->efd);
+    sc_sock_pipe_term(&s->sigfd);
+
     rs_free(s);
 }
 
@@ -312,7 +317,6 @@ void server_read_meta(struct server *s)
     snapshot_open(&s->ss, s->state.ss_path, s->state.term, s->state.index);
 
     s->commit = s->state.index;
-    sc_log_info("Commit is %lu \n", s->commit);
 }
 
 void server_update_meta(struct server *s, uint64_t term, const char *voted_for)
@@ -727,7 +731,6 @@ static void server_become_leader(struct server *s)
     sc_buf_clear(&s->tmp);
     meta_print(&s->meta, &s->tmp);
     sc_log_info(sc_buf_rbuf(&s->tmp));
-    printf("Become leader %lu \n", s->store.last_index);
 }
 
 static void server_become_follower(struct server *s, struct node *leader)
