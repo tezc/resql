@@ -16,7 +16,7 @@ ubuntu_task:
 centos8_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   container:
-    image: centos:8
+    image: fedora
     cpu: 1
     memory: 2G
   test_script:
@@ -31,7 +31,7 @@ centos8_task:
 freebsd_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   freebsd_instance:
-    image_family: freebsd-12-1
+    image_family: freebsd-12-2
     cpu: 1
     memory: 2G
   test_script:

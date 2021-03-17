@@ -107,7 +107,7 @@ static const int conf_size = sizeof(conf_list) / sizeof(struct conf_item);
 
 void conf_init(struct conf *c)
 {
-    *c = (struct conf){0};
+    memset(c, 0, sizeof(*c));
 
     c->node.name = sc_str_create("node0");
     c->node.bind_url = sc_str_create("tcp://127.0.0.1:7600");

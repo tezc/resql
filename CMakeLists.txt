@@ -1,6 +1,6 @@
 # -------------------- Header start -----------------------------#
 project(resql C)
-cmake_minimum_required(VERSION 3.9.0)
+cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
