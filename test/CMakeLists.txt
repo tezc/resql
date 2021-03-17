@@ -111,7 +111,7 @@ set_source_files_properties(
  -DSQLITE_USE_ALLOCA"
 )
 
-add_compile_options(-DSC_HAVE_CONFIG_H -g -rdynamic -fno-omit-frame-pointer)
+add_compile_options(-DSC_HAVE_CONFIG_H -g -fno-omit-frame-pointer)
 target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
 
 add_library(resql-test test_util.c ../c-client/resql.c)

@@ -156,6 +156,10 @@ void server_destroy(struct server *s)
         node_destroy(node);
     }
     sc_array_destroy(s->nodes);
+
+    sc_array_foreach (s->unknown_nodes, node) {
+            node_destroy(node);
+    }
     sc_array_destroy(s->unknown_nodes);
 
     state_term(&s->state);
@@ -1051,7 +1055,7 @@ void server_on_append_req(struct server *s, struct node *node, struct msg *msg)
 {
     int rc;
     char *entry, *curr;
-    uint64_t index, prev_term, term;
+    uint64_t index;
     struct session *session;
     struct msg_append_req *req = &msg->append_req;
 
@@ -1789,13 +1793,10 @@ flush:
 
 static void server_flush(struct server *s)
 {
-    bool done;
     int rc;
     char *entries;
-    uint32_t size, count, len;
+    uint32_t size, count;
     uint64_t prev;
-    uint64_t timeout = s->conf.advanced.heartbeat;
-    void *data;
     struct sc_list *l, *tmp;
     struct node *n;
     struct client *client;

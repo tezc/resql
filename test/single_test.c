@@ -22,7 +22,7 @@
 
 #include <assert.h>
 
-void test_join()
+void test_single()
 {
     int rc;
     resql *c;
@@ -33,12 +33,28 @@ void test_join()
     assert(rc == RESQL_OK);
 
     resql_shutdown(c);
-
     test_server_stop(0);
+}
+
+void test_two()
+{
+    int rc;
+    resql *c;
+
+    test_server_create(0);
+    test_server_create(1);
+
+    rc = resql_create(&c, &(struct resql_config){0});
+    assert(rc == RESQL_OK);
+
+    resql_shutdown(c);
+    test_server_stop(0);
+    test_server_stop(1);
 }
 
 int main()
 {
-    test_execute(test_join);
+    test_execute(test_single);
+    test_execute(test_two);
     return 0;
 }
