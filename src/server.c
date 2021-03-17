@@ -1162,8 +1162,6 @@ retry:
         s->ss_inprogress = true;
         snapshot_take(&s->ss, store_ss_page(&s->store));
     }
-
-    return;
 }
 
 void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
@@ -1757,29 +1755,27 @@ static void server_flush_snapshot(struct server *s, struct node *n)
     uint32_t len;
     void *data;
 
-    if (n->next <= s->store.ss_index) {
-        if (n->msg_inflight > 0) {
-            return;
-        }
-
-        if (n->ss_index != s->ss.index) {
-            n->ss_index = s->ss.index;
-            n->ss_pos = 0;
-        }
-
-        len = sc_min(4096, s->ss.map.len - n->ss_pos);
-        data = s->ss.map.ptr + n->ss_pos;
-        done = n->ss_pos + len == s->ss.map.len;
-
-        if (len == 0) {
-            goto flush;
-        }
-
-        msg_create_snapshot_req(&n->conn.out, s->meta.term, s->ss.term,
-                                s->ss.index, n->ss_pos, done, data, len);
-        n->ss_pos += len;
-        n->msg_inflight = 1;
+    if (n->msg_inflight > 0) {
+        return;
     }
+
+    if (n->ss_index != s->ss.index) {
+        n->ss_index = s->ss.index;
+        n->ss_pos = 0;
+    }
+
+    len = sc_min(4096, s->ss.map.len - n->ss_pos);
+    data = s->ss.map.ptr + n->ss_pos;
+    done = n->ss_pos + len == s->ss.map.len;
+
+    if (len == 0) {
+        goto flush;
+    }
+
+    msg_create_snapshot_req(&n->conn.out, s->meta.term, s->ss.term, s->ss.index,
+                            n->ss_pos, done, data, len);
+    n->ss_pos += len;
+    n->msg_inflight++;
 
 flush:
     rc = conn_flush(&n->conn);
