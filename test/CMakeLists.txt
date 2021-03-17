@@ -111,9 +111,8 @@ set_source_files_properties(
  -DSQLITE_USE_ALLOCA"
 )
 
-add_compile_options(-DSC_HAVE_CONFIG_H)
+add_compile_options(-DSC_HAVE_CONFIG_H -g -fno-omit-frame-pointer)
 target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
-#target_include_directories(resql-server PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
 add_library(resql-test test_util.c ../c-client/resql.c)
 target_link_libraries(resql-test PUBLIC resql-server)
@@ -135,6 +134,7 @@ resql_test(session_test.c)
 resql_test(snapshot_test.c)
 resql_test(state_test.c)
 resql_test(store_test.c)
+resql_test(single_test.c)
 
 add_custom_target(check ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
         ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --verbose

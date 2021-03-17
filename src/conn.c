@@ -29,26 +29,26 @@
 struct conn *conn_create(struct sc_sock_poll *loop, struct sc_timer *timer,
                          struct sc_sock *sock)
 {
-    struct conn *conn;
+    struct conn *c;
 
-    conn = rs_malloc(sizeof(*conn));
-    conn_init(conn, loop, timer);
+    c = rs_malloc(sizeof(*c));
+    conn_init(c, loop, timer);
 
-    conn->sock = *sock;
-    conn->state = CONN_CONNECTED;
-    conn->sock.fdt.type = SERVER_FD_WAIT_FIRST_REQ;
+    c->sock = *sock;
+    c->state = CONN_CONNECTED;
+    c->sock.fdt.type = SERVER_FD_WAIT_FIRST_REQ;
 
-    sc_sock_poll_add(loop, &conn->sock.fdt, SC_SOCK_READ, &conn->sock.fdt);
-    sc_sock_local_str(sock, conn->local, sizeof(conn->local));
-    sc_sock_remote_str(sock, conn->remote, sizeof(conn->remote));
+    sc_sock_poll_add(loop, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
+    sc_sock_local_str(sock, c->local, sizeof(c->local));
+    sc_sock_remote_str(sock, c->remote, sizeof(c->remote));
 
-    return conn;
+    return c;
 }
 
-void conn_destroy(struct conn *conn)
+void conn_destroy(struct conn *c)
 {
-    conn_term(conn);
-    rs_free(conn);
+    conn_term(c);
+    rs_free(c);
 }
 
 void conn_init(struct conn *c, struct sc_sock_poll *poll,

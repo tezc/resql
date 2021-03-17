@@ -165,9 +165,9 @@ static void page_remove_after_test(void)
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
     assert(rc == RS_OK);
-    assert(page_entry_count(&page) == 500);
+    assert(page_entry_count(&page) == 501);
 
-    for (uint64_t i = 0; i < 500; i++) {
+    for (uint64_t i = 0; i < 501; i++) {
         entry = page_entry_at(&page, prev_index + 1 + i);
         assert(entry != NULL);
         assert(entry_term(entry) == i);

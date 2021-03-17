@@ -94,7 +94,7 @@ struct server
     struct sc_map_sv clients;
     struct sc_map_64v vclients;
     struct node **nodes;
-    struct node **connected_nodes;
+    struct sc_list connected_nodes;
     struct node **unknown_nodes;
     struct client **term_clients;
     uint64_t election_timer;
@@ -129,9 +129,9 @@ struct server
     unsigned int prevote_count;
     unsigned int vote_count;
     uint64_t round_match;
-    uint64_t round_prev_index;
-    uint64_t round_index;
-    uint64_t commit_index;
+    uint64_t round_prev;
+    uint64_t round;
+    uint64_t commit;
     struct sc_list read_reqs;
     struct sc_buf tmp;
     struct server_job *jobs;

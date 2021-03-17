@@ -21,7 +21,7 @@
 #include "rs.h"
 #include "test_util.h"
 
-#include "c/resql.h"
+#include "resql.h"
 
 #include <unistd.h>
 
@@ -30,21 +30,21 @@ struct server *create_node_0()
 {
     char *options[] = {"", "-e"};
 
-    struct settings settings;
+    struct conf conf;
 
-    settings_init(&settings);
-    settings_read_cmdline(&settings, sizeof(options) / sizeof(char *), options);
+    conf_init(&conf);
+    conf_read_config(&conf, false, sizeof(options) / sizeof(char *), options);
 
-    sc_str_set(&settings.node.log_level, "DEBUG");
-    sc_str_set(&settings.node.name, "node0");
-    sc_str_set(&settings.node.bind_uri,
+    sc_str_set(&conf.node.log_level, "DEBUG");
+    sc_str_set(&conf.node.name, "node0");
+    sc_str_set(&conf.node.bind_url,
                "tcp://node0@127.0.0.1:7600 unix:///tmp/var");
-    sc_str_set(&settings.node.ad_uri, "tcp://node0@127.0.0.1:7600");
-    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600");
-    sc_str_set(&settings.node.dir, "/tmp/node0");
-    settings.node.in_memory = true;
+    sc_str_set(&conf.node.ad_url, "tcp://node0@127.0.0.1:7600");
+    sc_str_set(&conf.cluster.nodes, "tcp://node0@127.0.0.1:7600");
+    sc_str_set(&conf.node.dir, "/tmp/node0");
+    conf.node.in_memory = true;
 
-    struct server *server = server_create(&settings);
+    struct server *server = server_create(&conf);
 
     int rc = server_start(server, true);
     if (rc != RS_OK) {

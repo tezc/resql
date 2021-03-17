@@ -30,4 +30,7 @@
 
 void test_util_run(void (*test_fn)(void), const char *fn_name);
 
+struct server* test_server_create(int id);
+void test_server_stop(int id);
+
 #endif

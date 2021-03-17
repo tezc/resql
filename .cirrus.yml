@@ -9,42 +9,27 @@ ubuntu_task:
     - mkdir build-debug && cd build-debug
     - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
     - make check
+    - rm -rf *
     - cd ..
-    - mkdir build-release && cd build-release
-    - cmake .. && make
+    - ./build.sh
 
 centos8_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   container:
-    image: centos:8
-    cpu: 1
-    memory: 2G
+    image: fedora
   test_script:
     - yum -y install gcc make cmake
     - mkdir build-debug && cd build-debug
     - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
     - make check
+    - rm -rf *
     - cd ..
-    - mkdir build-release && cd build-release
-    - cmake .. && make
-
-osx_task:
-  use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
-  osx_instance:
-    image: catalina-xcode
-  test_script:
-    - brew install cmake
-    - mkdir build-debug && cd build-debug
-    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
-    - make check
-    - cd ..
-    - mkdir build-release && cd build-release
-    - cmake .. && make
+    - ./build.sh
 
 freebsd_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   freebsd_instance:
-    image_family: freebsd-12-1
+    image_family: freebsd-12-2
     cpu: 1
     memory: 2G
   test_script:
@@ -52,6 +37,6 @@ freebsd_task:
     - mkdir build-debug && cd build-debug
     - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
     - make check
+    - rm -rf *
     - cd ..
-    - mkdir build-release && cd build-release
-    - cmake .. && make
+    - ./build.sh

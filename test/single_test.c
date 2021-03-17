@@ -17,35 +17,44 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "c/resql.h"
-#include "sc/sc_uri.h"
+#include "resql.h"
+#include "test_util.h"
 
-#include <stdio.h>
+#include <assert.h>
+
+void test_single()
+{
+    int rc;
+    resql *c;
+
+    test_server_create(0);
+
+    rc = resql_create(&c, &(struct resql_config){0});
+    assert(rc == RESQL_OK);
+
+    resql_shutdown(c);
+    test_server_stop(0);
+}
+
+void test_two()
+{
+    int rc;
+    resql *c;
+
+    test_server_create(0);
+    test_server_create(1);
+
+    rc = resql_create(&c, &(struct resql_config){0});
+    assert(rc == RESQL_OK);
+
+    resql_shutdown(c);
+    test_server_stop(0);
+    test_server_stop(1);
+}
 
 int main()
 {
-    resql *c;
-    resql_result *rs;
-    const char *urls =
-            "tcp://127.0.0.1:7600";
-
-    struct resql_config config = {.cluster_name = "cluster",
-            .client_name = "any",
-            .timeout = 10000,
-            .urls = urls};
-
-    resql_create(&c, &config);
-
-    resql_put_sql(c, "SELECT count(*) FROM multi;");
-    resql_exec(c, true, &rs);
-
-    while (resql_result_next(rs)) {
-        while (resql_result_row(rs)) {
-            printf("%s \n", resql_result_column_name(rs, 0));
-            printf("%ld \n", resql_result_int(rs, 0));
-        }
-    }
-
+    test_execute(test_single);
+    test_execute(test_two);
     return 0;
 }
-

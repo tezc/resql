@@ -684,7 +684,7 @@ void state_on_timestamp(struct state *st, uint64_t realtime, uint64_t monotonic)
 
     sc_list_foreach_safe (&st->disconnects, tmp, it) {
         sess = sc_list_entry(it, struct session, list);
-        if (st->timestamp - sess->disconnect_time > 10000) {
+        if (st->timestamp - sess->disconnect_time > 60000) {
             aux_del_session(&st->aux, sess);
             sc_map_del_sv(&st->names, sess->name, NULL);
             sc_map_del_64v(&st->ids, sess->id, NULL);

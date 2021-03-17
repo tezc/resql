@@ -63,7 +63,7 @@ int store_put_entry(struct store *store, uint64_t index, char *entry);
 char *store_get_entry(struct store *s, uint64_t index);
 uint64_t store_prev_term_of(struct store *s, uint64_t index);
 
-void store_get_entries(struct store *s, uint64_t index, uint32_t limit,
+void store_entries(struct store *s, uint64_t index, uint32_t limit,
                        char **entries, uint32_t *size,
                        uint32_t *count);
 
