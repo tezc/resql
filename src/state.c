@@ -194,7 +194,7 @@ int state_global_shutdown()
 void state_init(struct state *st, struct state_cb cb, const char *path,
                 const char *name)
 {
-    *st = (struct state){0};
+    *st = (struct state){{0}};
 
     st->cb = cb;
     st->path = sc_str_create_fmt("%s/%s", path, STATE_FILE);

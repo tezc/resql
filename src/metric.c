@@ -283,7 +283,7 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     char tmp[128];
     ssize_t sz;
     uint64_t ts, val;
-    struct rusage usage = (struct rusage){0};
+    struct rusage usage = (struct rusage){{0}};
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
 
