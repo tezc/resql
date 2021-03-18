@@ -330,7 +330,7 @@ bool resql_next(resql_result *rs);
 int resql_row_count(resql_result *rs);
 
 /**
- * Get count the number of rows modified for the current statement.
+ * Get number of rows modified for the current statement.
  * Return value is only meaningful for INSERT, UPDATE or DELETE statements.
  * Otherwise, its value is unspecified.
  *
@@ -338,6 +338,15 @@ int resql_row_count(resql_result *rs);
  * @return   rows modified
  */
 int resql_changes(resql_result *rs);
+
+/**
+ * Returns last insert row id. Return value is only meaningful for INSERT
+ * statements. Otherwise, its value is unspecified.
+ *
+ * @param rs result
+ * @return   last insert row id
+ */
+int64_t resql_last_row_id(resql_result *rs);
 
 /**
  * Column count for the current result. Meaningful only for statements which

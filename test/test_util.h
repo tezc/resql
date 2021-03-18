@@ -19,6 +19,8 @@
 #ifndef RESQL_TEST_UTIL_H
 #define RESQL_TEST_UTIL_H
 
+#include "rs.h"
+
 #define test_execute(A) (test_util_run(A, #A))
 
 #define client_assert(c, b)                                                    \
@@ -30,7 +32,7 @@
 
 void test_util_run(void (*test_fn)(void), const char *fn_name);
 
-struct server* test_server_create(int id);
+struct server* test_server_create(int id, int cluster_size);
 void test_server_stop(int id);
 
 #endif

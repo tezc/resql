@@ -40,6 +40,12 @@ public interface ResultSet extends Iterable<Row> {
     int linesChanged();
 
     /**
+     * @return Last insert row id for INSERT statements. For other statements,
+     *         returned value is unspecified.
+     */
+    long lastRowId();
+
+    /**
      * Get row count for the current result set, -1 if not applicable
      *
      * @return row count.

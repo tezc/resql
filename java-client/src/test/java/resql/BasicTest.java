@@ -56,9 +56,8 @@ public class BasicTest {
         client.put("INSERT INTO basic VALUES('jane', 'doe');");
         ResultSet rs = client.execute(false);
 
-
-
         assert (rs.linesChanged() == 1);
+
         for (Row row : rs) {
             assert(false);
         }
@@ -73,6 +72,23 @@ public class BasicTest {
         }
 
         assert (!rs.nextResultSet());
+    }
+
+    @Test
+    public void testLastRowId() {
+        for (int i = 0; i < 100; i++) {
+            client.put("INSERT INTO basic VALUES('jane', 'doe');");
+            ResultSet rs = client.execute(false);
+            assert (rs.linesChanged() == 1);
+            assert (rs.lastRowId() == i + 1);
+        }
+
+        for (int i = 100; i < 200; i++) {
+            client.put("INSERT INTO basic VALUES('jane', 'doe');");
+            ResultSet rs = client.execute(false);
+            assert (rs.linesChanged() == 1);
+            assert (rs.lastRowId() == i + 1);
+        }
     }
 
     @Test

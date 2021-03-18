@@ -708,11 +708,17 @@ static const char *state_errstr(struct state *st)
 }
 
 static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
+                                         bool readonly,
                                          struct sc_buf *req,
                                          struct sc_buf *resp)
 {
     int rc, type, idx;
     const char *param;
+
+    if (readonly && sqlite3_stmt_readonly(stmt) == 0) {
+        st->last_err = "Operation is not readonly.";
+        return RS_ERROR;
+    }
 
     while ((type = sc_buf_get_8(req)) != TASK_FLAG_END) {
         switch (type) {
@@ -727,7 +733,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             idx = sqlite3_bind_parameter_index(stmt, param);
             if (idx == 0) {
                 st->last_err = "Invalid parameter name";
-                goto error;
+                return RS_ERROR;
             }
             break;
         default:
@@ -742,7 +748,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             int64_t t = sc_buf_get_64(req);
             rc = sqlite3_bind_int64(stmt, idx, t);
             if (rc != SQLITE_OK) {
-                goto error;
+                return RS_ERROR;
             }
         } break;
 
@@ -750,7 +756,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             double f = sc_buf_get_double(req);
             rc = sqlite3_bind_double(stmt, idx, f);
             if (rc != SQLITE_OK) {
-                goto error;
+                return RS_ERROR;
             }
         } break;
 
@@ -760,7 +766,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
 
             rc = sqlite3_bind_text(stmt, idx, val, str_size, SQLITE_STATIC);
             if (rc != SQLITE_OK) {
-                goto error;
+                return RS_ERROR;
             }
         } break;
 
@@ -770,14 +776,14 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
 
             rc = sqlite3_bind_blob(stmt, idx, blob_data, blen, SQLITE_STATIC);
             if (rc != SQLITE_OK) {
-                goto error;
+                return RS_ERROR;
             }
         } break;
 
         case TASK_PARAM_NULL: {
             rc = sqlite3_bind_null(stmt, idx);
             if (rc != SQLITE_OK) {
-                goto error;
+                return RS_ERROR;
             }
         } break;
 
@@ -788,7 +794,9 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     }
 
     rc = sqlite3_step(stmt);
+
     sc_buf_put_32(resp, sqlite3_changes(st->aux.db));
+    sc_buf_put_64(resp, sqlite3_last_insert_rowid(st->aux.db));
 
     if (rc == SQLITE_ROW) {
         sc_buf_put_8(resp, TASK_FLAG_ROW);
@@ -857,15 +865,12 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     }
 
     if (rc != SQLITE_DONE) {
-        goto error;
+        return RS_ERROR;
     }
 
     sc_buf_put_8(resp, TASK_FLAG_DONE);
 
     return RS_OK;
-
-error:
-    return RS_ERROR;
 }
 
 static int state_exec_stmt(struct state *st, bool readonly, struct sc_buf *req,
@@ -873,26 +878,17 @@ static int state_exec_stmt(struct state *st, bool readonly, struct sc_buf *req,
 {
     int rc;
     sqlite3_stmt *stmt = NULL;
-    uint32_t stmt_len = sc_buf_peek_32(req);
-    const char *stmt_str = sc_buf_get_str(req);
+    uint32_t len = sc_buf_peek_32(req);
+    const char *str = sc_buf_get_str(req);
 
-    rc = sqlite3_prepare_v3(st->aux.db, stmt_str, stmt_len, 0, &stmt, NULL);
+    rc = sqlite3_prepare_v3(st->aux.db, str, len, 0, &stmt, NULL);
     if (rc != RS_OK) {
-        goto out;
+        return RS_ERROR;
     }
 
-    if (readonly && sqlite3_stmt_readonly(stmt) == 0) {
-        rc = RS_ERROR;
-        st->last_err = "Operation is not readonly.";
-        goto out;
-    }
+    rc = state_exec_prepared_statement(st, stmt, readonly, req, resp);
 
-    rc = state_exec_prepared_statement(st, stmt, req, resp);
-
-out:
-    if (stmt) {
-        sqlite3_finalize(stmt);
-    }
+    sqlite3_finalize(stmt);
 
     return rc;
 }
@@ -976,12 +972,7 @@ static int state_exec_stmt_id(struct state *st, struct session *sess,
         return RS_ERROR;
     }
 
-    if (readonly && sqlite3_stmt_readonly(stmt) == 0) {
-        st->last_err = "Operation is not readonly.";
-        return RS_ERROR;
-    }
-
-    rc = state_exec_prepared_statement(st, stmt, req, resp);
+    rc = state_exec_prepared_statement(st, stmt, readonly, req, resp);
 
     ret = sqlite3_clear_bindings(stmt);
     if (ret != SQLITE_OK) {
