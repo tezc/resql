@@ -49,7 +49,23 @@ func TestMain(m *testing.M) {
 	}
 
 	c = s
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	c.PutStatement("CREATE TABLE gotest (id INTEGER PRIMARY KEY, name TEXT, " +
+		"points FLOAT, data BLOB);")
+	_, err = c.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	ret := m.Run()
+
+	c.Clear()
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	_, err = c.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	err = s.Shutdown()
 	if err != nil {

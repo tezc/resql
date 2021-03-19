@@ -47,6 +47,9 @@ public class BasicTest {
     @AfterEach
     public void tearDown() {
         if (client != null) {
+            client.clear();
+            client.put("DROP TABLE IF EXISTS basic;");
+            client.execute(false);
             client.shutdown();
         }
     }

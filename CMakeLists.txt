@@ -357,6 +357,7 @@ set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_COMMON} ${C_
 
 add_subdirectory(src)
 add_subdirectory(util/cli)
+add_subdirectory(util/benchmark)
 
 if (RESQL_BUILD_TESTS)
     add_subdirectory(test)

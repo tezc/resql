@@ -1,7 +1,9 @@
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
 add_executable(resql-cli
         resql_cli.c
-        sc_uri.h
-        sc_uri.c
         sc_option.h
         sc_option.c
         linenoise.h

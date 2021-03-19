@@ -224,6 +224,7 @@ class Client implements Resql {
     public void clear() {
         req.clear();
         Msg.reserveClientReqHeader(req);
+        hasStatement = false;
     }
 
     private void disconnect() {

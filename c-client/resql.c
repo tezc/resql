@@ -1957,14 +1957,14 @@ static void resql_generate_name(struct resql *c, char *dest)
     static char charset[] = "0123456789"
                             "abcdefghijklmnopqrstuvwxyz"
                             "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
-    int num, len;
+    unsigned int num, len;
     uint64_t ts;
     uint32_t generated[40] = {0};
     char *end, *p = (char *) generated;
 
     ts = sc_time_mono_ms();
 
-    num = (int) ((rand() % 16) + 8 + (ts % 4));
+    num = (unsigned int) ((rand() % 16) + 8 + (ts % 4));
     len = (num % 16) + 8;
     end = p + (sizeof(generated[0]) * len);
 
@@ -1979,8 +1979,8 @@ static void resql_generate_name(struct resql *c, char *dest)
         p += sizeof(num);
     }
 
-    for (int i = 0; i < len; i++) {
-        dest[i] = charset[generated[i] % sizeof(charset)];
+    for (unsigned int i = 0; i < len; i++) {
+        dest[i] = charset[generated[i] % (sizeof(charset) - 1)];
     }
 
     dest[len] = '\0';

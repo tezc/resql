@@ -347,6 +347,7 @@ retry:
 func (c *client) Clear() {
 	c.req.Reset()
 	c.req.Reserve(clientReqHeader)
+	c.hasStatement = false
 }
 
 func (c *client) connectSock() error {

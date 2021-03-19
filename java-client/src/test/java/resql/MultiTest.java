@@ -46,6 +46,9 @@ public class MultiTest {
     @AfterEach
     public void tearDown() {
         if (client != null) {
+            client.clear();
+            client.put("DROP TABLE IF EXISTS multi;");
+            client.execute(false);
             client.shutdown();
         }
     }

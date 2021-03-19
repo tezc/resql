@@ -25,7 +25,6 @@
 #include "resql.h"
 #include "linenoise.h"
 #include "sc_option.h"
-#include "sc_uri.h"
 
 #include <ctype.h>
 #include <signal.h>
@@ -41,7 +40,7 @@
 
 struct resql_cli
 {
-    struct sc_uri *uri;
+    char* url;
     bool vertical;
     char **cmds;
     int count;
@@ -54,8 +53,8 @@ static struct resql *client;
 
 static void resql_cli_cmdline_usage()
 {
-    printf("\n Resql CLI version : %s \n\n", RESQL_CLI_VERSION);
-    printf(" -u=<uri>      --uri=<uri>           ex: --uri=tcp://127.0.0.1:7600 \n"
+    printf("\n resql-cli version : %s \n\n", RESQL_CLI_VERSION);
+    printf(" -u=<url>      --url=<url>           ex: --url=tcp://127.0.0.1:7600 \n"
            " -c=<command>  --command=<command>   ex: ./resql-cli -c=\"SELECT * FROM resql_sessions\"\n"
            " -h            --help                Print this help and exit \n"
            " -v,           --version             Print version and exit   \n"
@@ -67,7 +66,7 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
     static struct sc_option_item options[] = {
             {'c', "command"},
             {'h', "help"},
-            {'u', "uri"},
+            {'u', "url"},
             {'v', "version"},
     };
 
@@ -92,15 +91,8 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
             s_cli.count++;
             break;
         case 'u': {
-            struct sc_uri *uri;
-            uri = sc_uri_create(value);
-            if (uri == NULL) {
-                printf("resql: Error parsing uri %s \n", optarg);
-                exit(1);
-            }
-
-            sc_uri_destroy(cli->uri);
-            cli->uri = uri;
+            free(cli->url);
+            cli->url = strdup(value);
         } break;
 
         case 'h':
@@ -590,7 +582,7 @@ void resql_print_help()
 
 void resql_cli_init(struct resql_cli *cli)
 {
-    cli->uri = sc_uri_create("tcp://127.0.0.1:7600");
+    cli->url = strdup("tcp://127.0.0.1:7600");
     cli->vertical = false;
 }
 
@@ -619,17 +611,16 @@ int main(int argc, char **argv)
     resql_cli_read_cmdline(&s_cli, argc, argv);
 
     struct resql_config config = {
-            .urls = s_cli.uri->str,
+            .urls = s_cli.url,
             .timeout_millis = 4000,
-            .client_name = "cli",
             .cluster_name = "cluster",
     };
 
-    printf("Trying to connect to server at %s \n", s_cli.uri->str);
+    printf("Trying to connect to server at %s \n", s_cli.url);
 
     rc = resql_create(&client, &config);
     if (rc != RESQL_OK) {
-        printf("Failed to connect to server at %s \n", s_cli.uri->str);
+        printf("Failed to connect to server at %s \n", s_cli.url);
         exit(EXIT_FAILURE);
     }
 
