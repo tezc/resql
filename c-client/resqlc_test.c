@@ -69,6 +69,38 @@ static void test_reset()
     assert(strcmp(col[3].blob, "test") == 0);
 }
 
+static void test_last_insert_id()
+{
+    int rc;
+    resql_result *rs;
+
+    for (int i = 0; i < 10; i++) {
+        resql_put_sql(c, "INSERT INTO ctest VALUES(?, ?, ?, ?);");
+        resql_bind_index_int(c, 0, i);
+        resql_bind_index_text(c, 1, "jane");
+        resql_bind_index_float(c, 2, 3.11);
+        resql_bind_index_blob(c, 3, 5, "blob");
+
+        rc = resql_exec(c, false, &rs);
+        assert_client(rc == RESQL_OK);
+        assert(resql_changes(rs) == 1);
+        assert(resql_last_row_id(rs) == i + 1);
+    }
+
+    for (int i = 10; i < 20; i++) {
+        resql_put_sql(c, "INSERT INTO ctest VALUES(?, ?, ?, ?);");
+        resql_bind_index_int(c, 0, i);
+        resql_bind_index_text(c, 1, "jane");
+        resql_bind_index_float(c, 2, 3.11);
+        resql_bind_index_blob(c, 3, 5, "blob");
+
+        rc = resql_exec(c, false, &rs);
+        assert_client(rc == RESQL_OK);
+        assert(resql_changes(rs) == 1);
+        assert(resql_last_row_id(rs) == i + 1);
+    }
+}
+
 static void test_single_index()
 {
     int rc;
@@ -958,6 +990,7 @@ int main(int argc, char *argv[])
 
     resql_init();
 
+    test_execute(test_last_insert_id);
     test_execute(test_reset);
     test_execute(test_single_index);
     test_execute(test_single_param);

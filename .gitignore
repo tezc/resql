@@ -15,6 +15,7 @@ cmake-build*
 build
 bin/resql
 bin/resql-cli
+bin/resql-benchmark
 bin/resql-history.txt
 bin/pgo
 bin/build

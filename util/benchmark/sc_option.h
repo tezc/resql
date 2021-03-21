@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Resql Authors
+ * Copyright (c) 2021 Ozan Tezcan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,34 +21,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef SC_OPTION_H
+#define SC_OPTION_H
 
-package resql;
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
-public interface ResultSet extends Iterable<Row> {
+#define SC_OPTION_VERSION "1.0.0"
 
-    /**
-     * Advance to the next result set.
-     *
-     * @return 'true' if next result set exists.
-     */
-    boolean nextResultSet();
+struct sc_option_item
+{
+    const char letter;
+    const char *name;
+};
 
-    /**
-     * @return Number of lines changed for the current INSERT, UPDATE or DELETE
-     *         statement. For other statements, returned value is unspecified.
-     */
-    int linesChanged();
+struct sc_option
+{
+    struct sc_option_item *options;
+    int count;
+    char **argv;
+};
 
-    /**
-     * @return Last insert row id for INSERT statements. For other statements,
-     *         returned value is unspecified.
-     */
-    long lastRowId();
+/**
+ *
+ * @param opt    Already initialized sc_opt struct
+ * @param index  Index for argv
+ * @param value  [out] Value for the option if exists. It should be after '='
+ *               sign. E.g : -key=value or -k=value. If value does not exists
+ *               (*value) will point to '\0' character. It won't be NULL itself.
+ *
+ *               To check if option has value associated : if (*value != '\0')
+ *
+ * @return       Letter for the option. If option is not known, '?' will be
+ *               returned.
+ */
+char sc_option_at(struct sc_option *opt, int index, char **value);
 
-    /**
-     * Get row count for the current result set, -1 if not applicable
-     *
-     * @return row count.
-     */
-    int rowCount();
-}
+#endif

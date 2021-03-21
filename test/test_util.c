@@ -56,7 +56,6 @@ static const char* names[] = {
         "node6",
         "node7",
         "node8",
-        "node9",
 };
 
 static const char* urls[] = {
@@ -71,6 +70,28 @@ static const char* urls[] = {
         "tcp://node8@127.0.0.1:7608",
 };
 
+#define node0 "tcp://node0@127.0.0.1:7600"
+#define node1 node0" tcp://node1@127.0.0.1:7601"
+#define node2 node1" tcp://node2@127.0.0.1:7602"
+#define node3 node2" tcp://node3@127.0.0.1:7603"
+#define node4 node3" tcp://node4@127.0.0.1:7604"
+#define node5 node4" tcp://node5@127.0.0.1:7605"
+#define node6 node5" tcp://node6@127.0.0.1:7606"
+#define node7 node6" tcp://node7@127.0.0.1:7607"
+#define node8 node7" tcp://node8@127.0.0.1:7608"
+
+static const char* nodes[] = {
+        node0,
+        node1,
+        node2,
+        node3,
+        node4,
+        node5,
+        node6,
+        node7,
+        node8,
+};
+
 static const char* dirs[] = {
         "/tmp/node0",
         "/tmp/node1",
@@ -83,7 +104,7 @@ static const char* dirs[] = {
         "/tmp/node8",
 };
 
-struct server* test_server_create(int id)
+struct server* test_server_create(int id, int cluster_size)
 {
     char *opt[] = {"", "-e"};
 
@@ -91,8 +112,9 @@ struct server* test_server_create(int id)
     struct conf conf;
     struct server *s;
 
-    assert(id >= 0 && id <= 9);
+    assert(id >= 0 && id < 9);
     assert(cluster[id] == NULL);
+    assert(cluster_size > 0 && cluster_size <= 9);
 
     conf_init(&conf);
 
@@ -100,7 +122,7 @@ struct server* test_server_create(int id)
     sc_str_set(&conf.node.name, names[id]);
     sc_str_set(&conf.node.bind_url, urls[id]);
     sc_str_set(&conf.node.ad_url, urls[id]);
-    sc_str_set(&conf.cluster.nodes, count != 0 ? urls[count - 1] : urls[id]);
+    sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
     sc_str_set(&conf.node.dir, dirs[id]);
 
     conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
@@ -122,12 +144,15 @@ void test_server_stop(int id)
 {
     int rc;
 
-    assert(id >= 0 && id <= count);
+    assert(id >= 0 && id < 9);
     assert(cluster[id] != NULL);
 
     rc = server_stop(cluster[id]);
+    assert(rc == RS_OK);
+
     cluster[id] = NULL;
     count--;
 
-    assert(rc == RS_OK);
+
 }
+

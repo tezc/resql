@@ -70,8 +70,8 @@ void session_destroy(struct session *s)
 
 void session_connected(struct session *s, const char *local, const char *remote, uint64_t ts)
 {
-    char *rc;
-    char tmp[32];
+    char tmp[32] = {0};
+    struct tm tm, *p;
     time_t t = (time_t) ts / 1000;
 
     s->disconnect_time = 0;
@@ -79,12 +79,12 @@ void session_connected(struct session *s, const char *local, const char *remote,
     sc_str_set(&s->local, local);
     sc_str_set(&s->remote, remote);
 
-    rc = ctime_r(&t, tmp);
-    if (!rc) {
-        strcpy(tmp, "ctime failed, unknown\n");
+    p = localtime_r(&t, &tm);
+    if (!p) {
+        strcpy(tmp, "localtime_r failed");
     }
 
-    tmp[strlen(tmp) -1] = '\0';
+    strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", p);
     sc_str_set(&s->connect_time, tmp);
 }
 

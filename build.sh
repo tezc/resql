@@ -11,11 +11,11 @@ if [ "$#" -ne 0 ]; then
       exit 1
     fi
 
-    (set -x; cp bin/resql bin/resql-cli /usr/local/bin/)
+    (set -x; cp bin/resql bin/resql-cli bin/resql-benchmark /usr/local/bin/)
     (set -x; cp bin/resql.ini /etc/)
     exit 0
   elif [ "$1" = --uninstall ]; then
-    (set -x; rm -rf /usr/local/bin/resql /usr/local/bin/resql-cli)
+    (set -x; rm -rf /usr/local/bin/resql /usr/local/bin/resql-cli /usr/local/bin/resql-benchmark)
     (set -x; rm -rf /etc/resql.ini)
     exit 0
   elif [ "$1" = --docker ]; then
@@ -30,7 +30,7 @@ cleanup() {
   cd "$cwd"
 
   if [ -n "$1" ]; then
-    rm -rf bin/resql bin/resql-cli
+    rm -rf bin/resql bin/resql-cli bin/resql-benchmark
     kill "$(jobs -p)" || true
     echo "Aborted by $1"
   elif [ "$status" -ne 0 ]; then
@@ -52,7 +52,7 @@ trap 'trap - TERM; cleanup SIGTERM; kill -TERM $$' TERM
 
 echo "$cwd"
 cd bin
-rm -rf resql resql-cli build pgo
+rm -rf resql resql-cli resql-benchmark build pgo
 mkdir build pgo
 cd build
 cmake ../.. -DPGO=generate $cmake_opt
@@ -62,11 +62,11 @@ cd ..
 
 ./resql -e --node-bind-url=tcp://127.0.0.1:9717 > /dev/null &
 server_pid=$!
-echo "Server has been stared successfully."
+echo "Server has been started successfully."
 
 ./resql-trainer > /dev/null &
 trainer_pid=$!
-echo "Trainer has been stared successfully."
+echo "Trainer has been started successfully."
 
 wait $trainer_pid
 status=$?
@@ -85,7 +85,7 @@ fi
 echo "Tests has been completed successfully."
 
 ./resql -w
-rm -rf resql resql-cli build/*
+rm -rf resql resql-cli resql-benchmark build/*
 cd build
 cmake ../.. -DPGO=use $cmake_opt
 make -j 1 && make install

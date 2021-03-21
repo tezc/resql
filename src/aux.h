@@ -40,6 +40,8 @@ struct aux
     sqlite3_stmt *add_stmt;
     sqlite3_stmt *rm_stmt;
     sqlite3_stmt *rm_all_stmts;
+    sqlite3_stmt *add_log;
+    sqlite3_stmt *rotate_log;
 };
 
 int aux_init(struct aux *aux, const char *path, int mode);
@@ -51,6 +53,7 @@ int aux_prepare(struct aux *aux);
 int aux_clear_info(struct aux *aux);
 int aux_write_info(struct aux *aux, struct info *info);
 int aux_read_info(struct aux *aux, struct info *info, sqlite3_stmt *stmt);
+int aux_add_log(struct aux *aux, uint64_t id, const char *level, const char *log);
 
 int aux_write_session(struct aux *aux, struct session *s);
 int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,

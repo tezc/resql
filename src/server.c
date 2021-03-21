@@ -158,7 +158,7 @@ void server_destroy(struct server *s)
     sc_array_destroy(s->nodes);
 
     sc_array_foreach (s->unknown_nodes, node) {
-            node_destroy(node);
+        node_destroy(node);
     }
     sc_array_destroy(s->unknown_nodes);
 
@@ -190,7 +190,6 @@ void server_destroy(struct server *s)
     sc_array_destroy(s->endpoints);
 
 
-
     sc_queue_foreach (s->jobs, job) {
         rs_free(job.data);
     }
@@ -206,11 +205,11 @@ void server_destroy(struct server *s)
     sc_str_destroy(s->meta_tmp_path);
     sc_buf_term(&s->tmp);
     rs_delete_pid_file(s->conf.node.dir);
-    conf_term(&s->conf);
 
     sc_sock_pipe_term(&s->efd);
     sc_sock_pipe_term(&s->sigfd);
 
+    conf_term(&s->conf);
     rs_free(s);
 }
 
@@ -621,6 +620,7 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
 
     sc_array_foreach (s->nodes, n) {
         if (strcmp(n->name, name) == 0) {
+            sc_list_del(NULL, &n->list);
             sc_list_add_tail(&s->connected_nodes, &n->list);
             found = true;
             break;

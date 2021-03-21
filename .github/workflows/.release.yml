@@ -31,6 +31,7 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" java-client/pom.xml)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" src/rs.h)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/cli/resql_cli.c)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/benchmark/resql_benchmark.c)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/alpine/Dockerfile)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/debian/Dockerfile)
           git commit -am "[skip ci] bump version to v${{ github.event.inputs.release }}"
@@ -155,6 +156,7 @@ jobs:
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" java-client/pom.xml)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" src/rs.h)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/cli/resql_cli.c)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/benchmark/resql_benchmark.c)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/alpine/Dockerfile)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/debian/Dockerfile)
           git commit -am "[skip ci] bump version to v${{ github.event.inputs.next }}"

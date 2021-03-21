@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Resql Authors
+ * Copyright (c) 2021 Ozan Tezcan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,33 +22,54 @@
  * SOFTWARE.
  */
 
-package resql;
+#ifndef SC_MUTEX_H
+#define SC_MUTEX_H
 
-public interface ResultSet extends Iterable<Row> {
+#define SC_MUTEX_VERSION "1.0.0"
 
-    /**
-     * Advance to the next result set.
-     *
-     * @return 'true' if next result set exists.
-     */
-    boolean nextResultSet();
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
 
-    /**
-     * @return Number of lines changed for the current INSERT, UPDATE or DELETE
-     *         statement. For other statements, returned value is unspecified.
-     */
-    int linesChanged();
+struct sc_mutex
+{
+#if defined(_WIN32) || defined(_WIN64)
+    CRITICAL_SECTION mtx;
+#else
+    pthread_mutex_t mtx;
+#endif
+};
 
-    /**
-     * @return Last insert row id for INSERT statements. For other statements,
-     *         returned value is unspecified.
-     */
-    long lastRowId();
+/**
+ * Create mutex.
+ *
+ * Be warned on Windows, mutexes are recursive, on Posix default
+ * mutex type is not recursive. Edit code if that bothers you. Pass
+ * PTHREAD_MUTEX_RECURSIVE instead of PTHREAD_MUTEX_NORMAL.
+ *
+ * @param mtx mtx
+ * @return    '0' on success, '-1' on error.
+ */
+int sc_mutex_init(struct sc_mutex *mtx);
 
-    /**
-     * Get row count for the current result set, -1 if not applicable
-     *
-     * @return row count.
-     */
-    int rowCount();
-}
+/**
+ * Destroy mutex
+ *
+ * @param mtx mtx
+ * @return    '0' on success, '-1' on error.
+ */
+int sc_mutex_term(struct sc_mutex *mtx);
+
+/**
+ * @param mtx mtx
+ */
+void sc_mutex_lock(struct sc_mutex *mtx);
+
+/**
+ * @param mtx mtx
+ */
+void sc_mutex_unlock(struct sc_mutex *mtx);
+
+#endif

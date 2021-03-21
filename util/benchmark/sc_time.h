@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Resql Authors
+ * Copyright (c) 2021 Ozan Tezcan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,34 +21,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef SC_TIME_H
+#define SC_TIME_H
 
-package resql;
+#define SC_TIME_VERSION "1.0.0"
 
-public interface ResultSet extends Iterable<Row> {
+#include <stdint.h>
 
-    /**
-     * Advance to the next result set.
-     *
-     * @return 'true' if next result set exists.
-     */
-    boolean nextResultSet();
+/**
+ * Wall clock time. Gets CLOCK_REALTIME on Posix.
+ * @return current timestamp in milliseconds.
+ */
+uint64_t sc_time_ms();
 
-    /**
-     * @return Number of lines changed for the current INSERT, UPDATE or DELETE
-     *         statement. For other statements, returned value is unspecified.
-     */
-    int linesChanged();
+/**
+ * Wall clock time. Gets CLOCK_REALTIME on Posix.
+ * @return current timestamp in nanoseconds.
+ */
+uint64_t sc_time_ns();
 
-    /**
-     * @return Last insert row id for INSERT statements. For other statements,
-     *         returned value is unspecified.
-     */
-    long lastRowId();
+/**
+ * Monotonic timer. Gets CLOCK_MONOTONIC on Posix
+ * @return current timestamp in milliseconds.
+ */
+uint64_t sc_time_mono_ms();
 
-    /**
-     * Get row count for the current result set, -1 if not applicable
-     *
-     * @return row count.
-     */
-    int rowCount();
-}
+/**
+ * Monotonic timer. Gets CLOCK_MONOTONIC on Posix
+ * @return Current timestamp in nanoseconds.
+ */
+uint64_t sc_time_mono_ns();
+
+/**
+ * @param millis milliseconds to sleep.
+ * @return '0' on success, negative on failure.
+ */
+int sc_time_sleep(uint64_t millis);
+
+#endif

@@ -1,6 +1,6 @@
 # -------------------- Header start -----------------------------#
 project(resql C)
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.9)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -77,7 +77,7 @@ macro(link_option _target _flag _var)
 
     if (${_var})
         message("Setting link option : ${_flag}")
-        target_link_options(${_target} PRIVATE ${_flag})
+        target_link_libraries(${_target} PRIVATE ${_flag})
     else ()
         message("Unsupported link option: ${_flag}")
     endif ()
@@ -357,6 +357,7 @@ set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${C_FLAGS_COMMON} ${C_
 
 add_subdirectory(src)
 add_subdirectory(util/cli)
+add_subdirectory(util/benchmark)
 
 if (RESQL_BUILD_TESTS)
     add_subdirectory(test)

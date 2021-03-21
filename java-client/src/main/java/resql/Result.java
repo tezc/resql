@@ -29,6 +29,7 @@ import java.util.*;
 class Result implements ResultSet, Iterator<Row> {
 
     private RawBuffer buf;
+    private long lastRowId;
     private int linesChanged;
     private int nextResultSet;
     private int rowCount;
@@ -56,6 +57,11 @@ class Result implements ResultSet, Iterator<Row> {
     @Override
     public int linesChanged() {
         return linesChanged;
+    }
+
+    @Override
+    public long lastRowId() {
+        return lastRowId;
     }
 
     @Override
@@ -105,7 +111,7 @@ class Result implements ResultSet, Iterator<Row> {
 
     @Override
     public boolean nextResultSet() {
-        linesChanged = -1;
+        linesChanged = 0;
         rowCount = -1;
         columnCount = -1;
         remainingRows = -1;
@@ -118,23 +124,21 @@ class Result implements ResultSet, Iterator<Row> {
 
         nextResultSet = buf.position() + buf.getInt();
         linesChanged = buf.getInt();
+        lastRowId = buf.getLong();
 
-        switch (buf.get()) {
-            case Msg.FLAG_ROW:
-                columnCount = buf.getInt();
+        int flag = buf.get();
+        if (flag == Msg.FLAG_ROW) {
+            columnCount = buf.getInt();
 
-                for (int i = 0; i < columnCount; i++) {
-                    String columnName = buf.getString();
-                    columnMap.put(columnName, i);
-                    columnNames.add(columnName);
-                }
-                rowCount = buf.getInt();
-                remainingRows = rowCount;
-                break;
-            case Msg.FLAG_DONE:
-                break;
-            default:
-                throw new ResqlException("Unexpected value");
+            for (int i = 0; i < columnCount; i++) {
+                String columnName = buf.getString();
+                columnMap.put(columnName, i);
+                columnNames.add(columnName);
+            }
+            rowCount = buf.getInt();
+            remainingRows = rowCount;
+        } else if (flag != Msg.FLAG_DONE) {
+            throw new ResqlException("Unexpected value : " + flag);
         }
 
         return true;

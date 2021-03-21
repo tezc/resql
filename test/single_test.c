@@ -21,13 +21,14 @@
 #include "test_util.h"
 
 #include <assert.h>
+#include <unistd.h>
 
-void test_single()
+void test_one()
 {
     int rc;
     resql *c;
 
-    test_server_create(0);
+    test_server_create(0, 1);
 
     rc = resql_create(&c, &(struct resql_config){0});
     assert(rc == RESQL_OK);
@@ -36,25 +37,49 @@ void test_single()
     test_server_stop(0);
 }
 
-void test_two()
+void test_sizes()
 {
     int rc;
     resql *c;
 
-    test_server_create(0);
-    test_server_create(1);
+    for (int i = 1; i <= 9; i++) {
+        for (int j = 0; j < i; j++) {
+            test_server_create(j, i);
+        }
+
+        rc = resql_create(&c, &(struct resql_config){0});
+        assert(rc == RESQL_OK);
+        resql_shutdown(c);
+
+        for (int j = 0; j < i; j++) {
+            test_server_stop(j);
+        }
+    }
+}
+
+void test_client()
+{
+    int rc;
+    resql *c;
+    resql_result *rs;
+
+    test_server_create(0, 1);
 
     rc = resql_create(&c, &(struct resql_config){0});
     assert(rc == RESQL_OK);
 
+    resql_put_sql(c, "SELECT * FROM resql_sessions;");
+    rc = resql_exec(c, true, &rs);
+    client_assert(c, rc == RESQL_OK);
+
     resql_shutdown(c);
     test_server_stop(0);
-    test_server_stop(1);
 }
 
 int main()
 {
-    test_execute(test_single);
-    test_execute(test_two);
+    test_execute(test_one);
+    test_execute(test_client);
+    test_execute(test_sizes);
     return 0;
 }

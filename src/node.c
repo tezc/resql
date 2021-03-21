@@ -30,8 +30,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 {
     struct node *n;
 
-    n = rs_malloc(sizeof(*n));
-    *n = (struct node){0};
+    n = rs_calloc(1, sizeof(*n));
 
     n->loop = &server->loop;
     n->timer = &server->timer;

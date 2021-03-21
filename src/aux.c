@@ -31,6 +31,7 @@ int sqlite3_completion_init(sqlite3 *db, char **pzErrMsg,
 void aux_random(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
     (void) argv;
+    (void) argc;
 
     assert(argc == 0);
     int64_t val;
@@ -116,6 +117,8 @@ int aux_term(struct aux *aux)
         sqlite3_finalize(aux->add_stmt);
         sqlite3_finalize(aux->rm_stmt);
         sqlite3_finalize(aux->rm_all_stmts);
+        sqlite3_finalize(aux->add_log);
+        sqlite3_finalize(aux->rotate_log);
 
         rc = sqlite3_close(aux->db);
         if (rc != SQLITE_OK) {
@@ -167,6 +170,29 @@ int aux_prepare(struct aux *aux)
     const char *sql;
 
     rc = sqlite3_completion_init(aux->db, 0, 0);
+    if (rc != SQLITE_OK) {
+        goto error;
+    }
+
+    sql = "CREATE TABLE IF NOT EXISTS resql_log "
+          "(id INTEGER PRIMARY KEY, date TEXT, level TEXT, log TEXT)";
+    rc = sqlite3_exec(aux->db, sql, 0, 0, 0);
+    if (rc != SQLITE_OK) {
+        goto error;
+    }
+
+    sql = "INSERT INTO resql_log VALUES (?, datetime(), ?, ?)";
+    rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_log, NULL);
+    if (rc != SQLITE_OK) {
+        goto error;
+    }
+
+    sql = "DELETE FROM resql_log "
+          "WHERE id = (SELECT id "
+          "            FROM resql_log "
+          "            ORDER BY id DESC "
+          "            LIMIT 1 OFFSET 1000)";
+    rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->rotate_log, NULL);
     if (rc != SQLITE_OK) {
         goto error;
     }
@@ -449,6 +475,51 @@ int aux_read_info(struct aux *aux, struct info *n, sqlite3_stmt *stmt)
     sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 34));
     sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 35));
     sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 36));
+
+    return RS_OK;
+}
+
+int aux_add_log(struct aux *aux, uint64_t id, const char *level, const char *log)
+{
+    assert(level != NULL);
+    assert(log != NULL);
+
+    int rc;
+
+    rc = sqlite3_bind_int64(aux->add_log, 1, id);
+    if (rc != SQLITE_OK) {
+        return RS_ERROR;
+    }
+
+    rc = sqlite3_bind_text(aux->add_log, 2, level, -1, NULL);
+    if (rc != SQLITE_OK) {
+        return RS_ERROR;
+    }
+
+    rc = sqlite3_bind_text(aux->add_log, 3, log, -1, NULL);
+    if (rc != SQLITE_OK) {
+        return RS_ERROR;
+    }
+
+    rc = sqlite3_step(aux->add_log);
+    if (rc != SQLITE_DONE) {
+        return RS_ERROR;
+    }
+
+    rc = sqlite3_clear_bindings(aux->add_log);
+    if (rc != SQLITE_OK) {
+        return RS_ERROR;
+    }
+
+    rc = sqlite3_reset(aux->add_log);
+    if (rc != SQLITE_OK) {
+        return RS_ERROR;
+    }
+
+    rc = sqlite3_step(aux->rotate_log);
+    if (rc != SQLITE_DONE) {
+        return RS_ERROR;
+    }
 
     return RS_OK;
 }

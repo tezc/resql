@@ -1362,6 +1362,7 @@ struct resql_result
 {
     uint32_t next_result;
     int changes;
+    int64_t last_row_id;
     int row_count;
     int remaining_rows;
     uint32_t row_pos;
@@ -1392,11 +1393,10 @@ bool resql_next(struct resql_result *rs)
     rs->row_count = -1;
     rs->remaining_rows = -1;
     rs->changes = sc_buf_get_32(&rs->buf);
+    rs->last_row_id = sc_buf_get_64(&rs->buf);
 
     flag = (enum task_flag) sc_buf_get_8(&rs->buf);
-
-    switch (flag) {
-    case TASK_FLAG_ROW:
+    if (flag == TASK_FLAG_ROW) {
         rs->column_count = sc_buf_get_32(&rs->buf);
         if (rs->column_count > rs->column_cap) {
             size = sizeof(*rs->row) * rs->column_count;
@@ -1411,17 +1411,11 @@ bool resql_next(struct resql_result *rs)
         rs->row_count = sc_buf_get_32(&rs->buf);
         rs->remaining_rows = rs->row_count;
         rs->row_pos = sc_buf_rpos(&rs->buf);
-        rs->changes = -1;
-        break;
-    case TASK_FLAG_DONE:
-        break;
-    default:
-        // TODO: Check error here to verify server
-        return false;
-        break;
+
+        return true;
     }
 
-    return true;
+    return flag == TASK_FLAG_DONE;
 }
 
 struct resql_column *resql_row(struct resql_result *rs)
@@ -1481,6 +1475,11 @@ int resql_row_count(struct resql_result *rs)
 int resql_changes(struct resql_result *rs)
 {
     return rs->changes;
+}
+
+int64_t resql_last_row_id(struct resql_result *rs)
+{
+    return rs->last_row_id;
 }
 
 int resql_column_count(struct resql_result *rs)
@@ -1727,6 +1726,7 @@ static void resql_reset(struct resql *c)
     c->uri_term = 0;
     c->uri_trial = 0;
     c->error = false;
+    c->statement = false;
 
     sc_buf_clear(&c->resp);
     resql_disconnect(c);
@@ -1958,14 +1958,14 @@ static void resql_generate_name(struct resql *c, char *dest)
     static char charset[] = "0123456789"
                             "abcdefghijklmnopqrstuvwxyz"
                             "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
-    int num, len;
+    unsigned int num, len;
     uint64_t ts;
     uint32_t generated[40] = {0};
     char *end, *p = (char *) generated;
 
     ts = sc_time_mono_ms();
 
-    num = (int) ((rand() % 16) + 8 + (ts % 4));
+    num = (unsigned int) ((rand() % 16) + 8 + (ts % 4));
     len = (num % 16) + 8;
     end = p + (sizeof(generated[0]) * len);
 
@@ -1980,8 +1980,8 @@ static void resql_generate_name(struct resql *c, char *dest)
         p += sizeof(num);
     }
 
-    for (int i = 0; i < len; i++) {
-        dest[i] = charset[generated[i] % sizeof(charset)];
+    for (unsigned int i = 0; i < len; i++) {
+        dest[i] = charset[generated[i] % (sizeof(charset) - 1)];
     }
 
     dest[len] = '\0';

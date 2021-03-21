@@ -49,7 +49,23 @@ func TestMain(m *testing.M) {
 	}
 
 	c = s
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	c.PutStatement("CREATE TABLE gotest (id INTEGER PRIMARY KEY, name TEXT, " +
+		"points FLOAT, data BLOB);")
+	_, err = c.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	ret := m.Run()
+
+	c.Clear()
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	_, err = c.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	err = s.Shutdown()
 	if err != nil {
@@ -242,6 +258,52 @@ func TestSingle(t *testing.T) {
 	equal(t, points.Float64, 3.22)
 	equal(t, data, []byte("test"))
 	equal(t, date.Valid, false)
+}
+
+func TestLastRowId(t *testing.T) {
+
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	c.PutStatement("CREATE TABLE gotest (id INTEGER PRIMARY KEY, name TEXT, " +
+		"points FLOAT, data BLOB, date TEXT);")
+
+	_, err := c.Execute(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 100; i++ {
+		c.PutStatement("INSERT INTO gotest VALUES(?, ?, ?, ?, ?);")
+		c.BindIndex(0, i)
+		c.BindIndex(1, "jane")
+		c.BindIndex(2, 3.22)
+		c.BindIndex(3, []byte("test"))
+		c.BindIndex(4, nil)
+
+		rs, err := c.Execute(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		equal(t, rs.LinesChanged(), 1)
+		equal(t, rs.LastRowId(), int64(i))
+	}
+
+	for i := 100; i < 200; i++ {
+		c.PutStatement("INSERT INTO gotest VALUES(?, ?, ?, ?, ?);")
+		c.BindIndex(0, i)
+		c.BindIndex(1, "jane")
+		c.BindIndex(2, 3.22)
+		c.BindIndex(3, []byte("test"))
+		c.BindIndex(4, nil)
+
+		rs, err := c.Execute(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		equal(t, rs.LinesChanged(), 1)
+		equal(t, rs.LastRowId(), int64(i))
+	}
 }
 
 func TestReturning(t *testing.T) {
@@ -1043,10 +1105,10 @@ func Example0() {
 
 func Example1() {
 	s, err := Create(&Config{
-		ClusterName: "cluster",
-		ClientName: "goclient",
+		ClusterName:   "cluster",
+		ClientName:    "goclient",
 		TimeoutMillis: 5000,
-		Urls: []string{"tcp://127.0.0.1:7600"},
+		Urls:          []string{"tcp://127.0.0.1:7600"},
 	})
 
 	if err != nil {
@@ -1253,7 +1315,6 @@ func Example5() {
 		fmt.Println(name.String, lastname.String)
 	}
 
-
 	// Cleanup
 	s.PutStatement("DROP TABLE test;")
 	_, _ = s.Execute(false)
@@ -1287,7 +1348,7 @@ func Example6() {
 	}
 
 	// Option-1, using indexes
-	p, err := s.Prepare("INSERT INTO test VALUES(?,?)");
+	p, err := s.Prepare("INSERT INTO test VALUES(?,?)")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -1311,7 +1372,7 @@ func Example6() {
 	}
 
 	// Option-2, using parameter names
-	p, err = s.Prepare("INSERT INTO test VALUES(:name,:lastname)");
+	p, err = s.Prepare("INSERT INTO test VALUES(:name,:lastname)")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -1365,9 +1426,9 @@ func Example7() {
 	}
 
 	// Demo for getAndIncrement atomically.
-	s.PutStatement("SELECT * FROM test WHERE key = 'mykey';");
-	s.PutStatement("UPDATE test SET value = value + 1 WHERE key = 'mykey'");
-	s.PutStatement("SELECT * FROM test WHERE key = 'mykey';");
+	s.PutStatement("SELECT * FROM test WHERE key = 'mykey';")
+	s.PutStatement("UPDATE test SET value = value + 1 WHERE key = 'mykey'")
+	s.PutStatement("SELECT * FROM test WHERE key = 'mykey';")
 
 	rs, err := s.Execute(false)
 	if err != nil {
@@ -1388,7 +1449,6 @@ func Example7() {
 
 		fmt.Println("Value was :", val)
 	}
-
 
 	// Advance to the next result set which is for UPDATE.
 	rs.NextResultSet()

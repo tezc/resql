@@ -105,6 +105,7 @@ type ResultSet interface {
 	NextResultSet() bool
 	Row() Row
 	LinesChanged() int
+	LastRowId() int64
 	RowCount() int
 }
 
@@ -179,14 +180,14 @@ func Create(config *Config) (Resql, error) {
 	if len(config.OutgoingAddr) > 0 {
 		addr.IP = net.ParseIP(config.OutgoingAddr)
 		if addr.IP == nil {
-			return nil, fmt.Errorf("invalid source addr %s", config.OutgoingAddr)
+			return nil, fmt.Errorf("invalid addr %s", config.OutgoingAddr)
 		}
 	}
 
 	if len(config.OutgoingPort) > 0 {
 		addr.Port, err = strconv.Atoi(config.OutgoingPort)
 		if err != nil {
-			return nil, fmt.Errorf("invalid source addr %s", config.OutgoingPort)
+			return nil, fmt.Errorf("invalid port %s", config.OutgoingPort)
 		}
 	}
 
@@ -346,6 +347,7 @@ retry:
 func (c *client) Clear() {
 	c.req.Reset()
 	c.req.Reserve(clientReqHeader)
+	c.hasStatement = false
 }
 
 func (c *client) connectSock() error {
@@ -602,6 +604,7 @@ func (c *client) Execute(readonly bool) (ResultSet, error) {
 
 type result struct {
 	buf           *Buffer
+	lastRowId     int64
 	linesChanged  int
 	nextResultSet int
 	rowCount      int
@@ -710,8 +713,13 @@ func (r *result) LinesChanged() int {
 	return r.linesChanged
 }
 
+func (r *result) LastRowId() int64 {
+	return r.lastRowId
+}
+
 func (r *result) NextResultSet() bool {
-	r.linesChanged = -1
+	r.linesChanged = 0
+	r.lastRowId = 0
 	r.rowCount = -1
 	r.columns = -1
 	r.remainingRows = -1
@@ -725,9 +733,9 @@ func (r *result) NextResultSet() bool {
 
 	r.nextResultSet = r.buf.Offset() + int(r.buf.ReadUint32())
 	r.linesChanged = int(r.buf.ReadUint32())
+	r.lastRowId = int64(r.buf.ReadUint64())
 
-	switch flag = r.buf.ReadUint8(); flag {
-	case flagRow:
+	if flag = r.buf.ReadUint8(); flag == flagRow {
 		r.columns = int(r.buf.ReadUint32())
 
 		for i := 0; i < r.columns; i++ {
@@ -738,9 +746,7 @@ func (r *result) NextResultSet() bool {
 
 		r.rowCount = int(r.buf.ReadUint32())
 		r.remainingRows = r.rowCount
-	case flagDone:
-		break
-	default:
+	} else if flag != flagDone {
 		panic("Unexpected value")
 	}
 
