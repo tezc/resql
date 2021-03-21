@@ -1938,7 +1938,6 @@ sock_fatal:
     rc = RESQL_FATAL;
 sock_error:
     resql_err(c, sc_sock_error(&c->sock));
-    printf("Client connect error : %s \n", c->err);
 cleanup:
     sc_sock_term(&c->sock);
     return rc;
