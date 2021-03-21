@@ -26,6 +26,21 @@
     #define _XOPEN_SOURCE 700
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+    #include <Ws2tcpip.h>
+    #include <windows.h>
+    #include <winsock2.h>
+    #pragma comment(lib, "ws2_32.lib")
+    #define rs_poll WSAPoll
+
+typedef SOCKET sc_sock_int;
+
+#else
+    #include <sys/socket.h>
+typedef int sc_sock_int;
+    #define rs_poll poll
+#endif
+
 #include "resql.h"
 
 #include <errno.h>
@@ -33,11 +48,18 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <poll.h>
+
+#ifdef _WIN32
+    #pragma warning(disable : 4996)
+#else
+    #include <poll.h>
+#endif
+
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <assert.h>
     #include <windows.h>
+
 #else
     #include <assert.h>
     #include <stdlib.h>
@@ -377,8 +399,8 @@ struct sc_buf
 };
 
 // clang-format off
-static inline uint32_t sc_buf_8_len(uint8_t val) { (void) val; return 1;}
-static inline uint32_t sc_buf_32_len(uint32_t val){ (void) val; return 4;}
+static inline uint32_t sc_buf_8_len(uint8_t val) { (void)val; return 1; }
+static inline uint32_t sc_buf_32_len(uint32_t val) { (void)val; return 4; }
 // clang-format on
 
 static inline uint32_t sc_buf_str_len(const char *str)
@@ -1755,7 +1777,8 @@ static void resql_fatal(struct resql *c, const char *fmt, ...)
 
 int resql_copy_uris(struct resql *c, struct msg *msg)
 {
-    const int CAP = 16;
+#define CAP 16
+
     int count = 0;
     const char *token;
     char *save = NULL, *s;
@@ -1899,7 +1922,7 @@ int resql_connect(struct resql *c)
         struct pollfd fds = {.fd = c->sock.fdt.fd, .events = POLLOUT};
 
 retry:
-        rc = poll(&fds, 1, c->timeout);
+        rc = rs_poll(&fds, 1, c->timeout);
         if (rc < 0 && errno == EINTR) {
             goto retry;
         }
