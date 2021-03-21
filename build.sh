@@ -62,11 +62,11 @@ cd ..
 
 ./resql -e --node-bind-url=tcp://127.0.0.1:9717 > /dev/null &
 server_pid=$!
-echo "Server has been stared successfully."
+echo "Server has been started successfully."
 
 ./resql-trainer > /dev/null &
 trainer_pid=$!
-echo "Trainer has been stared successfully."
+echo "Trainer has been started successfully."
 
 wait $trainer_pid
 status=$?
