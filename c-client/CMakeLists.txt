@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.9)
 project(resqlc C)
 
 set(CMAKE_C_STANDARD 11)
@@ -31,7 +31,9 @@ endif ()
 
       if (SANITIZER)
           target_compile_options(${PROJECT_NAME}_test PRIVATE -fsanitize=${SANITIZER})
-          target_link_options(${PROJECT_NAME}_test PRIVATE -fsanitize=${SANITIZER})
+          # Only supported with CMAKE 3.13
+          # target_link_options(${PROJECT_NAME}_test PRIVATE -fsanitize=${SANITIZER})
+          target_link_libraries(${PROJECT_NAME}_test PRIVATE -fsanitize=${SANITIZER})
       endif ()
   endif ()
 

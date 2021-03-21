@@ -13,10 +13,23 @@ ubuntu_task:
     - cd ..
     - ./build.sh
 
-centos8_task:
+fedora_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   container:
     image: fedora
+  test_script:
+    - yum -y install gcc make cmake
+    - mkdir build-debug && cd build-debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 && make
+    - make check
+    - rm -rf *
+    - cd ..
+    - ./build.sh
+    -
+centos8_task:
+  use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
+  container:
+    image: centos:8
   test_script:
     - yum -y install gcc make cmake
     - mkdir build-debug && cd build-debug

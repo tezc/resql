@@ -30,10 +30,3 @@ cd bin/
 ./resql-cli
 ```
 
-## Usage
-1. [Monitoring](https://github.com/tezc/resql/wiki/Monitoring)
-2. [Command Line Interface (CLI) Guide](https://github.com/tezc/resql/wiki/Command-Line-Interface-(CLI)-Guide)
-3. [C Client Guide](https://github.com/tezc/resql/wiki/C-Client-Guide)
-4. [Go Client Guide](https://github.com/tezc/resql/wiki/Go-Client-Guide)
-5. [Java Client Guide](https://github.com/tezc/resql/wiki/Java-Client-Guide)
-

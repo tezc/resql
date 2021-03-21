@@ -1268,6 +1268,9 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
 
         sc_rand_init(&st->wrand, (unsigned char *) init.rand);
         sc_rand_init(&st->rrand, (unsigned char *) init.rand);
+
+        aux_add_log(&st->aux, index, "INFO", "Cluster initialized");
+
         return NULL;
     }
     case CMD_META: {
@@ -1279,6 +1282,7 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         struct cmd_start_term s;
         s = cmd_decode_term_start(&cmd);
         state_on_term_start(st, &s);
+        aux_add_log(&st->aux, index, "INFO", "Term start");
         return NULL;
     }
     case CMD_CLIENT_REQUEST:

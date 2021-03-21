@@ -21,6 +21,7 @@
 #include "test_util.h"
 
 #include <assert.h>
+#include <unistd.h>
 
 void test_one()
 {
@@ -77,8 +78,8 @@ void test_client()
 
 int main()
 {
-    test_execute(test_client);
     test_execute(test_one);
+    test_execute(test_client);
     test_execute(test_sizes);
     return 0;
 }

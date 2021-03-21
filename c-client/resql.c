@@ -1726,6 +1726,7 @@ static void resql_reset(struct resql *c)
     c->uri_term = 0;
     c->uri_trial = 0;
     c->error = false;
+    c->statement = false;
 
     sc_buf_clear(&c->resp);
     resql_disconnect(c);

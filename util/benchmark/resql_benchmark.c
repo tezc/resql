@@ -31,7 +31,6 @@
 
 #include <errno.h>
 #include <signal.h>
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +65,7 @@ struct resql_benchmark
     unsigned long long table_size;
     unsigned long long ops;
     unsigned long long clients;
+    unsigned int batch;
     unsigned int test;
     char *test_str;
 
@@ -83,19 +83,20 @@ static struct resql_benchmark bench;
 static void resql_benchmark_usage()
 {
     printf("\n resql-benchmark version : %s \n\n", RESQL_BENCHMARK_VERSION);
-    printf(" -u=<uri>      --uri=<uri>         ex: --uri=tcp://127.0.0.1:7600             \n"
-           " -i=<count>    --initial=<count>   initial table size                         \n"
-           " -n=<name>     --name=<name>       cluster name, default is 'cluster'         \n"
-           " -c=<count>    --clients=<count>   default is 10                              \n"
-           " -o=<ops>      --ops=<ops>         default is 10000                           \n"
-           " -t=<test>     --test=<test>       e.g -t=readonly                            \n"
-           "                                      Valid values are                        \n"
-           "                                        - readonly  : %%100 select            \n"
-           "                                        - readheavy : %%80 select, %%20 insert\n"
-           "                                        - mixed     : %%50 select, %%50 insert\n"
-           "                                        - writeonly : %%100 insert            \n"
-           " -h            --help              Print this help and exit                   \n"
-           " -v,           --version           Print version and exit                     \n"
+    printf(" -u=<uri>      --uri=<uri>         ex: --uri=tcp://127.0.0.1:7600               \n"
+           " -b=<count>    --batch=<count>     default is 1, e.g 5 inserts/selects in one op\n"
+           " -i=<count>    --initial=<count>   initial table size                           \n"
+           " -n=<name>     --name=<name>       cluster name, default is 'cluster'           \n"
+           " -c=<count>    --clients=<count>   default is 10                                \n"
+           " -o=<ops>      --ops=<ops>         default is 10000                             \n"
+           " -t=<test>     --test=<test>       e.g -t=readonly                              \n"
+           "                                      Valid values are                          \n"
+           "                                        - readonly  : %%100 select              \n"
+           "                                        - readheavy : %%80 select, %%20 insert  \n"
+           "                                        - mixed     : %%50 select, %%50 insert  \n"
+           "                                        - writeonly : %%100 insert              \n"
+           " -h            --help              Print this help and exit                     \n"
+           " -v,           --version           Print version and exit                       \n"
            "\n\n");
 }
 
@@ -103,6 +104,7 @@ void resql_benchmark_conf(struct resql_benchmark *b, int argc, char *argv[])
 {
     // clang-format off
     static struct sc_option_item options[] = {
+            {'b', "batch"},
             {'c', "clients"},
             {'i', "initial"},
             {'n', "name"},
@@ -125,6 +127,18 @@ void resql_benchmark_conf(struct resql_benchmark *b, int argc, char *argv[])
         ch = sc_option_at(&opt, i, &value);
 
         switch (ch) {
+        case 'b':
+            if (value == NULL) {
+                rs_exit("Invalid -b option \n");
+            }
+
+            errno = 0;
+            bench.batch = strtoull(value, &endp, 10);
+            if (endp == value || errno != 0) {
+                rs_exit("Invalid -b option : %s \n", value);
+            }
+
+            break;
         case 'c':
             if (value == NULL) {
                 rs_exit("Invalid -c option \n");
@@ -179,16 +193,16 @@ void resql_benchmark_conf(struct resql_benchmark *b, int argc, char *argv[])
 
             if (strncmp("readonly", value, strlen("readonly")) == 0) {
                 bench.test = 100;
-                bench.test_str = "readonly";
+                bench.test_str = "readonly (%100 SELECT)";
             } else if (strncmp("readheavy", value, strlen("readheavy")) == 0) {
                 bench.test = 80;
-                bench.test_str = "readheavy";
+                bench.test_str = "readheavy (%80 SELECT, %20 INSERT)";
             } else if (strncmp("mixed", value, strlen("mixed")) == 0) {
                 bench.test = 50;
-                bench.test_str = "mixed";
+                bench.test_str = "mixed (%50 SELECT, %50 INSERT)";
             } else if (strncmp("writeonly", value, strlen("writeonly")) == 0) {
                 bench.test = 0;
-                bench.test_str = "writeonly";
+                bench.test_str = "writeonly (%100 INSERT)";
             } else {
                 printf("Invalid -t option %s \n", value);
                 exit(1);
@@ -220,10 +234,11 @@ void resql_benchmark_init(struct resql_benchmark *b)
 
     b->url = strdup("tcp://127.0.0.1:7600");
     b->clients = 1;
+    b->batch = 1;
     b->ops = 10000;
     b->table_size = 10000;
     b->test = 80;
-    b->test_str = "readheavy";
+    b->test_str = "readheavy (%80 SELECT, %20 INSERT)";
     b->cluster_name = strdup("cluster");
 
     sc_mutex_init(&bench.ready_mtx);
@@ -286,7 +301,7 @@ unsigned int fastrand()
 void *client_fn(void *arg)
 {
     int rc;
-    uint64_t id;
+    uint64_t id, it;
     resql *c;
     resql_stmt r, w;
     resql_result *rs;
@@ -329,15 +344,20 @@ void *client_fn(void *arg)
     pthread_mutex_unlock(task->mtx);
 
     id = task->id * 1000000000ull;
+    it = id;
 
     while (task->ops != 0) {
         uint64_t s;
         unsigned int val = fastrand();
-        ops++;
+        unsigned int batch = bench.batch <= task->ops ? bench.batch : task->ops;
 
         if (val <= task->test) {
-            resql_put_prepared(c, &r);
-            resql_bind_index_int(c, 0, id);
+            unsigned int read_index = task->test == 100 ? 0 : id;
+
+            for (unsigned int i = 0; i < batch; i++) {
+                resql_put_prepared(c, &r);
+                resql_bind_index_int(c, 0, read_index++);
+            }
 
             s = sc_time_mono_ns();
 
@@ -346,24 +366,28 @@ void *client_fn(void *arg)
                 rs_exit("client failed : %s \n", resql_errstr(c));
             }
 
-            hdr_record_value(task->hdr, (sc_time_mono_ns() - s) / 1000);
+            hdr_record_values(task->hdr, (sc_time_mono_ns() - s) / 1000, batch);
         } else {
-            id++;
-            resql_put_prepared(c, &w);
-            resql_bind_index_int(c, 0, id);
-            resql_bind_index_text(c, 1, "dummy");
-            resql_bind_index_text(c, 2, "dummy");
-            resql_bind_index_text(c, 3, "dummy");
+            for (unsigned int i = 0; i < batch; i++) {
+                it++;
+                resql_put_prepared(c, &w);
+                resql_bind_index_int(c, 0, it);
+                resql_bind_index_text(c, 1, "dummy");
+                resql_bind_index_text(c, 2, "dummy");
+                resql_bind_index_text(c, 3, "dummy");
+            }
 
             s = sc_time_mono_ns();
             rc = resql_exec(c, false, &rs);
             if (rc != RESQL_OK) {
                 rs_exit("client failed : %s \n", resql_errstr(c));
             }
-            hdr_record_value(task->hdr, (sc_time_mono_ns() - s) / 1000);
+
+            hdr_record_values(task->hdr, (sc_time_mono_ns() - s) / 1000, batch);
         }
 
-        task->ops--;
+        ops += batch;
+        task->ops -= batch;
     }
 
     resql_shutdown(c);
@@ -396,12 +420,12 @@ void print_progress(double percentage)
     const char* bar = "||||||||||||||||||||||||||||||||||||||||||||||||||";
     const size_t len = strlen(bar);
 
-    unsigned int val = (unsigned int) (percentage * 100);
+    double val = (percentage * 100);
     unsigned int left = (unsigned int) (percentage * len);
     unsigned int right = len - left;
     const char *s = (val == 100) ? GREEN : YELLOW;
 
-    printf("\r%s%3d%%" RESET " [%.*s%*s]", s, val, left, bar, right, "");
+    printf("\r%s%.2f%%" RESET " [%.*s%*s]", s, val, left, bar, right, "");
     fflush(stdout);
 }
 
@@ -436,8 +460,9 @@ int main(int argc, char **argv)
     printf("Initial table size : %llu \n", bench.table_size);
     printf("Url                : %s \n", bench.url);
     printf("Operations         : %llu \n", bench.ops);
+    printf("Batch              : %u \n", bench.batch);
     printf("Test               : %s \n", bench.test_str);
-    printf("Table SQL          : %s \n", create_stmt);
+    printf("CREATE SQL         : %s \n", create_stmt);
     printf("SELECT SQL         : %s \n", read_stmt);
     printf("INSERT SQL         : %s \n", write_stmt);
     printf("\n\n");

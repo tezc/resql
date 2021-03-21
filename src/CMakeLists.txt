@@ -90,16 +90,17 @@ set(CLANG_PGO_GENPATH "${PGO_DIR}/gen.profdata")
 set(CLANG_PGO_USEPATH "${PGO_DIR}/use.profdata")
 set(CLANG_PGO_GEN "-fprofile-instr-generate=${CLANG_PGO_GENPATH}")
 set(CLANG_PGO_USE "-fprofile-instr-use=${CLANG_PGO_USEPATH}")
+set(RESQL_LINK_LIBRARIES "")
 
 if (${PGO} MATCHES "generate")
     MESSAGE("profile will be generated.")
 
     if ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
         target_compile_options(resql PRIVATE ${CLANG_PGO_GEN})
-        target_link_options(resql PRIVATE ${CLANG_PGO_GEN})
+        list(APPEND RESQL_LINK_LIBRARIES ${CLANG_PGO_GEN})
     else ()
         target_compile_options(resql PRIVATE ${GCC_PGO_GEN})
-        target_link_options(resql PRIVATE ${GCC_PGO_GEN})
+        list(APPEND RESQL_LINK_LIBRARIES ${GCC_PGO_GEN})
         link_libraries(gcov)
     endif ()
 
@@ -171,7 +172,8 @@ endif ()
 #--------------------------------------------------------------- #
 
 add_compile_options(-DSC_HAVE_CONFIG_H)
-target_link_libraries(resql ${ADDITIONAL_LIBRARIES})
+
+target_link_libraries(resql ${RESQL_LINK_LIBRARIES} ${ADDITIONAL_LIBRARIES})
 target_include_directories(resql PUBLIC ../../deps)
 target_include_directories(resql PUBLIC .)
 install(TARGETS resql RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
