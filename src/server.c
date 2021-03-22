@@ -706,7 +706,7 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
 
 static void server_schedule_election(struct server *s)
 {
-    uint32_t t = s->conf.advanced.heartbeat + (rs_rand() % 1024);
+    uint32_t t = s->conf.advanced.heartbeat + (rs_rand() % 2048);
     s->election_timer = sc_timer_add(&s->timer, t, SERVER_TIMER_ELECTION, NULL);
 }
 

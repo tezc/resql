@@ -200,6 +200,7 @@ void test_destroy_leader()
     head = resql_row(rs)[0].text + strlen("node");
     endp = (char*) head + 1;
     n = (int) strtoul(head, &endp, 10);
+
     test_server_destroy(n);
 }
 

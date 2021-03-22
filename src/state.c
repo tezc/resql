@@ -494,6 +494,10 @@ void state_close(struct state *st)
         }
 
         sc_map_foreach_value (&st->names, s) {
+            sc_list_del(NULL, &s->list);
+        }
+
+        sc_map_foreach_value (&st->names, s) {
             aux_write_session(&st->aux, s);
             session_destroy(s);
         }

@@ -55,8 +55,6 @@ const char *msg_type_str[] = {
 
 // clang-format on
 
-static const char *msg_remote_str[] = {"MSG_CLIENT", "MSG_NODE"};
-
 bool msg_create_connect_req(struct sc_buf *buf, int flags,
                             const char *cluster_name, const char *name)
 {
