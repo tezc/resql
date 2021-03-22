@@ -41,6 +41,7 @@ struct session *session_create(struct state *state, const char *name,
     s->remote = sc_str_create("");
     s->id = id;
     s->seq = 0;
+    s->connect_time = 0;
 
     sc_map_init_64v(&s->stmts, 0, 0);
     sc_buf_init(&s->resp, 64);
@@ -53,12 +54,12 @@ void session_destroy(struct session *s)
 {
     sqlite3_stmt *stmt;
 
+    sc_list_del(NULL, &s->list);
     sc_buf_term(&s->resp);
     sc_str_destroy(s->name);
     sc_str_destroy(s->local);
     sc_str_destroy(s->remote);
     sc_str_destroy(s->connect_time);
-    sc_list_del(NULL, &s->list);
 
     sc_map_foreach_value (&s->stmts, stmt) {
         sqlite3_finalize(stmt);

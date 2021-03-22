@@ -580,6 +580,7 @@ struct session *state_on_client_disconnect(struct state *st, const char *name,
         session_destroy(sess);
     } else {
         aux_write_session(&st->aux, sess);
+        sc_list_del(NULL, &sess->list);
         sc_list_add_tail(&st->disconnects, &sess->list);
     }
 
@@ -712,8 +713,7 @@ static const char *state_errstr(struct state *st)
 }
 
 static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
-                                         bool readonly,
-                                         struct sc_buf *req,
+                                         bool readonly, struct sc_buf *req,
                                          struct sc_buf *resp)
 {
     int rc, type, idx;

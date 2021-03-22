@@ -639,7 +639,7 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
                             s->meta.uris);
     rc = conn_flush(&n->conn);
     if (rc != RS_OK) {
-        server_on_pending_disconnect(s, pending, MSG_ERR);
+        server_on_node_disconnect(s, n);
     }
 }
 
@@ -691,7 +691,7 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
 
     rc = conn_on_out_connected(&node->conn);
     if (rc != RS_OK) {
-        server_on_node_disconnect(s, node);
+        node_disconnect(node);
         return;
     }
 
@@ -700,7 +700,7 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
 
     rc = conn_flush(&node->conn);
     if (rc != RS_OK) {
-        server_on_node_disconnect(s, node);
+        node_disconnect(node);
     }
 }
 
@@ -943,8 +943,13 @@ static void server_on_reqvote_req(struct server *s, struct node *node,
 {
     int rc;
     bool grant = false;
+    uint64_t timeout = s->conf.advanced.heartbeat;
     uint64_t last_index = s->store.last_index;
     struct msg_prevote_req *req = &msg->prevote_req;
+
+    if (s->leader != NULL && timeout > s->timestamp - s->leader->in_timestamp) {
+        goto out;
+    }
 
     if (req->term == s->meta.term && s->voted_for != NULL) {
         goto out;
@@ -1029,7 +1034,6 @@ static void server_on_prevote_resp(struct server *s, struct node *node,
     struct msg_prevote_resp *resp = &msg->prevote_resp;
 
     if (s->role != SERVER_ROLE_CANDIDATE || s->prevote_term != resp->term) {
-        sc_log_warn("Unexpected message from %s \n", node->name);
         return;
     }
 
@@ -1041,6 +1045,7 @@ static void server_on_prevote_resp(struct server *s, struct node *node,
     }
 
     if (!resp->granted) {
+        sc_log_debug(" %s did not grant vote to \n", node->name);
         return;
     }
 
@@ -1181,7 +1186,7 @@ void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
         node_update_indexes(node, resp->round, resp->index);
     } else {
         if (resp->term > s->meta.term) {
-            server_update_meta(s, resp->term, "");
+            server_update_meta(s, resp->term, NULL);
             server_become_follower(s, NULL);
         }
     }
@@ -1325,7 +1330,7 @@ void server_on_snapshot_resp(struct server *s, struct node *node,
     node->msg_inflight--;
 
     if (resp->term > s->meta.term) {
-        server_update_meta(s, resp->term, "");
+        server_update_meta(s, resp->term, NULL);
         server_become_follower(s, NULL);
         return;
     }
@@ -1406,6 +1411,7 @@ void server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
                 break;
             case MSG_SHUTDOWN_REQ:
                 server_on_shutdown_req(s, node, &msg);
+                break;
             default:
                 server_on_node_disconnect(s, node);
                 return;
@@ -1783,6 +1789,7 @@ static void server_flush_snapshot(struct server *s, struct node *n)
                             n->ss_pos, done, data, len);
     n->ss_pos += len;
     n->msg_inflight++;
+    n->out_timestamp = s->timestamp;
 
 flush:
     rc = conn_flush(&n->conn);
@@ -1797,6 +1804,7 @@ static void server_flush(struct server *s)
     char *entries;
     uint32_t size, count;
     uint64_t prev;
+    uint64_t timeout = s->conf.advanced.heartbeat;
     struct sc_list *l, *tmp;
     struct node *n;
     struct client *client;
@@ -1830,9 +1838,12 @@ static void server_flush(struct server *s)
                               s->commit, s->round, entries, size);
         n->next += count;
         n->msg_inflight++;
+        n->out_timestamp = s->timestamp;
 
 flush:
-        if (n->msg_inflight == 0) {
+        if (n->msg_inflight == 0 &&
+            s->timestamp - n->out_timestamp > timeout / 2) {
+
             msg_create_append_req(&n->conn.out, s->meta.term, n->next - 1, prev,
                                   s->commit, s->round, NULL, 0);
             n->msg_inflight++;
