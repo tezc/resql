@@ -123,7 +123,7 @@ void conf_init(struct conf *c)
     c->cluster.nodes = sc_str_create("tcp://node0@127.0.0.1:7600");
 
     c->advanced.fsync = true;
-    c->advanced.heartbeat = 4000;
+    c->advanced.heartbeat = 6000;
 
     c->cmdline.config_file = sc_str_create("resql.ini");
     c->cmdline.empty = false;
