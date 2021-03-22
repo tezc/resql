@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -17,122 +17,165 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "conf.h"
+#include "resql.h"
+#include "server.h"
 #include "test_util.h"
 
-#include "resql.h"
 #include "sc/sc_uri.h"
 
-#include <conf.h>
-#include <server.h>
 #include <stdio.h>
 #include <unistd.h>
-
-struct server *create_node_0()
-{
-    char *options[] = {"", "-e"};
-
-    struct conf settings;
-
-    conf_init(&settings);
-
-    sc_str_set(&settings.node.log_level, "DEBUG");
-    sc_str_set(&settings.node.name, "node0");
-    sc_str_set(&settings.node.bind_url,
-               "tcp://node0@127.0.0.1:7600 unix:///tmp/var0");
-    sc_str_set(&settings.node.ad_url, "tcp://node0@127.0.0.1:7600");
-    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
-    sc_str_set(&settings.node.dir, "/tmp/node0");
-    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
-
-    settings.node.in_memory = true;
-
-    struct server *server = server_create(&settings);
-
-    int rc = server_start(server, true);
-    if (rc != RS_OK) {
-        abort();
-    }
-
-    return server;
-}
-
-struct server *create_node_1()
-{
-    char *options[] = {"", "-e"};
-
-    struct conf settings;
-
-    conf_init(&settings);
-
-    sc_str_set(&settings.node.log_level, "DEBUG");
-    sc_str_set(&settings.node.name, "node1");
-    sc_str_set(&settings.node.bind_url,
-               "tcp://node1@127.0.0.1:7601 unix:///tmp/var1");
-    sc_str_set(&settings.node.ad_url, "tcp://node1@127.0.0.1:7601");
-    sc_str_set(&settings.cluster.nodes, "tcp://node0@127.0.0.1:7600 tcp://node1@127.0.0.1:7601");
-    sc_str_set(&settings.node.dir, "/tmp/node1");
-    settings.node.in_memory = true;
-    conf_read_config(&settings, false, sizeof(options) / sizeof(char *), options);
-
-    struct server *server = server_create(&settings);
-
-    int rc = server_start(server, true);
-    if (rc != RS_OK) {
-        abort();
-    }
-
-    return server;
-}
 
 void write_test()
 {
     int rc;
+    char tmp[32];
     resql *c;
     resql_result *rs;
-    const char *uris =
-            "tcp://127.0.0.1:7600 tcp://127.0.0.1:7601 tcp://127.0.0.1:7602";
 
-    struct server *s0, *s1;
+    test_server_create(0, 2);
+    test_server_create(1, 2);
 
-    s0 = create_node_0();
-    s1 = create_node_1();
-
-    struct resql_config settings = {.cluster_name = "cluster",
-            .client_name = "any",
-            .timeout_millis = 50000,
-            .urls = uris};
-
-    resql_create(&c, &settings);
+    c = test_client_create();
 
     resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
-
     rc = resql_exec(c, false, &rs);
-    if (rc != RESQL_OK) {
-        rs_abort("");
-    }
+    client_assert(c, rc == RESQL_OK);
 
     for (int i = 0; i < 1000; i++) {
         for (int j = 0; j < 1000; j++) {
-            char tmp[32];
             snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
 
-            resql_put_sql(
-                    c, "INSERT INTO snapshot VALUES(:key, 'value')");
+            resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
             resql_bind_param_text(c, ":key", tmp);
         }
 
         rc = resql_exec(c, false, &rs);
-        if (rc != RESQL_OK) {
-            rs_abort("");
-        }
+        client_assert(c, rc == RESQL_OK);
     }
+}
 
-    server_stop(s0);
-    server_stop(s1);
-    resql_shutdown(c);
+void kill_test()
+{
+    int rc;
+    const char* l1, *l2, *l3;
+    const char* n1, *n2, *n3;
+    resql *c;
+    resql_result *rs;
+    struct resql_column* row;
+
+    test_server_create(0, 3);
+    test_server_create(1, 3);
+    test_server_create(2, 3);
+
+    c = test_client_create();
+
+    resql_put_sql(c, "DROP TABLE IF EXISTS test;");
+    resql_put_sql(c, "CREATE TABLE test (x TEXT);");
+    resql_put_sql(c, "INSERT INTO test VALUES(strftime('%s','now'));");
+    resql_put_sql(c, "INSERT INTO test VALUES(datetime());");
+    resql_put_sql(c, "INSERT INTO test VALUES(random());");
+    rc = resql_exec(c, false, &rs);
+    client_assert(c, rc == RESQL_OK);
+
+    resql_put_sql(c, "SELECT * FROM test");
+    rc = resql_exec(c, true, &rs);
+    client_assert(c, rc == RESQL_OK);
+
+    assert(resql_row_count(rs) == 3);
+
+    l1 = strdup(resql_row(rs)[0].text);
+    l2 = strdup(resql_row(rs)[0].text);
+    l3 = strdup(resql_row(rs)[0].text);
+
+    test_destroy_leader();
+
+    resql_put_sql(c, "SELECT * FROM test");
+    rc = resql_exec(c, true, &rs);
+    client_assert(c, rc == RESQL_OK);
+
+    assert(resql_row_count(rs) == 3);
+
+    n1 = resql_row(rs)[0].text;
+    n2 = resql_row(rs)[0].text;
+    n3 = resql_row(rs)[0].text;
+
+    assert(strcmp(l1, n1) == 0);
+    assert(strcmp(l2, n2) == 0);
+    assert(strcmp(l3, n3) == 0);
+}
+
+void kill2_test()
+{
+    int rc;
+    const char* l1, *l2, *l3;
+    const char* n1, *n2, *n3;
+    resql *c;
+    resql_result *rs;
+
+    test_server_create(0, 7);
+    test_server_create(1, 7);
+    test_server_create(2, 7);
+    test_server_create(3, 7);
+    test_server_create(4, 7);
+    test_server_create(5, 7);
+    test_server_create(6, 7);
+
+    c = test_client_create();
+
+    resql_put_sql(c, "DROP TABLE IF EXISTS test;");
+    resql_put_sql(c, "CREATE TABLE test (x TEXT);");
+    resql_put_sql(c, "INSERT INTO test VALUES(strftime('%s','now'));");
+    resql_put_sql(c, "INSERT INTO test VALUES(datetime());");
+    resql_put_sql(c, "INSERT INTO test VALUES(random());");
+    rc = resql_exec(c, false, &rs);
+    client_assert(c, rc == RESQL_OK);
+
+    resql_put_sql(c, "SELECT * FROM test");
+    rc = resql_exec(c, true, &rs);
+    client_assert(c, rc == RESQL_OK);
+
+    assert(resql_row_count(rs) == 3);
+
+    l1 = strdup(resql_row(rs)[0].text);
+    l2 = strdup(resql_row(rs)[0].text);
+    l3 = strdup(resql_row(rs)[0].text);
+
+    for (int i = 0; i < 3; i++) {
+        test_destroy_leader();
+
+        resql_put_sql(c, "SELECT * FROM test");
+        rc = resql_exec(c, true, &rs);
+        client_assert(c, rc == RESQL_OK);
+
+        assert(resql_row_count(rs) == 3);
+
+        n1 = resql_row(rs)[0].text;
+        n2 = resql_row(rs)[0].text;
+        n3 = resql_row(rs)[0].text;
+
+        assert(strcmp(l1, n1) == 0);
+        assert(strcmp(l2, n2) == 0);
+        assert(strcmp(l3, n3) == 0);
+    }
+}
+
+void pause_test()
+{
+    test_server_create(0, 3);
+    test_server_create(1, 3);
+    test_server_create(2, 3);
+
+    sleep(10);
+
+    test_client_create();
 }
 
 int main()
 {
+    test_execute(kill2_test);
+    test_execute(pause_test);
+    test_execute(kill_test);
     test_execute(write_test);
 }

@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -1164,6 +1164,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 
     st->last_err = NULL;
     st->client = true;
+    st->readonly = true;
 
     found = sc_map_get_64v(&st->ids, cid, (void **) &session);
     if (!found) {
@@ -1253,6 +1254,7 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
     assert(st->index + 1 == index);
 
     st->client = false;
+    st->readonly = false;
     st->term = entry_term(entry);
     st->index = index;
 
@@ -1262,6 +1264,7 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
     switch (type) {
     case CMD_INIT: {
         struct cmd_init init;
+
         init = cmd_decode_init(&cmd);
         st->realtime = init.realtime;
         st->monotonic = init.monotonic;
@@ -1273,44 +1276,53 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
 
         return NULL;
     }
+
     case CMD_META: {
         struct cmd_meta m;
+
         m = cmd_decode_meta(&cmd);
         state_on_meta(st, &m);
     } break;
+
     case CMD_TERM_START: {
         struct cmd_start_term s;
+
         s = cmd_decode_term_start(&cmd);
         state_on_term_start(st, &s);
         aux_add_log(&st->aux, index, "INFO", "Term start");
         return NULL;
     }
+
     case CMD_CLIENT_REQUEST:
         st->client = true;
         return state_on_client_request(st, index, entry);
+
     case CMD_CLIENT_CONNECT: {
         struct cmd_client_connect c;
-        c = cmd_decode_client_connect(&cmd);
 
+        c = cmd_decode_client_connect(&cmd);
         return state_on_client_connect(st, c.name, c.local, c.remote);
     }
 
     case CMD_CLIENT_DISCONNECT: {
         struct cmd_client_disconnect c;
-        c = cmd_decode_client_disconnect(&cmd);
 
+        c = cmd_decode_client_disconnect(&cmd);
         return state_on_client_disconnect(st, c.name, c.clean);
     }
 
     case CMD_TIMESTAMP: {
         struct cmd_timestamp t;
+
         t = cmd_decode_timestamp(&cmd);
         state_on_timestamp(st, t.realtime, t.monotonic);
     } break;
+
     case CMD_INFO: {
         state_on_info(st, &cmd);
         return NULL;
     }
+
     default:
         rs_abort("");
     }

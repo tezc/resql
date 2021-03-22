@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -20,40 +20,22 @@
 #include "resql.h"
 #include "test_util.h"
 
-#include <assert.h>
-#include <unistd.h>
-
 void test_one()
 {
-    int rc;
-    resql *c;
-
     test_server_create(0, 1);
-
-    rc = resql_create(&c, &(struct resql_config){0});
-    assert(rc == RESQL_OK);
-
-    resql_shutdown(c);
-    test_server_stop(0);
+    test_client_create();
 }
 
 void test_sizes()
 {
-    int rc;
-    resql *c;
-
     for (int i = 1; i <= 9; i++) {
         for (int j = 0; j < i; j++) {
             test_server_create(j, i);
         }
 
-        rc = resql_create(&c, &(struct resql_config){0});
-        assert(rc == RESQL_OK);
-        resql_shutdown(c);
-
-        for (int j = 0; j < i; j++) {
-            test_server_stop(j);
-        }
+        test_client_create();
+        test_client_destroy_all();
+        test_server_destroy_all();
     }
 }
 
@@ -64,16 +46,11 @@ void test_client()
     resql_result *rs;
 
     test_server_create(0, 1);
-
-    rc = resql_create(&c, &(struct resql_config){0});
-    assert(rc == RESQL_OK);
+    c = test_client_create();
 
     resql_put_sql(c, "SELECT * FROM resql_sessions;");
     rc = resql_exec(c, true, &rs);
     client_assert(c, rc == RESQL_OK);
-
-    resql_shutdown(c);
-    test_server_stop(0);
 }
 
 int main()

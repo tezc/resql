@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Resql Authors
+ * Copyright (c) 2021 Ozan Tezcan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -1519,24 +1519,22 @@ int resql_column_count(struct resql_result *rs)
 #define MSG_SEQ_LEN           8
 #define MSG_READONLY_LEN      1
 #define MSG_CLIENT_REQ_HEADER (MSG_FIXED_LEN + MSG_SEQ_LEN + MSG_READONLY_LEN)
+#define MSG_RESQL_STR         "resql"
+#define MSG_REMOTE_CLIENT     0
 
-#define MSG_RESQL_STR "resql"
-
-enum msg_remote
-{
-    MSG_CLIENT,
-    MSG_NODE
-};
+// clang-format off
 
 enum msg_type
 {
-    MSG_CONNECT_REQ = 0x00,
-    MSG_CONNECT_RESP = 0x01,
-    MSG_DISCONNECT_REQ = 0x02,
+    MSG_CONNECT_REQ     = 0x00,
+    MSG_CONNECT_RESP    = 0x01,
+    MSG_DISCONNECT_REQ  = 0x02,
     MSG_DISCONNECT_RESP = 0x03,
-    MSG_CLIENT_REQ = 0x04,
-    MSG_CLIENT_RESP = 0x05,
+    MSG_CLIENT_REQ      = 0x04,
+    MSG_CLIENT_RESP     = 0x05,
 };
+
+// clang-format on
 
 struct msg_connect_resp
 {
@@ -1640,6 +1638,7 @@ static int msg_parse(struct sc_buf *buf, struct msg *msg)
         msg->client_resp.buf = sc_buf_rbuf(&tmp);
         msg->client_resp.len = sc_buf_size(&tmp);
         break;
+
     default:
         return RESQL_ERROR;
         break;
@@ -1648,18 +1647,19 @@ static int msg_parse(struct sc_buf *buf, struct msg *msg)
     return sc_buf_valid(&tmp) ? RESQL_OK : RESQL_ERROR;
 }
 
-static bool msg_create_connect_req(struct sc_buf *buf, enum msg_remote remote,
-                                   const char *cluster_name, const char *name)
+static bool msg_create_connect_req(struct sc_buf *buf, const char *cluster_name,
+                                   const char *name)
 {
     uint32_t head = sc_buf_wpos(buf);
-    uint32_t len = MSG_SIZE_LEN + MSG_TYPE_LEN + sc_buf_str_len(MSG_RESQL_STR) +
-                   MSG_REMOTE_LEN + sc_buf_str_len(cluster_name) +
-                   sc_buf_str_len(name);
+    uint32_t len = MSG_SIZE_LEN + MSG_TYPE_LEN +
+                   sc_buf_32_len(MSG_REMOTE_CLIENT) +
+                   sc_buf_str_len(MSG_RESQL_STR) +
+                   sc_buf_str_len(cluster_name) + sc_buf_str_len(name);
 
     sc_buf_put_32(buf, len);
     sc_buf_put_8(buf, MSG_CONNECT_REQ);
+    sc_buf_put_32(buf, MSG_REMOTE_CLIENT);
     sc_buf_put_str(buf, MSG_RESQL_STR);
-    sc_buf_put_8(buf, remote);
     sc_buf_put_str(buf, cluster_name);
     sc_buf_put_str(buf, name);
 
@@ -1828,35 +1828,34 @@ int resql_recv_connect_resp(struct resql *c)
     int rc, ret;
     uint64_t seq;
     struct msg msg;
+    struct sc_buf *resp = &c->resp;
 
-    sc_buf_clear(&c->resp);
+    sc_buf_clear(resp);
 
-    b = msg_create_connect_req(&c->resp, MSG_CLIENT, c->cluster_name, c->name);
+    b = msg_create_connect_req(resp, c->cluster_name, c->name);
     if (!b) {
         resql_err(c, "out of memory");
         return RESQL_FATAL;
     }
 
-    rc = sc_sock_send(&c->sock, sc_buf_rbuf(&c->resp), sc_buf_size(&c->resp),
-                      0);
+    rc = sc_sock_send(&c->sock, sc_buf_rbuf(resp), sc_buf_size(resp), 0);
     if (rc < 0) {
         resql_err(c, "sock send failure.");
         return RESQL_ERROR;
     }
 
-    sc_buf_clear(&c->resp);
+    sc_buf_clear(resp);
 
 retry:
-    rc = sc_sock_recv(&c->sock, sc_buf_wbuf(&c->resp), sc_buf_quota(&c->resp),
-                      0);
+    rc = sc_sock_recv(&c->sock, sc_buf_wbuf(resp), sc_buf_quota(resp), 0);
     if (rc < 0) {
         resql_err(c, "sock recv failure.");
         return RESQL_ERROR;
     }
 
-    sc_buf_mark_write(&c->resp, (uint32_t) rc);
+    sc_buf_mark_write(resp, (uint32_t) rc);
 
-    ret = msg_parse(&c->resp, &msg);
+    ret = msg_parse(resp, &msg);
     if (ret == RESQL_PARTIAL) {
         goto retry;
     }
@@ -2496,6 +2495,7 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 
     *rs = &c->rs;
     return RESQL_OK;
+
 error:
     resql_clear(c);
     return RESQL_SQL_ERROR;

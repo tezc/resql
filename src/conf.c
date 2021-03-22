@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -123,7 +123,7 @@ void conf_init(struct conf *c)
     c->cluster.nodes = sc_str_create("tcp://node0@127.0.0.1:7600");
 
     c->advanced.fsync = true;
-    c->advanced.heartbeat = 2000;
+    c->advanced.heartbeat = 4000;
 
     c->cmdline.config_file = sc_str_create("resql.ini");
     c->cmdline.empty = false;

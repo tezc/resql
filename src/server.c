@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -1353,8 +1353,7 @@ void server_on_shutdown_req(struct server *s, struct node *node,
     s->stop_requested = true;
 }
 
-void server_on_node_recv(struct server *s, struct sc_sock_fd *fd,
-                         uint32_t event)
+void server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 {
     int rc;
     struct msg msg;
@@ -1363,14 +1362,14 @@ void server_on_node_recv(struct server *s, struct sc_sock_fd *fd,
     struct conn *conn = rs_entry(sock, struct conn, sock);
     struct node *node = rs_entry(conn, struct node, conn);
 
-    if (event & SC_SOCK_WRITE) {
+    if (ev & SC_SOCK_WRITE) {
         rc = conn_on_writable(&node->conn);
         if (rc != RS_OK) {
             goto disconnect;
         }
     }
 
-    if (event & SC_SOCK_READ) {
+    if (ev & SC_SOCK_READ) {
         rc = conn_on_readable(&node->conn);
         if (rc == SC_SOCK_ERROR) {
             goto disconnect;
@@ -1414,7 +1413,7 @@ void server_on_node_recv(struct server *s, struct sc_sock_fd *fd,
         }
 
         if (rc == RS_INVALID) {
-            sc_log_warn("Recv invalid message from client %s \n", node->name);
+            sc_log_warn("Recv invalid message from node %s \n", node->name);
             goto disconnect;
         }
     }
@@ -1581,6 +1580,7 @@ static void server_on_applied_client_req(struct server *s, uint64_t cid,
     if (found) {
         client_processed(client);
         sc_buf_put_raw(&client->conn.out, resp, len);
+
         rc = conn_flush(&client->conn);
         if (rc != RS_OK) {
             server_on_client_disconnect(s, client, MSG_ERR);
@@ -1757,8 +1757,8 @@ static void server_handle_jobs(struct server *s)
 
 static void server_flush_snapshot(struct server *s, struct node *n)
 {
-    bool done;
     int rc;
+    bool done;
     uint32_t len;
     void *data;
 
@@ -1858,6 +1858,7 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
     (void) event;
 
     int rc;
+    uint32_t type;
     enum msg_rc resp_code = MSG_OK;
     struct msg msg;
     struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
@@ -1887,13 +1888,17 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
         goto disconnect;
     }
 
-    switch (msg.connect_req.remote) {
+    type = msg.connect_req.flags & MSG_CONNECT_TYPE;
+
+    switch (type) {
     case MSG_CLIENT:
         server_on_client_connect_req(s, pending, &msg);
         break;
     case MSG_NODE:
         server_on_node_connect_req(s, pending, &msg);
         break;
+    default:
+        goto disconnect;
     }
 
     return;
@@ -1904,9 +1909,8 @@ disconnect:
 
 static void *server_run(void *arg)
 {
-    int rc;
-    int events = 0, retry = 1;
-    uint32_t timeo, event;
+    int rc, events = 0, retry = 1;
+    uint32_t timeo, ev;
     struct sc_sock_fd *fd;
     struct server *s = arg;
     struct sc_sock_poll *loop = &s->loop;
@@ -1920,8 +1924,7 @@ static void *server_run(void *arg)
     if (s->conf.cmdline.systemd) {
         rc = sc_sock_notify_systemd("READY=1\n");
         if (rc != 0) {
-            sc_log_error("systemd failed : %s \n", strerror(errno));
-            exit(EXIT_FAILURE);
+            rs_exit("systemd failed : %s \n", strerror(errno));
         }
     }
 
@@ -1937,29 +1940,29 @@ static void *server_run(void *arg)
         for (int i = 0; i < events; i++) {
             retry = 100;
             fd = sc_sock_poll_data(loop, i);
-            event = sc_sock_poll_event(loop, i);
+            ev = sc_sock_poll_event(loop, i);
 
             switch (fd->type) {
             case SERVER_FD_NODE_RECV:
-                server_on_node_recv(s, fd, event);
+                server_on_node_recv(s, fd, ev);
                 break;
             case SERVER_FD_CLIENT_RECV:
-                server_on_client_recv(s, fd, event);
+                server_on_client_recv(s, fd, ev);
                 break;
             case SERVER_FD_INCOMING_CONN:
-                server_on_incoming_conn(s, fd, event);
+                server_on_incoming_conn(s, fd, ev);
                 break;
             case SERVER_FD_OUTGOING_CONN:
-                server_on_outgoing_conn(s, fd, event);
+                server_on_outgoing_conn(s, fd, ev);
                 break;
             case SERVER_FD_WAIT_FIRST_REQ:
-                server_on_connect_req(s, fd, event);
+                server_on_connect_req(s, fd, ev);
                 break;
             case SERVER_FD_WAIT_FIRST_RESP:
-                server_on_connect_resp(s, fd, event);
+                server_on_connect_resp(s, fd, ev);
                 break;
             case SERVER_FD_TASK:
-                server_on_task(s, fd, event);
+                server_on_task(s, fd, ev);
                 break;
             case SERVER_FD_SIGNAL:
                 server_on_signal(s, fd);
@@ -2007,5 +2010,6 @@ int server_stop(struct server *s)
     rc = (intptr_t) sc_thread_term(&s->thread);
 
     server_destroy(s);
+
     return rc;
 }
