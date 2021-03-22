@@ -1830,7 +1830,14 @@ static void server_flush(struct server *s)
                               s->commit, s->round, entries, size);
         n->next += count;
         n->msg_inflight++;
+
 flush:
+        if (n->msg_inflight == 0) {
+            msg_create_append_req(&n->conn.out, s->meta.term, n->next - 1, prev,
+                                  s->commit, s->round, NULL, 0);
+            n->msg_inflight++;
+        }
+
         rc = conn_flush(&n->conn);
         if (rc != RS_OK) {
             server_on_node_disconnect(s, n);
