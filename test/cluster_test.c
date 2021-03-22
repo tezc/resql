@@ -145,7 +145,7 @@ void kill2_test()
     l2 = strdup(resql_row(rs)[0].text);
     l3 = strdup(resql_row(rs)[0].text);
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 2; i++) {
         test_destroy_leader();
 
         resql_put_sql(c, "SELECT * FROM test");
