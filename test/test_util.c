@@ -214,6 +214,7 @@ resql *test_client_create()
     int rc;
     bool found;
     const char *url = urls[0];
+    resql *c;
 
     for (int i = 0; i < 9; i++) {
         if (cluster[i] != NULL) {
@@ -222,7 +223,6 @@ resql *test_client_create()
         }
     }
 
-    resql *c;
     struct resql_config conf = {.urls = url, .timeout_millis = 60000};
 
     rc = resql_create(&c, &conf);
