@@ -36,19 +36,40 @@ import (
 	"time"
 )
 
-var ErrMissingStatement = errors.New("resql: missing statement")
-var ErrInvalidMessage = errors.New("resql: received invalid message")
-var ErrConnFail = errors.New("resql: failed to connect")
-var ErrClusterNameMismatch = errors.New("resql: cluster name mismatch")
-var ErrParamTypeMismatch = errors.New("resql: parameter type mismatch")
-var ErrTimeout = errors.New("resql: operation timeout")
-var ErrDisconnected = errors.New("resql: disconnected")
-var ErrNotSingle = errors.New("resql: operation must be a single operation")
-var ErrParamUnknown = errors.New("resql: parameter type is unknown")
-var ErrColumnMissing = errors.New("resql: column does not exist")
-var ErrIndexOutOfRange = errors.New("resql : index is out of range")
-var ErrSessionDoesNotExist = errors.New("resql : session does not exist on the server")
+const (
+	lenBytes               = 4
+	connectReq             = byte(0x00)
+	connectResp            = byte(0x01)
+	disconnectReq          = byte(0x02)
+	clientReq              = byte(0x04)
+	clientResp             = byte(0x05)
+	connectFlag            = uint32(0)
+	clientReqHeader        = 14
+	flagError              = byte(1)
+	flagDone               = byte(2)
+	flagStmt               = byte(3)
+	flagStmtId             = byte(4)
+	flagStmtPrepare        = byte(5)
+	flagStmtDelPrepared    = byte(6)
+	flagRow                = byte(7)
+	flagEnd                = byte(8)
+	msgOK                  = byte(0)
+	msgClusterNameMismatch = byte(2)
+	paramInteger           = byte(0)
+	paramFloat             = byte(1)
+	paramText              = byte(2)
+	paramBlob              = byte(3)
+	paramNull              = byte(4)
+	paramName              = byte(5)
+	paramIndex             = byte(6)
+)
 
+
+var errConnFail = errors.New("resql: failed to connect")
+var errClusterNameMismatch = errors.New("resql: cluster name mismatch")
+var errSessionDoesNotExist = errors.New("resql : session does not exist on the server")
+
+// goresql version
 const Version = "0.0.16-latest"
 
 type client struct {
@@ -59,8 +80,8 @@ type client struct {
 	urls         []url.URL
 	urlsTerm     uint64
 	seq          uint64
-	req          Buffer
-	resp         Buffer
+	req          buffer
+	resp         buffer
 	connected    bool
 	hasStatement bool
 	misuse       bool
@@ -69,43 +90,92 @@ type client struct {
 }
 
 type Config struct {
+	// client name, if not specified a random value will be assigned
 	ClientName    string
+
+	// cluster name must match with configured on the server
 	ClusterName   string
+
+	// timeout for operations, default is infinite
 	TimeoutMillis int64
+
+	// outgoing addr and port if you want to specify
 	OutgoingAddr  string
 	OutgoingPort  string
+
+	// server urls,  single url is sufficient, default is "tcp://127.0.0.1:7600"
 	Urls          []string
 }
 
 type Resql interface {
+	// prepare statement for sql statement, this is a remote call to server
 	Prepare(sql string) (PreparedStatement, error)
+
+	// delete prepared statement, this is a remote call to server
 	Delete(p PreparedStatement) error
+
+	// put raw sql into current batch
 	PutStatement(sql string)
+
+	// put prepared statement into current batch
 	PutPrepared(p PreparedStatement)
+
+	// bind parameter with placeholder to the last statement in the batch
 	BindParam(param string, val interface{})
+
+	// bind parameter with index to the last statement in the batch
 	BindIndex(index uint32, val interface{})
+
+	// execute current batch, this is a remote call to server
 	Execute(readonly bool) (ResultSet, error)
+
+	// terminate client
 	Shutdown() error
+
+	// cancel current batch
 	Clear()
 }
 
+
 type PreparedStatement interface {
+	// returns prepared statement sql
 	StatementSql() string
 }
 
 type Row interface {
+	// get column value at index
 	GetIndex(index int) (interface{}, error)
+
+	// get column value with column name
 	GetColumn(columnName string) (interface{}, error)
+
+	// get column name at index. index starts from zero.
 	ColumnName(index int) (string, error)
+
+	// column count
 	ColumnCount() int
+
+	// read row, error will be returned if attempted to read more columns than
+	// exists or when there is type mismatch
 	Read(columns ...interface{}) error
 }
 
 type ResultSet interface {
+	// advance to the next result set. false if there is no result set.
 	NextResultSet() bool
+
+	// next row, nil if there is no more rows.
 	Row() Row
+
+	// lines changed while executing this statement. Returned value is only
+	// valid if statement writes to the table. e.g if statement is SELECT,
+	// returned value is undefined.
 	LinesChanged() int
+
+	// last row id, only meaningful for INSERT statements.
 	LastRowId() int64
+
+	// row count in the current resultset
 	RowCount() int
 }
 
@@ -149,6 +219,7 @@ func randomName() string {
 	return string(b)
 }
 
+// create client and connect to the server.
 func Create(config *Config) (Resql, error) {
 	var name string
 	var clusterName string
@@ -219,8 +290,8 @@ func Create(config *Config) (Resql, error) {
 	for time.Now().Sub(start).Milliseconds() < s.timeout {
 		err = s.connect()
 
-		if err == ErrClusterNameMismatch ||
-			err == ErrSessionDoesNotExist {
+		if err == errClusterNameMismatch ||
+			err == errSessionDoesNotExist {
 			return nil, err
 		}
 
@@ -239,14 +310,14 @@ func Create(config *Config) (Resql, error) {
 func (c *client) Shutdown() error {
 	var ret error = nil
 
-	c.resp.Reset()
+	c.resp.reset()
 	if !c.connected {
 		return nil
 	}
 
 	encodeDisconnectReq(&c.resp, 0, 0)
 
-	_, err := c.resp.WriteTo(c.conn)
+	_, err := c.resp.writeTo(c.conn)
 	if err != nil {
 		ret = err
 	}
@@ -263,7 +334,7 @@ func (c *client) Shutdown() error {
 func (c *client) connect() error {
 	var err error
 
-	c.resp.Reset()
+	c.resp.reset()
 	c.encodeConnectReq(&c.resp)
 
 	if c.conn != nil {
@@ -276,38 +347,40 @@ func (c *client) connect() error {
 		return err
 	}
 
-	_, err = c.resp.WriteTo(c.conn)
+	_ = c.conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	_, err = c.resp.writeTo(c.conn)
 	if err != nil {
 		return err
 	}
 
-	c.resp.Reset()
+	c.resp.reset()
 
 retry:
-	_, err = c.resp.ReadFrom(c.conn)
+	_, err = c.resp.readFrom(c.conn)
 	if err != nil {
 		return err
 	}
 
-	if c.resp.Len() < 4 {
+	if c.resp.len() < 4 {
 		goto retry
 	}
 
-	if int(c.resp.PeekUint32()) > c.resp.Len() {
+	if int(c.resp.peekUint32()) > c.resp.len() {
 		goto retry
 	}
 
-	c.resp.ReadUint32()
+	c.resp.readUint32()
 
-	id := c.resp.ReadUint8()
+	id := c.resp.readUint8()
 	if id != connectResp {
-		return ErrInvalidMessage
+		return errors.New("resql: received invalid message")
 	}
 
-	rc := c.resp.ReadUint8()
-	seq := c.resp.ReadUint64()
-	term := c.resp.ReadUint64()
-	nodes := c.resp.ReadString()
+	rc := c.resp.readUint8()
+	seq := c.resp.readUint64()
+	term := c.resp.readUint64()
+	nodes := c.resp.readString()
 
 	if term > c.urlsTerm {
 		c.urls = c.urls[:0]
@@ -323,11 +396,11 @@ retry:
 	}
 
 	if rc == msgClusterNameMismatch {
-		return ErrClusterNameMismatch
+		return errClusterNameMismatch
 	}
 
 	if rc != msgOK {
-		return ErrConnFail
+		return errConnFail
 	}
 
 	if c.req.empty() {
@@ -335,19 +408,21 @@ retry:
 	} else {
 		if seq != c.seq && seq != c.seq-1 {
 			c.seq = seq
-			return ErrSessionDoesNotExist
+			return errSessionDoesNotExist
 		}
 	}
 
 	c.connected = true
 	c.Clear()
+
 	return nil
 }
 
 func (c *client) Clear() {
-	c.req.Reset()
-	c.req.Reserve(clientReqHeader)
+	c.req.reset()
+	c.req.reserve(clientReqHeader)
 	c.hasStatement = false
+	c.misuse = false
 }
 
 func (c *client) connectSock() error {
@@ -357,7 +432,7 @@ func (c *client) connectSock() error {
 
 	if u.Scheme == "tcp" {
 		dialer := &net.Dialer{
-			Timeout:       2000000000,
+			Timeout:       200000000,
 			LocalAddr:     c.sourceAddr,
 			FallbackDelay: 0,
 		}
@@ -389,44 +464,44 @@ func (c *client) connectSock() error {
 
 func (c *client) PutStatement(sql string) {
 	if c.hasStatement {
-		c.req.WriteUint8(flagEnd)
+		c.req.writeUint8(flagEnd)
 	}
 
 	c.hasStatement = true
-	c.req.WriteUint8(flagStmt)
-	c.req.WriteString(&sql)
+	c.req.writeUint8(flagStmt)
+	c.req.writeString(&sql)
 }
 
 func (c *client) PutPrepared(p PreparedStatement) {
 	if c.hasStatement {
-		c.req.WriteUint8(flagEnd)
+		c.req.writeUint8(flagEnd)
 	}
 
 	c.hasStatement = true
-	c.req.WriteUint8(flagStmtId)
-	c.req.WriteUint64(p.(*Prepared).id)
+	c.req.writeUint8(flagStmtId)
+	c.req.writeUint64(p.(*Prepared).id)
 }
 
-func (c *client) Bind(val interface{}) {
+func (c *client) bind(val interface{}) {
 	switch val.(type) {
 	case int:
-		c.req.WriteUint8(paramInteger)
-		c.req.WriteUint64(uint64(val.(int)))
+		c.req.writeUint8(paramInteger)
+		c.req.writeUint64(uint64(val.(int)))
 	case int64:
-		c.req.WriteUint8(paramInteger)
-		c.req.WriteUint64(uint64(val.(int64)))
+		c.req.writeUint8(paramInteger)
+		c.req.writeUint64(uint64(val.(int64)))
 	case float64:
-		c.req.WriteUint8(paramFloat)
-		c.req.WriteUint64(math.Float64bits(val.(float64)))
+		c.req.writeUint8(paramFloat)
+		c.req.writeUint64(math.Float64bits(val.(float64)))
 	case string:
 		var s = val.(string)
-		c.req.WriteUint8(paramText)
-		c.req.WriteString(&s)
+		c.req.writeUint8(paramText)
+		c.req.writeString(&s)
 	case []byte:
-		c.req.WriteUint8(paramBlob)
-		c.req.WriteBlob(val.([]byte))
+		c.req.writeUint8(paramBlob)
+		c.req.writeBlob(val.([]byte))
 	case nil:
-		c.req.WriteUint8(paramNull)
+		c.req.writeUint8(paramNull)
 	default:
 		panic("resql: unsupported type for bind")
 	}
@@ -438,9 +513,9 @@ func (c *client) BindParam(param string, val interface{}) {
 		return
 	}
 
-	c.req.WriteUint8(paramName)
-	c.req.WriteString(&param)
-	c.Bind(val)
+	c.req.writeUint8(paramName)
+	c.req.writeString(&param)
+	c.bind(val)
 }
 
 func (c *client) BindIndex(index uint32, val interface{}) {
@@ -449,72 +524,51 @@ func (c *client) BindIndex(index uint32, val interface{}) {
 		return
 	}
 
-	c.req.WriteUint8(paramIndex)
-	c.req.WriteUint32(index)
-	c.Bind(val)
+	c.req.writeUint8(paramIndex)
+	c.req.writeUint32(index)
+	c.bind(val)
 }
 
 func (c *client) Prepare(sql string) (PreparedStatement, error) {
 	if c.hasStatement {
-		return nil, ErrNotSingle
+		c.Clear()
+		return nil, errors.New("resql: operation must be a single operation")
 	}
 
-	c.req.WriteUint8(flagStmtPrepare)
-	c.req.WriteString(&sql)
-	c.req.WriteUint8(flagEnd)
+	c.req.writeUint8(flagStmtPrepare)
+	c.req.writeString(&sql)
+	c.req.writeUint8(flagEnd)
 
 	c.seq++
 	encodeClientReq(&c.req, false, c.seq)
 
 	err := c.send()
-	c.Clear()
-
 	if err != nil {
 		return nil, err
 	}
 
-	id := c.resp.ReadUint8()
-	if id != clientResp {
-		return nil, ErrDisconnected
-	}
-
-	rc := c.resp.ReadUint8()
-	if rc == flagError {
-		return nil, fmt.Errorf("sql error : %s", *c.resp.ReadString())
-	}
-
 	return &Prepared{
-		id:  c.resp.ReadUint64(),
+		id:  c.resp.readUint64(),
 		sql: sql,
 	}, nil
 }
 
 func (c *client) Delete(p PreparedStatement) error {
 	if c.hasStatement {
-		return ErrNotSingle
+		c.Clear()
+		return errors.New("resql: operation must be a single operation")
 	}
 
-	c.req.WriteUint8(flagStmtDelPrepared)
-	c.req.WriteUint64(p.(*Prepared).id)
-	c.req.WriteUint8(flagEnd)
+	c.req.writeUint8(flagStmtDelPrepared)
+	c.req.writeUint64(p.(*Prepared).id)
+	c.req.writeUint8(flagEnd)
 
 	c.seq++
 	encodeClientReq(&c.req, false, c.seq)
+
 	err := c.send()
-	c.Clear()
-
 	if err != nil {
-		return ErrDisconnected
-	}
-
-	id := c.resp.ReadUint8()
-	if id != clientResp {
-		return ErrInvalidMessage
-	}
-
-	rc := c.resp.ReadUint8()
-	if rc == flagError {
-		return fmt.Errorf("sql error : %s", *c.resp.ReadString())
+		return err
 	}
 
 	return nil
@@ -531,48 +585,62 @@ func (c *client) send() error {
 			}
 		}
 
-		_, err := c.req.WriteTo(c.conn)
+		_ = c.conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+		_, err := c.req.writeTo(c.conn)
 		if err != nil {
 			c.connected = false
 			continue
 		}
 
-		c.req.SetOffset(0)
-		c.resp.Reset()
+		c.req.setOffset(0)
+		c.resp.reset()
 
 	retry:
 		for time.Now().Sub(start).Milliseconds() > c.timeout {
 			break
 		}
 
-		_, err = c.resp.ReadFrom(c.conn)
+		_, err = c.resp.readFrom(c.conn)
 		if err != nil {
 			c.connected = false
 			continue
 		}
 
-		if c.resp.Len() < 4 {
+		if c.resp.len() < lenBytes {
 			goto retry
 		}
 
-		if int(c.resp.PeekUint32()) > c.resp.Len() {
+		if int(c.resp.peekUint32()) > c.resp.len() {
 			goto retry
 		}
 
-		c.resp.ReadUint32()
+		c.resp.readUint32()
+		c.Clear()
+
+		id := c.resp.readUint8()
+		if id != clientResp {
+			return errors.New("resql: received invalid message")
+		}
+
+		rc := c.resp.readUint8()
+		if rc == flagError {
+			return fmt.Errorf("sql error : %s", *c.resp.readString())
+		}
+
 		return nil
 	}
 
-	return ErrTimeout
+	return errors.New("resql: operation timeout")
 }
 
 func (c *client) Execute(readonly bool) (ResultSet, error) {
 	if !c.hasStatement || c.misuse {
-		c.misuse = false
-		return nil, ErrMissingStatement
+		c.Clear()
+		return nil, errors.New("resql: missing statement")
 	}
 
-	c.req.WriteUint8(flagEnd)
+	c.req.writeUint8(flagEnd)
 	c.hasStatement = false
 
 	if !readonly {
@@ -582,19 +650,8 @@ func (c *client) Execute(readonly bool) (ResultSet, error) {
 	encodeClientReq(&c.req, readonly, c.seq)
 
 	err := c.send()
-	c.Clear()
 	if err != nil {
 		return nil, err
-	}
-
-	id := c.resp.ReadUint8()
-	if id != clientResp {
-		return nil, ErrDisconnected
-	}
-
-	rc := c.resp.ReadUint8()
-	if rc == flagError {
-		return nil, fmt.Errorf("sql error : %s", *c.resp.ReadString())
 	}
 
 	c.result.set(&c.resp)
@@ -603,7 +660,7 @@ func (c *client) Execute(readonly bool) (ResultSet, error) {
 }
 
 type result struct {
-	buf           *Buffer
+	buf           *buffer
 	lastRowId     int64
 	linesChanged  int
 	nextResultSet int
@@ -619,7 +676,7 @@ type result struct {
 func (r *result) Read(columns ...interface{}) error {
 
 	if len(columns) > len(r.values) {
-		return ErrIndexOutOfRange
+		return errors.New("resql : index is out of range")
 	}
 
 	for i := range columns {
@@ -632,7 +689,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(int64)
 			if !ok {
-				return ErrParamTypeMismatch
+				return errors.New("resql: parameter type mismatch")
 			}
 
 			*d = NullInt32{Valid: true, Int32: int32(val)}
@@ -645,7 +702,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(int64)
 			if !ok {
-				return ErrParamTypeMismatch
+				return errors.New("resql: parameter type mismatch")
 			}
 
 			*d = NullInt64{Valid: true, Int64: val}
@@ -657,7 +714,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(string)
 			if !ok {
-				return ErrParamTypeMismatch
+				return errors.New("resql: parameter type mismatch")
 			}
 
 			*d = NullString{Valid: true, String: val}
@@ -669,7 +726,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(float64)
 			if !ok {
-				return ErrParamTypeMismatch
+				return errors.New("resql: parameter type mismatch")
 			}
 
 			*d = NullFloat64{Valid: true, Float64: val}
@@ -681,19 +738,19 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].([]byte)
 			if !ok {
-				return ErrParamTypeMismatch
+				return errors.New("resql: parameter type mismatch")
 			}
 
 			*d = val
 		default:
-			return ErrParamUnknown
+			return errors.New("resql: parameter type is unknown")
 		}
 	}
 
 	return nil
 }
 
-func (r *result) set(buf *Buffer) {
+func (r *result) set(buf *buffer) {
 	for k := range r.indexes {
 		delete(r.indexes, k)
 	}
@@ -701,7 +758,7 @@ func (r *result) set(buf *Buffer) {
 	r.names = r.names[:0]
 	r.values = r.values[:0]
 	r.buf = buf
-	r.nextResultSet = r.buf.Offset()
+	r.nextResultSet = r.buf.offset()
 	r.NextResultSet()
 }
 
@@ -724,27 +781,27 @@ func (r *result) NextResultSet() bool {
 	r.columns = -1
 	r.remainingRows = -1
 
-	r.buf.SetOffset(r.nextResultSet)
+	r.buf.setOffset(r.nextResultSet)
 
-	flag := r.buf.ReadUint8()
+	flag := r.buf.readUint8()
 	if flag != flagStmt {
 		return false
 	}
 
-	r.nextResultSet = r.buf.Offset() + int(r.buf.ReadUint32())
-	r.linesChanged = int(r.buf.ReadUint32())
-	r.lastRowId = int64(r.buf.ReadUint64())
+	r.nextResultSet = r.buf.offset() + int(r.buf.readUint32())
+	r.linesChanged = int(r.buf.readUint32())
+	r.lastRowId = int64(r.buf.readUint64())
 
-	if flag = r.buf.ReadUint8(); flag == flagRow {
-		r.columns = int(r.buf.ReadUint32())
+	if flag = r.buf.readUint8(); flag == flagRow {
+		r.columns = int(r.buf.readUint32())
 
 		for i := 0; i < r.columns; i++ {
-			s := r.buf.ReadString()
+			s := r.buf.readString()
 			r.indexes[*s] = i
 			r.names = append(r.names, *s)
 		}
 
-		r.rowCount = int(r.buf.ReadUint32())
+		r.rowCount = int(r.buf.readUint32())
 		r.remainingRows = r.rowCount
 	} else if flag != flagDone {
 		panic("Unexpected value")
@@ -759,7 +816,7 @@ func (r *result) ColumnCount() int {
 
 func (r *result) GetIndex(index int) (interface{}, error) {
 	if index < 0 || index >= len(r.values) {
-		return nil, ErrIndexOutOfRange
+		return nil, errors.New("resql : index is out of range")
 	}
 
 	return r.values[index], nil
@@ -768,7 +825,7 @@ func (r *result) GetIndex(index int) (interface{}, error) {
 func (r *result) GetColumn(param string) (interface{}, error) {
 	v, found := r.indexes[param]
 	if !found {
-		return nil, ErrColumnMissing
+		return nil, errors.New("resql: column does not exist")
 	}
 
 	return r.values[v], nil
@@ -776,7 +833,7 @@ func (r *result) GetColumn(param string) (interface{}, error) {
 
 func (r *result) ColumnName(index int) (string, error) {
 	if index < 0 || index >= len(r.names) {
-		return "", ErrIndexOutOfRange
+		return "", errors.New("resql : index is out of range")
 	}
 
 	return r.names[index], nil
@@ -790,15 +847,15 @@ func (r *result) Row() Row {
 	r.values = r.values[:0]
 
 	for i := 0; i < r.columns; i++ {
-		switch param := r.buf.ReadUint8(); param {
+		switch param := r.buf.readUint8(); param {
 		case paramInteger:
-			r.values = append(r.values, int64(r.buf.ReadUint64()))
+			r.values = append(r.values, int64(r.buf.readUint64()))
 		case paramFloat:
-			r.values = append(r.values, math.Float64frombits(r.buf.ReadUint64()))
+			r.values = append(r.values, math.Float64frombits(r.buf.readUint64()))
 		case paramText:
-			r.values = append(r.values, *r.buf.ReadString())
+			r.values = append(r.values, *r.buf.readString())
 		case paramBlob:
-			r.values = append(r.values, r.buf.ReadBlob())
+			r.values = append(r.values, r.buf.readBlob())
 		case paramNull:
 			r.values = append(r.values, nil)
 		default:
@@ -809,72 +866,42 @@ func (r *result) Row() Row {
 	return r
 }
 
-const (
-	lenBytes               = 4
-	connectReq             = byte(0x00)
-	connectResp            = byte(0x01)
-	disconnectReq          = byte(0x02)
-	clientReq              = byte(0x04)
-	clientResp             = byte(0x05)
-	connectFlag            = uint32(0)
-	rcOk                   = byte(0x00)
-	clientReqHeader        = 14
-	flagOK                 = byte(0)
-	flagError              = byte(1)
-	flagDone               = byte(2)
-	flagStmt               = byte(3)
-	flagStmtId             = byte(4)
-	flagStmtPrepare        = byte(5)
-	flagStmtDelPrepared    = byte(6)
-	flagRow                = byte(7)
-	flagEnd                = byte(8)
-	msgOK                  = byte(0)
-	msgClusterNameMismatch = byte(2)
-	paramInteger           = byte(0)
-	paramFloat             = byte(1)
-	paramText              = byte(2)
-	paramBlob              = byte(3)
-	paramNull              = byte(4)
-	paramName              = byte(5)
-	paramIndex             = byte(6)
-)
-
-func (c *client) encodeConnectReq(buf *Buffer) {
+func (c *client) encodeConnectReq(buf *buffer) {
 	x := "resql"
 
-	total := Uint32Len(lenBytes) +
-		Uint8Len(connectReq) +
-		Uint32Len(connectFlag) +
-		StringLen(&x) +
-		StringLen(&c.clusterName) +
-		StringLen(&c.name)
+	total := uint32Len(lenBytes) +
+		uint8Len(connectReq) +
+		uint32Len(connectFlag) +
+		stringLen(&x) +
+		stringLen(&c.clusterName) +
+		stringLen(&c.name)
 
-	buf.WriteUint32(total)
-	buf.WriteUint8(connectReq)
-	buf.WriteUint32(connectFlag)
-	buf.WriteString(&x)
-	buf.WriteString(&c.clusterName)
-	buf.WriteString(&c.name)
+	buf.writeUint32(total)
+	buf.writeUint8(connectReq)
+	buf.writeUint32(connectFlag)
+	buf.writeString(&x)
+	buf.writeString(&c.clusterName)
+	buf.writeString(&c.name)
 }
 
-func encodeClientReq(b *Buffer, readonly bool, sequence uint64) {
-	length := b.Len()
-	b.Position(0)
-	b.WriteUint32(uint32(length))
-	b.WriteUint8(clientReq)
-	b.WriteBool(readonly)
-	b.WriteUint64(sequence)
-	b.SetLength(length)
+func encodeClientReq(b *buffer, readonly bool, sequence uint64) {
+	length := b.len()
+	b.position(0)
+	b.writeUint32(uint32(length))
+	b.writeUint8(clientReq)
+	b.writeBool(readonly)
+	b.writeUint64(sequence)
+	b.setLength(length)
 }
 
-func encodeDisconnectReq(b *Buffer, rc uint8, flags uint32) {
-	total := Uint32Len(lenBytes) +
-		Uint8Len(disconnectReq) +
-		Uint8Len(rc) +
-		Uint32Len(flags)
+func encodeDisconnectReq(b *buffer, rc uint8, flags uint32) {
+	total := uint32Len(lenBytes) +
+		uint8Len(disconnectReq) +
+		uint8Len(rc) +
+		uint32Len(flags)
 
-	b.WriteUint32(total)
-	b.WriteUint8(disconnectReq)
-	b.WriteUint8(rc)
-	b.WriteUint32(flags)
+	b.writeUint32(total)
+	b.writeUint8(disconnectReq)
+	b.writeUint8(rc)
+	b.writeUint32(flags)
 }
