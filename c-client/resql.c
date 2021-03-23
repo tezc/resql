@@ -1915,6 +1915,7 @@ int resql_connect(struct resql *c)
 
     sc_sock_init(&c->sock, 0, false, family);
 
+    printf("cclient is trying to connect to %s \n", uri->str);
     rc = sc_sock_connect(&c->sock, host, uri->port, c->source_addr,
                          c->source_port);
     if (rc == SC_SOCK_WANT_WRITE) {
@@ -1926,10 +1927,15 @@ retry:
             goto retry;
         }
 
-        rc = (rc == 0) ? -1 : sc_sock_finish_connect(&c->sock);
+        if (rc != 1) {
+            printf("cclient poll returned(%d) %s \n", rc, strerror(errno));
+        }
+
+        rc = (rc != 1) ? -1 : sc_sock_finish_connect(&c->sock);
     }
 
     if (rc != 0) {
+        printf("cclient errno :%s \n", strerror(errno));
         rc = RESQL_ERROR;
         goto sock_error;
     }
@@ -1960,6 +1966,7 @@ sock_fatal:
     rc = RESQL_FATAL;
 sock_error:
     resql_err(c, sc_sock_error(&c->sock));
+    printf("cclient : %s \n", c->err);
 cleanup:
     sc_sock_term(&c->sock);
     return rc;
@@ -2178,6 +2185,7 @@ retry_op:
 
     n = sc_sock_send(&c->sock, sc_buf_rbuf(&c->req), sc_buf_size(&c->req), 0);
     if (n < 0) {
+        printf("cclient socket send :%s \n", sc_sock_error(&c->sock));
         c->connected = false;
         sc_sock_term(&c->sock);
         goto retry_op;
@@ -2189,6 +2197,7 @@ retry_recv:
     n = sc_sock_recv(&c->sock, sc_buf_wbuf(&c->resp), sc_buf_quota(&c->resp),
                      0);
     if (n <= 0) {
+        printf("cclient socket recv :%s \n", sc_sock_error(&c->sock));
         c->connected = false;
         sc_sock_term(&c->sock);
         goto retry_op;

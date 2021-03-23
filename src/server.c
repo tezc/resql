@@ -1045,7 +1045,6 @@ static void server_on_prevote_resp(struct server *s, struct node *node,
     }
 
     if (!resp->granted) {
-        sc_log_debug(" %s did not grant vote to \n", node->name);
         return;
     }
 
