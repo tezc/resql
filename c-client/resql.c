@@ -67,7 +67,7 @@ typedef int sc_sock_int;
     #include <time.h>
 #endif
 
-static const char* date()
+static void date()
 {
     char text[100];
     time_t now = time(NULL);
