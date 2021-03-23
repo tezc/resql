@@ -282,7 +282,7 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 {
     char tmp[128];
     ssize_t sz;
-    uint64_t ts, val;
+    uint64_t ts, val, div;
     struct rusage usage = (struct rusage){{0}};
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
@@ -330,8 +330,9 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(tmp, sizeof(tmp), sz));
 
     sc_buf_put_fmt(buf, "%f", ((double) m->fsync_max) / 1000000);
-    sc_buf_put_fmt(buf, "%f",
-                   ((double) m->fsync_total / m->fsync_count) / 1000000);
+
+    div = (m->fsync_count ? m->fsync_count : 1);
+    sc_buf_put_fmt(buf, "%f", ((double) m->fsync_total / div) / 1000000);
 
     sc_buf_put_fmt(buf, "%s", m->ss_success ? "true" : "false");
     sc_buf_put_fmt(buf, "%llu", m->ss_size);

@@ -357,7 +357,7 @@ func (c *client) connectSock() error {
 
 	if u.Scheme == "tcp" {
 		dialer := &net.Dialer{
-			Timeout:       200000000,
+			Timeout:       2000000000,
 			LocalAddr:     c.sourceAddr,
 			FallbackDelay: 0,
 		}

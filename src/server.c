@@ -604,6 +604,8 @@ static void server_on_client_connect_req(struct server *s, struct conn *in,
 
     server_create_entry(s, true, 0, 0, CMD_CLIENT_CONNECT, &s->tmp);
     sc_map_put_sv(&s->clients, client->name, client);
+
+    sc_log_debug("cclient : added entry for client %s \n", client->name);
 }
 
 static void server_on_node_connect_req(struct server *s, struct conn *pending,
@@ -1045,7 +1047,6 @@ static void server_on_prevote_resp(struct server *s, struct node *node,
     }
 
     if (!resp->granted) {
-        sc_log_debug(" %s did not grant vote to \n", node->name);
         return;
     }
 
@@ -1881,6 +1882,8 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
     struct msg msg;
     struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
     struct conn *pending = rs_entry(sock, struct conn, sock);
+
+    sc_log_debug("Received connect req from :%s \n", pending->remote);
 
     rc = conn_on_readable(pending);
     if (rc == SC_SOCK_ERROR) {

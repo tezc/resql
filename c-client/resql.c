@@ -1840,7 +1840,7 @@ int resql_recv_connect_resp(struct resql *c)
 
     rc = sc_sock_send(&c->sock, sc_buf_rbuf(resp), sc_buf_size(resp), 0);
     if (rc < 0) {
-        resql_err(c, "sock send failure.");
+        resql_err(c, "sock send failure : %s ", strerror(errno));
         return RESQL_ERROR;
     }
 
@@ -1849,7 +1849,7 @@ int resql_recv_connect_resp(struct resql *c)
 retry:
     rc = sc_sock_recv(&c->sock, sc_buf_wbuf(resp), sc_buf_quota(resp), 0);
     if (rc < 0) {
-        resql_err(c, "sock recv failure.");
+        resql_err(c, "sock recv failure : %s ", strerror(errno));
         return RESQL_ERROR;
     }
 
@@ -1872,8 +1872,13 @@ retry:
     }
 
     rc = msg.connect_resp.rc;
+    if (rc == MSG_CLUSTER_NAME_MISMATCH) {
+        resql_err(c, "cluster name mismatch");
+        return RESQL_FATAL;
+    }
+
     if (rc != MSG_OK) {
-        resql_err(c, "connect request has been rejected by the server.");
+        resql_err(c, "connection has been rejected by the server (%d).", rc);
         return RESQL_ERROR;
     }
 
@@ -1921,12 +1926,12 @@ int resql_connect(struct resql *c)
         struct pollfd fds = {.fd = c->sock.fdt.fd, .events = POLLOUT};
 
 retry:
-        rc = rs_poll(&fds, 1, c->timeout);
+        rc = rs_poll(&fds, 1, 3000);
         if (rc < 0 && errno == EINTR) {
             goto retry;
         }
 
-        rc = (rc == 0) ? -1 : sc_sock_finish_connect(&c->sock);
+        rc = (rc != 1) ? -1 : sc_sock_finish_connect(&c->sock);
     }
 
     if (rc != 0) {
@@ -1939,12 +1944,12 @@ retry:
         goto sock_fatal;
     }
 
-    rc = sc_sock_set_sndtimeo(&c->sock, 2000);
+    rc = sc_sock_set_sndtimeo(&c->sock, 3000);
     if (rc != SC_SOCK_OK) {
         goto sock_fatal;
     }
 
-    rc = sc_sock_set_rcvtimeo(&c->sock, 2000);
+    rc = sc_sock_set_rcvtimeo(&c->sock, 3000);
     if (rc != SC_SOCK_OK) {
         goto sock_fatal;
     }
@@ -1962,6 +1967,7 @@ sock_error:
     resql_err(c, sc_sock_error(&c->sock));
 cleanup:
     sc_sock_term(&c->sock);
+
     return rc;
 }
 
