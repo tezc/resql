@@ -76,7 +76,7 @@ struct resql_benchmark
     pthread_mutex_t mtx;
 };
 
-#define RESQL_BENCHMARK_VERSION "0.0.16"
+#define RESQL_BENCHMARK_VERSION "0.0.17-latest"
 
 static struct resql_benchmark bench;
 
