@@ -553,6 +553,8 @@ static void server_finalize_client_connection(struct server *s,
 {
     int rc;
 
+    sc_log_info("cclient : Will finalize client connection :%s \n", client->name);
+
     conn_allow_read(&client->conn);
 
     msg_create_connect_resp(&client->conn.out, MSG_OK, client->seq,
@@ -604,6 +606,8 @@ static void server_on_client_connect_req(struct server *s, struct conn *in,
 
     server_create_entry(s, true, 0, 0, CMD_CLIENT_CONNECT, &s->tmp);
     sc_map_put_sv(&s->clients, client->name, client);
+
+    sc_log_debug("cclient : added entry for client %s \n", client->name);
 }
 
 static void server_on_node_connect_req(struct server *s, struct conn *pending,
@@ -1559,6 +1563,8 @@ static void server_on_client_connect_applied(struct server *s,
             client->id = sess->id;
             client->seq = sess->seq;
             server_finalize_client_connection(s, client);
+        } else {
+            sc_log_info("cclient : cannot find client %s \n", sess->name);
         }
     }
 }
@@ -1880,6 +1886,8 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
     struct msg msg;
     struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
     struct conn *pending = rs_entry(sock, struct conn, sock);
+
+    sc_log_debug("Received connect req from :%s \n", pending->remote);
 
     rc = conn_on_readable(pending);
     if (rc == SC_SOCK_ERROR) {

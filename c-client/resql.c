@@ -1927,7 +1927,7 @@ int resql_connect(struct resql *c)
         struct pollfd fds = {.fd = c->sock.fdt.fd, .events = POLLOUT};
 
 retry:
-        rc = rs_poll(&fds, 1, 2000);
+        rc = rs_poll(&fds, 1, 3000);
         if (rc < 0 && errno == EINTR) {
             goto retry;
         }
@@ -1950,12 +1950,12 @@ retry:
         goto sock_fatal;
     }
 
-    rc = sc_sock_set_sndtimeo(&c->sock, 2000);
+    rc = sc_sock_set_sndtimeo(&c->sock, 3000);
     if (rc != SC_SOCK_OK) {
         goto sock_fatal;
     }
 
-    rc = sc_sock_set_rcvtimeo(&c->sock, 2000);
+    rc = sc_sock_set_rcvtimeo(&c->sock, 3000);
     if (rc != SC_SOCK_OK) {
         goto sock_fatal;
     }
