@@ -67,16 +67,6 @@ typedef int sc_sock_int;
     #include <time.h>
 #endif
 
-static void date()
-{
-    char text[100];
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-
-    strftime(text, sizeof(text)-1, "%d %m %Y %H:%M", t);
-    printf("[%s][before log] \n", text);
-}
-
 static uint64_t sc_time_mono_ms()
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -1859,7 +1849,6 @@ int resql_recv_connect_resp(struct resql *c)
 retry:
     rc = sc_sock_recv(&c->sock, sc_buf_wbuf(resp), sc_buf_quota(resp), 0);
     if (rc < 0) {
-        date();
         resql_err(c, "sock recv failure : %s ", strerror(errno));
         return RESQL_ERROR;
     }
@@ -1931,7 +1920,6 @@ int resql_connect(struct resql *c)
 
     sc_sock_init(&c->sock, 0, false, family);
 
-    date();
     printf("cclient is trying to connect to %s \n", uri->str);
     rc = sc_sock_connect(&c->sock, host, uri->port, c->source_addr,
                          c->source_port);
