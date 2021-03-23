@@ -70,7 +70,7 @@ var errClusterNameMismatch = errors.New("resql: cluster name mismatch")
 var errSessionDoesNotExist = errors.New("resql : session does not exist on the server")
 
 // goresql version
-const Version = "0.0.16-latest"
+const Version = "0.0.16"
 
 type client struct {
 	name         string
