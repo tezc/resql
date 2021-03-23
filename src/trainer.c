@@ -175,7 +175,6 @@ int main(int argc, char **argv)
     int ops = 0;
     resql *c;
     resql_result *rs;
-    resql_stmt stmt;
 
     struct resql_config config = {
             .urls = "tcp://127.0.0.1:9717",
