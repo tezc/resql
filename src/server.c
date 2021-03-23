@@ -374,12 +374,8 @@ static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd,
 
     (void) event;
 
-    sc_log_info("Incoming conn.. \n");
-
     rc = sc_sock_accept(endpoint, &in);
     if (rc != SC_SOCK_OK) {
-        sc_log_info("Accept failed :%s \n", strerror(errno));
-        sc_log_info("Accept failed :%s \n", sc_sock_error(endpoint));
         return;
     }
 
@@ -387,8 +383,6 @@ static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd,
     conn_schedule(conn, SERVER_TIMER_PENDING, 50000);
 
     sc_list_add_tail(&s->pending_conns, &conn->list);
-
-    sc_log_info("Accepted connecting :%s \n", conn->remote);
 }
 
 static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
@@ -559,23 +553,17 @@ static void server_finalize_client_connection(struct server *s,
 {
     int rc;
 
-    sc_log_info("cclient : Will finalize client connection :%s \n", client->name);
-
     conn_allow_read(&client->conn);
 
     msg_create_connect_resp(&client->conn.out, MSG_OK, client->seq,
                             s->meta.term, s->meta.uris);
-    sc_log_info("Out buf : %d \n", sc_buf_size(&client->conn.out));
     rc = conn_flush(&client->conn);
     if (rc != RS_OK) {
         server_on_client_disconnect(s, client, MSG_ERR);
         return;
     }
 
-    sc_log_info("Out buf flushed : %d \n", sc_buf_size(&client->conn.out));
     sc_map_put_64v(&s->vclients, client->id, client);
-
-    sc_log_info("cclient : finalized client connection :%s \n", client->name);
 }
 
 static void server_on_client_connect_req(struct server *s, struct conn *in,
@@ -1573,8 +1561,6 @@ static void server_on_client_connect_applied(struct server *s,
             client->id = sess->id;
             client->seq = sess->seq;
             server_finalize_client_connection(s, client);
-        } else {
-            sc_log_info("cclient : cannot find client %s \n", sess->name);
         }
     }
 }
