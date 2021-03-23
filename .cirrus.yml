@@ -43,8 +43,6 @@ freebsd_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   freebsd_instance:
     image_family: freebsd-12-1
-    cpu: 1
-    memory: 2G
   test_script:
     - pkg install -y git cmake
     - mkdir build-debug && cd build-debug

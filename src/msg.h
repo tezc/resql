@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -17,8 +17,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef RESQL_LIB_MSG_H
-#define RESQL_LIB_MSG_H
+#ifndef RESQL_MSG_H
+#define RESQL_MSG_H
 
 #include "sc/sc_buf.h"
 #include "sc/sc_list.h"
@@ -26,11 +26,10 @@
 
 #include <stdint.h>
 
-#define MSG_REMOTE_LEN 1u
-#define MSG_RC_LEN     1u
-#define MSG_MAX_SIZE   (2 * 1000 * 1000 * 1000)
-
-#define MSG_INVALID (-1)
+#define MSG_CONNECT_TYPE      0x01
+#define MSG_REMOTE_LEN        1u
+#define MSG_RC_LEN            1u
+#define MSG_MAX_SIZE          (2 * 1000 * 1000 * 1000)
 
 #define MSG_FIXED_HEADER_SIZE 8
 
@@ -49,71 +48,71 @@
 
 enum task_flag
 {
-    TASK_FLAG_OK = 0,
-    TASK_FLAG_ERROR,
-    TASK_FLAG_DONE,
-    TASK_FLAG_STMT,
-    TASK_FLAG_STMT_ID,
-    TASK_FLAG_STMT_PREPARE,
-    TASK_FLAG_STMT_DEL_PREPARED,
-    TASK_FLAG_ROW,
-    TASK_FLAG_END
+    TASK_FLAG_OK                = 0x00,
+    TASK_FLAG_ERROR             = 0x01,
+    TASK_FLAG_DONE              = 0x02,
+    TASK_FLAG_STMT              = 0x03,
+    TASK_FLAG_STMT_ID           = 0x04,
+    TASK_FLAG_STMT_PREPARE      = 0x05,
+    TASK_FLAG_STMT_DEL_PREPARED = 0x06,
+    TASK_FLAG_ROW               = 0x07,
+    TASK_FLAG_END               = 0x08
 };
 
 enum task_param
 {
-    TASK_PARAM_INTEGER = 0,
-    TASK_PARAM_FLOAT,
-    TASK_PARAM_TEXT,
-    TASK_PARAM_BLOB,
-    TASK_PARAM_NULL,
-    TASK_PARAM_NAME,
-    TASK_PARAM_INDEX
+    TASK_PARAM_INTEGER          = 0x00,
+    TASK_PARAM_FLOAT            = 0x01,
+    TASK_PARAM_TEXT             = 0x02,
+    TASK_PARAM_BLOB             = 0x03,
+    TASK_PARAM_NULL             = 0x04,
+    TASK_PARAM_NAME             = 0x05,
+    TASK_PARAM_INDEX            = 0x06
 };
 
 enum msg_rc
 {
-    MSG_OK,
-    MSG_ERR,
-    MSG_CLUSTER_NAME_MISMATCH,
-    MSG_CORRUPT,
-    MSG_UNEXPECTED,
-    MSG_TIMEOUT,
-    MSG_NOT_LEADER,
+    MSG_OK                      = 0x00,
+    MSG_ERR                     = 0x01,
+    MSG_CLUSTER_NAME_MISMATCH   = 0x02,
+    MSG_CORRUPT                 = 0x03,
+    MSG_UNEXPECTED              = 0x04,
+    MSG_TIMEOUT                 = 0x05,
+    MSG_NOT_LEADER              = 0x06,
 };
 
 enum msg_remote
 {
-    MSG_CLIENT,
-    MSG_NODE
+    MSG_CLIENT                  = 0x00u,
+    MSG_NODE                    = 0x01u
 };
 
 enum msg_type
 {
-    MSG_CONNECT_REQ       = 0x00,
-    MSG_CONNECT_RESP      = 0x01,
-    MSG_DISCONNECT_REQ    = 0x02,
-    MSG_DISCONNECT_RESP   = 0x03,
-    MSG_CLIENT_REQ        = 0x04,
-    MSG_CLIENT_RESP       = 0x05,
-    MSG_APPEND_REQ        = 0x06,
-    MSG_APPEND_RESP       = 0x07,
-    MSG_PREVOTE_REQ       = 0x08,
-    MSG_PREVOTE_RESP      = 0x09,
-    MSG_REQVOTE_REQ       = 0x0A,
-    MSG_REQVOTE_RESP      = 0x0B,
-    MSG_SNAPSHOT_REQ      = 0x0C,
-    MSG_SNAPSHOT_RESP     = 0x0D,
-    MSG_INFO_REQ          = 0x0E,
-    MSG_SHUTDOWN_REQ      = 0x0F
+    MSG_CONNECT_REQ             = 0x00,
+    MSG_CONNECT_RESP            = 0x01,
+    MSG_DISCONNECT_REQ          = 0x02,
+    MSG_DISCONNECT_RESP         = 0x03,
+    MSG_CLIENT_REQ              = 0x04,
+    MSG_CLIENT_RESP             = 0x05,
+    MSG_APPEND_REQ              = 0x06,
+    MSG_APPEND_RESP             = 0x07,
+    MSG_PREVOTE_REQ             = 0x08,
+    MSG_PREVOTE_RESP            = 0x09,
+    MSG_REQVOTE_REQ             = 0x0A,
+    MSG_REQVOTE_RESP            = 0x0B,
+    MSG_SNAPSHOT_REQ            = 0x0C,
+    MSG_SNAPSHOT_RESP           = 0x0D,
+    MSG_INFO_REQ                = 0x0E,
+    MSG_SHUTDOWN_REQ            = 0x0F
 };
 
 // clang-format on
 
 struct msg_connect_req
 {
+    uint32_t flags;
     const char *protocol;
-    enum msg_remote remote;
     const char *cluster_name;
     const char *name;
 };
@@ -263,7 +262,7 @@ void msg_print_network(struct msg *msg, const char *op, const char *from,
 
 void msg_print(struct msg *msg, struct sc_buf *buf);
 
-bool msg_create_connect_req(struct sc_buf *buf, enum msg_remote remote,
+bool msg_create_connect_req(struct sc_buf *buf, int flags,
                             const char *cluster_name, const char *name);
 
 bool msg_create_connect_resp(struct sc_buf *buf, enum msg_rc rc, uint64_t seq,

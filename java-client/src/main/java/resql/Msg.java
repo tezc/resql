@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Resql Authors
+ * Copyright (c) 2021 Ozan Tezcan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -72,14 +72,14 @@ abstract class Msg {
 
         final int length = RawBuffer.intLen(MSG_LEN_SIZE) +
                 RawBuffer.byteLen(CONNECT_REQ) +
+                RawBuffer.intLen(REMOTE_TYPE_CLIENT) +
                 RawBuffer.stringLen("resql") +
-                RawBuffer.byteLen(REMOTE_TYPE_CLIENT) +
                 RawBuffer.stringLen(clusterName) + RawBuffer.stringLen(name);
 
         buf.putInt(length);
         buf.put(CONNECT_REQ);
+        buf.putInt(REMOTE_TYPE_CLIENT);
         buf.putString("resql");
-        buf.put(REMOTE_TYPE_CLIENT);
         buf.putString(clusterName);
         buf.putString(name);
         buf.flip();

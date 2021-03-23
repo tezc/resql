@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -39,7 +39,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
     n->round = 0;
     n->match = 0;
     n->conn_timer = SC_TIMER_INVALID;
-    n->interval = 64;
+    n->interval = 32;
 
     sc_list_init(&n->list);
     sc_queue_create(n->uris, 2);
@@ -92,6 +92,8 @@ void node_clear_indexes(struct node *n)
     n->ss_index = 0;
     n->ss_pos = 0;
     n->msg_inflight = 0;
+    n->out_timestamp = 0;
+    n->in_timestamp = 0;
 }
 
 void node_add_uris(struct node *n, struct sc_uri **uris)

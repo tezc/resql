@@ -1,7 +1,7 @@
 //
 // MIT License
 //
-// Copyright (c) 2021 Resql Authors
+// Copyright (c) 2021 Ozan Tezcan
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -816,7 +816,7 @@ const (
 	disconnectReq          = byte(0x02)
 	clientReq              = byte(0x04)
 	clientResp             = byte(0x05)
-	remoteTypeClient       = byte(0x00)
+	connectFlag            = uint32(0)
 	rcOk                   = byte(0x00)
 	clientReqHeader        = 14
 	flagOK                 = byte(0)
@@ -844,15 +844,15 @@ func (c *client) encodeConnectReq(buf *Buffer) {
 
 	total := Uint32Len(lenBytes) +
 		Uint8Len(connectReq) +
+		Uint32Len(connectFlag) +
 		StringLen(&x) +
-		Uint8Len(remoteTypeClient) +
 		StringLen(&c.clusterName) +
 		StringLen(&c.name)
 
 	buf.WriteUint32(total)
 	buf.WriteUint8(connectReq)
+	buf.WriteUint32(connectFlag)
 	buf.WriteString(&x)
-	buf.WriteUint8(remoteTypeClient)
 	buf.WriteString(&c.clusterName)
 	buf.WriteString(&c.name)
 }

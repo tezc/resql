@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -175,7 +175,6 @@ int main(int argc, char **argv)
     int ops = 0;
     resql *c;
     resql_result *rs;
-    resql_stmt stmt;
 
     struct resql_config config = {
             .urls = "tcp://127.0.0.1:9717",

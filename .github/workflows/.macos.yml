@@ -22,7 +22,7 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           mkdir build-debug && cd build-debug
-          cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=address
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=address -DCMAKE_C_COMPILER=$CC
           make -j
           make check
           rm -rf *

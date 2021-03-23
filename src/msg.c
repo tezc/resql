@@ -1,7 +1,7 @@
 /*
  *  Resql
  *
- *  Copyright (C) 2021 Resql Authors
+ *  Copyright (C) 2021 Ozan Tezcan
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Affero General Public License as published by
@@ -55,20 +55,18 @@ const char *msg_type_str[] = {
 
 // clang-format on
 
-static const char *msg_remote_str[] = {"MSG_CLIENT", "MSG_NODE"};
-
-bool msg_create_connect_req(struct sc_buf *buf, enum msg_remote remote,
+bool msg_create_connect_req(struct sc_buf *buf, int flags,
                             const char *cluster_name, const char *name)
 {
     uint32_t head = sc_buf_wpos(buf);
     uint32_t len = MSG_SIZE_LEN + MSG_TYPE_LEN +
-                   sc_buf_str_len(MSG_RESQL_STR) + MSG_REMOTE_LEN +
+                   sc_buf_32_len(flags) + sc_buf_str_len(MSG_RESQL_STR) +
                    sc_buf_str_len(cluster_name) + sc_buf_str_len(name);
 
     sc_buf_put_32(buf, len);
     sc_buf_put_8(buf, MSG_CONNECT_REQ);
+    sc_buf_put_32(buf, flags);
     sc_buf_put_str(buf, MSG_RESQL_STR);
-    sc_buf_put_8(buf, remote);
     sc_buf_put_str(buf, cluster_name);
     sc_buf_put_str(buf, name);
 
@@ -451,8 +449,8 @@ int msg_parse(struct sc_buf *buf, struct msg *msg)
 
     switch (msg->type) {
     case MSG_CONNECT_REQ:
+        msg->connect_req.flags = sc_buf_get_32(&tmp);
         msg->connect_req.protocol = sc_buf_get_str(&tmp);
-        msg->connect_req.remote = sc_buf_get_8(&tmp);
         msg->connect_req.cluster_name = sc_buf_get_str(&tmp);
         msg->connect_req.name = sc_buf_get_str(&tmp);
         break;
@@ -551,6 +549,7 @@ int msg_parse(struct sc_buf *buf, struct msg *msg)
         msg->info_req.len = sc_buf_size(&tmp);
         sc_buf_mark_read(&tmp, msg->info_req.len);
         break;
+
     case MSG_SHUTDOWN_REQ:
         msg->shutdown_req.now = sc_buf_get_bool(&tmp);
         break;
@@ -567,7 +566,7 @@ static void msg_print_connect_req(struct msg *msg, struct sc_buf *buf)
     struct msg_connect_req *m = &msg->connect_req;
 
     sc_buf_put_text(buf, "| %-15s | %s \n", "Protocol", m->protocol);
-    sc_buf_put_text(buf, "| %-15s | %s \n", "Remote", msg_remote_str[m->remote]);
+    sc_buf_put_text(buf, "| %-15s | %lu \n", "Flags", m->flags);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Cluster name", m->cluster_name);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Name", m->name);
 }
