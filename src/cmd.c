@@ -24,7 +24,7 @@
 #include "sc/sc_str.h"
 #include "sc/sc_time.h"
 
-void cmd_encode_init(struct sc_buf *buf, char rand[256])
+void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256])
 {
     sc_buf_put_64(buf, sc_time_ms());
     sc_buf_put_64(buf, sc_time_mono_ms());

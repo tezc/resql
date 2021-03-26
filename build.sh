@@ -2,11 +2,10 @@
 set -e
 cd "$(dirname "$0")"
 cwd=$(pwd)
-cmake_opt=""
 
 if [ "$#" -ne 0 ]; then
   if [ "$1" = --install ]; then
-    if [ ! -f bin/resql ] || [ ! -f bin/resql-cli ]; then
+    if [ ! -f bin/resql ] || [ ! -f bin/resql-cli ] || [ ! -f bin/resql-benchmark ]; then
       echo "Executables are missing, run ./build.sh first."
       exit 1
     fi
@@ -18,8 +17,6 @@ if [ "$#" -ne 0 ]; then
     (set -x; rm -rf /usr/local/bin/resql /usr/local/bin/resql-cli /usr/local/bin/resql-benchmark)
     (set -x; rm -rf /etc/resql.ini)
     exit 0
-  elif [ "$1" = --docker ]; then
-    cmake_opt=-DMARCH_NATIVE=OFF
   else
     echo "Unknown option : $1";
     exit 1
@@ -55,7 +52,7 @@ cd bin
 rm -rf resql resql-cli resql-benchmark build pgo
 mkdir build pgo
 cd build
-cmake ../.. -DPGO=generate $cmake_opt
+cmake ../.. -DPGO=generate
 make -j 1 && make install
 echo "First step has been completed successfully."
 cd ..
@@ -87,6 +84,6 @@ echo "Tests has been completed successfully."
 ./resql -w
 rm -rf resql resql-cli resql-benchmark build/*
 cd build
-cmake ../.. -DPGO=use $cmake_opt
+cmake ../.. -DPGO=use
 make -j 1 && make install
 cd ../..

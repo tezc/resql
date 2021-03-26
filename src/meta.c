@@ -23,7 +23,6 @@
 #include "sc/sc_array.h"
 #include "sc/sc_str.h"
 #include "sc/sc_uri.h"
-#include "sqlite/sqlite3.h"
 
 #include <string.h>
 

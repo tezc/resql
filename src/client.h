@@ -48,7 +48,7 @@ struct client
 
 struct client *client_create(struct conn *conn, const char *name);
 void client_destroy(struct client *c);
-void client_print(struct client *c, char *buf, int len);
+void client_print(struct client *c, char *buf, size_t len);
 void client_processed(struct client *c);
 bool client_pending(struct client *c);
 

@@ -21,7 +21,6 @@
 #define RESQL_META_H
 
 #include "sc/sc_buf.h"
-#include "sqlite/sqlite3.h"
 
 #include <stdint.h>
 

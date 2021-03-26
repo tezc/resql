@@ -480,7 +480,7 @@ retry:
 
 static void server_write_init_cmd(struct server *s)
 {
-    char rand[256];
+    unsigned char rand[256];
 
     file_random(rand, sizeof(rand));
 
@@ -604,8 +604,6 @@ static void server_on_client_connect_req(struct server *s, struct conn *in,
 
     server_create_entry(s, true, 0, 0, CMD_CLIENT_CONNECT, &s->tmp);
     sc_map_put_sv(&s->clients, client->name, client);
-
-    sc_log_debug("cclient : added entry for client %s \n", client->name);
 }
 
 static void server_on_node_connect_req(struct server *s, struct conn *pending,
@@ -622,7 +620,6 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
 
     sc_array_foreach (s->nodes, n) {
         if (strcmp(n->name, name) == 0) {
-            sc_list_del(NULL, &n->list);
             sc_list_add_tail(&s->connected_nodes, &n->list);
             found = true;
             break;
@@ -1033,6 +1030,8 @@ out:
 static void server_on_prevote_resp(struct server *s, struct node *node,
                                    struct msg *msg)
 {
+    (void) node;
+
     struct msg_prevote_resp *resp = &msg->prevote_resp;
 
     if (s->role != SERVER_ROLE_CANDIDATE || s->prevote_term != resp->term) {
@@ -1845,6 +1844,7 @@ flush:
         if (n->msg_inflight == 0 &&
             s->timestamp - n->out_timestamp > timeout / 2) {
 
+            prev = store_prev_term_of(&s->store, n->next - 1);
             msg_create_append_req(&n->conn.out, s->meta.term, n->next - 1, prev,
                                   s->commit, s->round, NULL, 0);
             n->msg_inflight++;

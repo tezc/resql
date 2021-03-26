@@ -56,7 +56,7 @@ void session_disconnected(struct session *s, uint64_t timestamp);
 uint64_t session_create_stmt(struct session *s, uint64_t id, const char *sql,
                              int len, const char **err);
 
-sqlite3_stmt *session_get_stmt(struct session *s, uint64_t id);
+void *session_get_stmt(struct session *s, uint64_t id);
 int session_del_stmt(struct session *s, uint64_t id);
 
 

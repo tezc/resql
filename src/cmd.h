@@ -76,10 +76,10 @@ struct cmd_init
 {
     uint64_t monotonic;
     uint64_t realtime;
-    char rand[256];
+    unsigned char rand[256];
 };
 
-void cmd_encode_init(struct sc_buf *buf, char rand[256]);
+void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256]);
 struct cmd_init cmd_decode_init(struct sc_buf *buf);
 
 void cmd_encode_meta(struct sc_buf *buf, struct meta *meta);

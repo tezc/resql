@@ -48,8 +48,12 @@ struct state
     char *last_err;
 
     bool closed;
+
+    // operation flags
     bool client;
     bool readonly;
+    bool full;
+    uint64_t max_page;
 
     struct aux aux;
     struct meta meta;
@@ -60,9 +64,6 @@ struct state
     uint64_t timestamp;
     uint64_t monotonic;
     uint64_t realtime;
-
-    char *auth;
-    uint64_t max_page;
 
     struct sc_list disconnects;
 

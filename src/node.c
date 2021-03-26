@@ -20,7 +20,6 @@
 
 #include "msg.h"
 #include "node.h"
-#include "server.h"
 
 #include "sc/sc.h"
 #include "sc/sc_queue.h"
