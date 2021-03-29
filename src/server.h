@@ -51,7 +51,6 @@ enum server_job_type
 {
     SERVER_JOB_ADD_NODE,
     SERVER_JOB_REMOVE_NODE,
-    SERVER_JOB_DISCONNECT_CLIENT,
     SERVER_JOB_SHUTDOWN
 };
 
@@ -104,7 +103,6 @@ struct server
     bool ss_inprogress;
     bool stop_requested;
     bool cluster_up;
-    bool conf_change;
 
     char* passwd;
 

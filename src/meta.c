@@ -205,16 +205,9 @@ void meta_decode(struct meta *m, struct sc_buf *buf)
 
 static void meta_update(struct meta *m)
 {
-    uint32_t voter = 0;
     struct sc_buf tmp;
 
-    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-        if (m->nodes[i].role != META_JOINED) {
-            voter++;
-        }
-    }
-
-    m->voter = voter;
+    m->voter = sc_array_size(m->nodes);
 
     sc_buf_init(&tmp, 1024);
 
@@ -258,7 +251,7 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
     m->prev = tmp;
 
     meta_node_init(&node, sc_uri_create(uri->str));
-    node.role = META_JOINED;
+    node.role = META_FOLLOWER;
     sc_array_add(m->nodes, node);
     meta_update(m);
 

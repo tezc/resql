@@ -474,9 +474,31 @@ retry:
         server_create_entry(s, true, 0, 0, CMD_TIMESTAMP, &s->tmp);
     }
 
-
     return RS_OK;
 }
+
+
+static void server_log(struct server *s, const char *level, const char *fmt,
+                       ...)
+{
+    char tmp[1024];
+    va_list va;
+
+    va_start(va, fmt);
+    rs_vsnprintf(tmp, sizeof(tmp), fmt, va);
+    va_end(va);
+
+    sc_buf_clear(&s->tmp);
+    cmd_encode_log(&s->tmp, level, tmp);
+    server_create_entry(s, true, 0, 0, CMD_LOG, &s->tmp);
+
+    sc_log_info("server_log(%s) %s \n", level, tmp);
+}
+
+#define server_ap(fmt, ...) fmt, __VA_ARGS__
+#define server_info(s, ...) (server_log(s, "INFO", server_ap(__VA_ARGS__, "")))
+#define server_warn(s, ...) (server_log(s, "WARN", server_ap(__VA_ARGS__, "")))
+#define server_err(s, ...)  (server_log(s, "ERROR", server_ap(__VA_ARGS__, "")))
 
 static void server_write_init_cmd(struct server *s)
 {
@@ -492,13 +514,19 @@ static void server_write_init_cmd(struct server *s)
 
 static void server_write_meta_cmd(struct server *s)
 {
+    bool b;
     struct node *node;
     struct sc_list *elem;
 
     assert(s->leader == s->own);
 
     meta_clear_connection(&s->meta);
-    meta_set_leader(&s->meta, s->conf.node.name);
+
+    b = meta_exists(&s->meta, s->conf.node.name);
+    if (b) {
+        meta_set_leader(&s->meta, s->conf.node.name);
+    }
+
     meta_set_connected(&s->meta, s->conf.node.name);
 
     sc_list_foreach (&s->connected_nodes, elem) {
@@ -520,7 +548,7 @@ static void server_write_term_start_cmd(struct server *s)
 
 static void server_on_node_disconnect(struct server *s, struct node *node)
 {
-    sc_log_info("Node disconnected : %s \n", node->name);
+    sc_log_info("Node is not connected : %s \n", node->name);
     node_disconnect(node);
 
     if (s->leader == node) {
@@ -639,6 +667,10 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
     rc = conn_flush(&n->conn);
     if (rc != RS_OK) {
         server_on_node_disconnect(s, n);
+    }
+
+    if (s->role == SERVER_ROLE_LEADER) {
+        server_write_meta_cmd(s);
     }
 }
 
@@ -1194,73 +1226,50 @@ void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 
 const char *server_add_node(void *arg, const char *node)
 {
-    struct sc_uri *uri;
-    struct server *server = arg;
-    struct server_job job;
+    struct server *s = arg;
 
-    if (server->state.term != server->meta.term ||
-        server->role != SERVER_ROLE_LEADER) {
-        return "";
+    if (s->state.term == s->meta.term && s->role == SERVER_ROLE_LEADER) {
+        struct server_job job = {
+                .type = SERVER_JOB_ADD_NODE,
+                .data = sc_str_create(node),
+        };
+
+        sc_queue_add_last(s->jobs, job);
     }
 
-    if (server->conf_change) {
-        return "There is already a pending change";
-    }
-
-    uri = sc_uri_create(node);
-    if (!uri) {
-        return "Invalid uri";
-    }
-
-    job.type = SERVER_JOB_ADD_NODE;
-    job.data = uri;
-    sc_queue_add_last(server->jobs, job);
-    server->conf_change = true;
-
-    return "inprogress";
+    return "Config change is in progress. Check resql_log table for details";
 }
 
 const char *server_remove_node(void *arg, const char *node)
 {
-    struct server *server = arg;
-    struct server_job job;
+    struct server *s = arg;
 
-    if (server->state.term != server->meta.term ||
-        server->role != SERVER_ROLE_LEADER) {
-        return "";
+    if (s->state.term == s->meta.term && s->role == SERVER_ROLE_LEADER) {
+        struct server_job job = {
+                .type = SERVER_JOB_REMOVE_NODE,
+                .data = sc_str_create(node),
+        };
+
+        sc_queue_add_last(s->jobs, job);
     }
 
-    if (server->conf_change) {
-        return "There is already a pending change";
-    }
-    server->conf_change = true;
-
-    if (meta_exists(&server->meta, node) != true) {
-        return "Node does not exist.";
-    }
-
-    job.type = SERVER_JOB_REMOVE_NODE;
-    job.data = sc_str_create(node);
-    sc_queue_add_last(server->jobs, job);
-
-    return "inprogress";
+    return "Config change is in progress. Check resql_log table for details";
 }
 
 const char *server_shutdown(void *arg, const char *node)
 {
-    struct server *server = arg;
-    struct server_job job;
+    struct server *s = arg;
 
-    if (server->state.term != server->meta.term ||
-        server->role != SERVER_ROLE_LEADER) {
-        return "";
+    if (s->state.term == s->meta.term && s->role == SERVER_ROLE_LEADER) {
+        struct server_job job = {
+                .type = SERVER_JOB_SHUTDOWN,
+                .data = sc_str_create(node),
+        };
+
+        sc_queue_add_last(s->jobs, job);
     }
 
-    job.type = SERVER_JOB_SHUTDOWN;
-    job.data = sc_str_create(node);
-    sc_queue_add_last(server->jobs, job);
-
-    return "inprogress";
+    return "Shutdown in progress.";
 }
 
 void server_on_snapshot_req(struct server *s, struct node *node,
@@ -1322,12 +1331,11 @@ out:
     }
 }
 
-void server_on_snapshot_resp(struct server *s, struct node *node,
-                             struct msg *msg)
+void server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 {
     struct msg_snapshot_resp *resp = &msg->snapshot_resp;
 
-    node->msg_inflight--;
+    n->msg_inflight--;
 
     if (resp->term > s->meta.term) {
         server_update_meta(s, resp->term, NULL);
@@ -1336,22 +1344,22 @@ void server_on_snapshot_resp(struct server *s, struct node *node,
     }
 
     if (resp->done) {
-        node->next = s->ss.index + 1;
+        n->next = s->ss.index + 1;
+        server_warn(s, "Snapshot[%lu] sent to node : %s", s->ss.index, n->name);
     }
 }
 
-void server_on_info_req(struct server *s, struct node *node, struct msg *msg)
+void server_on_info_req(struct server *s, struct node *n, struct msg *msg)
 {
     (void) s;
 
-    sc_buf_clear(&node->info);
-    sc_buf_put_raw(&node->info, msg->info_req.buf, msg->info_req.len);
+    sc_buf_clear(&n->info);
+    sc_buf_put_raw(&n->info, msg->info_req.buf, msg->info_req.len);
 }
 
-void server_on_shutdown_req(struct server *s, struct node *node,
-                            struct msg *msg)
+void server_on_shutdown_req(struct server *s, struct node *n, struct msg *msg)
 {
-    (void) node;
+    (void) n;
     (void) msg;
 
     sc_log_info("Received shutdown request.. \n");
@@ -1521,19 +1529,21 @@ static void server_prepare_start(struct server *s)
 
 static void server_on_meta(struct server *s, struct meta *meta)
 {
+    bool b;
+
     if (meta->index < s->meta.index) {
         return;
     }
 
-    if (meta->index == s->meta.index && meta->prev != NULL) {
+    if (meta->index == s->meta.index && s->meta.prev != NULL) {
         meta_remove_prev(&s->meta);
-        s->conf_change = false;
         sc_buf_clear(&s->tmp);
         meta_print(&s->meta, &s->tmp);
         sc_log_info(sc_buf_rbuf(&s->tmp));
     } else if (meta->index > s->meta.index) {
         meta_copy(&s->meta, meta);
     }
+
 
     server_write_meta(s);
 }
@@ -1562,13 +1572,6 @@ static void server_on_client_connect_applied(struct server *s,
             server_finalize_client_connection(s, client);
         }
     }
-}
-
-static void server_on_client_disconnect_applied(struct server *s,
-                                                struct session *sess)
-{
-    (void) s;
-    (void) sess;
 }
 
 static void server_on_applied_client_req(struct server *s, uint64_t cid,
@@ -1603,8 +1606,6 @@ static void server_on_applied_entry(struct server *s, uint64_t index,
     enum cmd_id type = entry_flags(entry);
 
     switch (type) {
-    case CMD_INIT:
-        break;
     case CMD_META:
         server_on_meta(s, &s->state.meta);
         break;
@@ -1620,11 +1621,10 @@ static void server_on_applied_entry(struct server *s, uint64_t index,
         server_on_client_connect_applied(s, sess);
         break;
     case CMD_CLIENT_DISCONNECT:
-        server_on_client_disconnect_applied(s, sess);
-        break;
+    case CMD_INIT:
     case CMD_INFO:
-        break;
     case CMD_TIMESTAMP:
+    case CMD_LOG:
         break;
     default:
         rs_abort("");
@@ -1700,62 +1700,108 @@ static void server_check_commit(struct server *s)
     }
 }
 
+static void server_job_add_node(struct server *s, struct server_job *job)
+{
+    bool b;
+    const char *msg = "";
+    struct sc_uri *uri = NULL;
+
+    if (s->meta.prev != NULL) {
+        msg = "Rejected config change, there is a pending change in progress.";
+        goto err;
+    }
+
+    uri = sc_uri_create(job->data);
+    if (!uri || *uri->port == '\0' || *uri->userinfo == '\0' ||
+        strcmp(uri->scheme, "tcp") != 0) {
+        msg = "Invalid(url format) config change request. ";
+        goto err;
+    }
+
+    b = meta_exists(&s->meta, uri->userinfo);
+    if (b) {
+        msg = "Node already exists";
+        goto err;
+    }
+
+    meta_add(&s->meta, uri);
+    server_write_meta_cmd(s);
+
+    goto out;
+
+err:
+    server_err(s, "Add node[%s] : %s", job->data, msg);
+out:
+    sc_uri_destroy(uri);
+}
+
+static void server_job_remove_node(struct server *s, struct server_job *job)
+{
+    bool b;
+    const char *name = job->data;
+    const char *msg = "";
+
+    if (s->meta.prev != NULL) {
+        msg = "Rejected config change, there is a pending change in progress.";
+        goto err;
+    }
+
+    b = meta_exists(&s->meta, name);
+    if (!b) {
+        msg = "Node does not exists.";
+        goto err;
+    }
+
+    meta_remove(&s->meta, name);
+    server_write_meta_cmd(s);
+
+    return;
+
+err:
+    server_err(s, "Remove node[%s] : %s", job->data, msg);
+}
+
+static void server_job_shutdown(struct server *s, struct server_job *job)
+{
+    struct sc_list *l;
+    struct node *node;
+    char *name = job->data;
+
+    if (*name == '*') {
+        sc_list_foreach (&s->connected_nodes, l) {
+            node = sc_list_entry(l, struct node, list);
+            msg_create_shutdown_req(&node->conn.out, true);
+            conn_flush(&node->conn);
+        }
+    }
+
+    if (*name == '*' || strcmp(name, s->conf.node.name) == 0) {
+        server_on_shutdown_req(s, NULL, NULL);
+    }
+}
+
 static void server_handle_jobs(struct server *s)
 {
+    bool b;
+    struct sc_uri *uri;
     struct server_job job;
 
     sc_queue_foreach (s->jobs, job) {
         switch (job.type) {
-        case SERVER_JOB_ADD_NODE: {
-            struct sc_uri *uri = job.data;
-            if (meta_exists(&s->meta, uri->userinfo)) {
-                s->conf_change = false;
-                sc_log_error(
-                        "Config change is invalid, node already exists : %s \n",
-                        uri->str);
-                continue;
-            }
-
-            meta_add(&s->meta, uri);
-            sc_uri_destroy(uri);
-            server_write_meta_cmd(s);
-        } break;
-        case SERVER_JOB_REMOVE_NODE: {
-            char *name = job.data;
-            if (!meta_exists(&s->meta, name)) {
-                sc_log_error(
-                        "Config change is invalid, node does not exists: %s \n",
-                        name);
-                continue;
-            }
-
-            meta_remove(&s->meta, name);
-            sc_str_destroy(name);
-            server_write_meta_cmd(s);
-        } break;
-        case SERVER_JOB_DISCONNECT_CLIENT:
+        case SERVER_JOB_ADD_NODE:
+            server_job_add_node(s, &job);
             break;
-        case SERVER_JOB_SHUTDOWN: {
-            struct sc_list *l;
-            struct node *node;
-            char *name = job.data;
-
-            if (*name == '*') {
-                sc_list_foreach (&s->connected_nodes, l) {
-                    node = sc_list_entry(l, struct node, list);
-                    msg_create_shutdown_req(&node->conn.out, true);
-                    conn_flush(&node->conn);
-                }
-            }
-
-            if (*name == '*' || strcmp(name, s->conf.node.name) == 0) {
-                server_on_shutdown_req(s, NULL, NULL);
-            }
-        } break;
-
+        case SERVER_JOB_REMOVE_NODE:
+            server_job_remove_node(s, &job);
+            break;
+        case SERVER_JOB_SHUTDOWN:
+            server_job_shutdown(s, &job);
+            break;
         default:
             break;
         }
+
+        sc_str_destroy(job.data);
     }
 
     sc_queue_clear(s->jobs);
@@ -1775,9 +1821,12 @@ static void server_flush_snapshot(struct server *s, struct node *n)
     if (n->ss_index != s->ss.index) {
         n->ss_index = s->ss.index;
         n->ss_pos = 0;
+
+        server_log(s, "WARNING", "Sending snapshot[%lu] to node : %s",
+                   n->ss_index, n->name);
     }
 
-    len = sc_min(4096, s->ss.map.len - n->ss_pos);
+    len = sc_min(BATCH_SIZE, s->ss.map.len - n->ss_pos);
     data = s->ss.map.ptr + n->ss_pos;
     done = n->ss_pos + len == s->ss.map.len;
 
@@ -1848,6 +1897,7 @@ flush:
             msg_create_append_req(&n->conn.out, s->meta.term, n->next - 1, prev,
                                   s->commit, s->round, NULL, 0);
             n->msg_inflight++;
+            n->out_timestamp = s->timestamp;
         }
 
         rc = conn_flush(&n->conn);
@@ -1882,8 +1932,6 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
     struct msg msg;
     struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
     struct conn *pending = rs_entry(sock, struct conn, sock);
-
-    sc_log_debug("Received connect req from :%s \n", pending->remote);
 
     rc = conn_on_readable(pending);
     if (rc == SC_SOCK_ERROR) {

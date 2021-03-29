@@ -28,7 +28,6 @@ enum meta_role
 {
     META_LEADER,
     META_FOLLOWER,
-    META_JOINED
 };
 
 extern const char* meta_role_str[];

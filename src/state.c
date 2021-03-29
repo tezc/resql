@@ -264,11 +264,6 @@ int state_authorizer(void *user, int action, const char *arg0, const char *arg1,
     return SQLITE_OK;
 }
 
-void state_abort(struct state *st, int rc)
-{
-
-}
-
 int state_check_err(struct state *st, int rc)
 {
     switch (rc) {
@@ -589,15 +584,14 @@ struct session *state_on_client_connect(struct state *st, const char *name,
     return sess;
 }
 
-struct session *state_on_client_disconnect(struct state *st, const char *name,
-                                           bool clean)
+void state_on_client_disconnect(struct state *st, const char *name, bool clean)
 {
     bool found;
     struct session *sess;
 
     found = sc_map_get_sv(&st->names, name, (void **) &sess);
     if (!found) {
-        return NULL;
+        return;
     }
 
     session_disconnected(sess, st->timestamp);
@@ -611,8 +605,6 @@ struct session *state_on_client_disconnect(struct state *st, const char *name,
         aux_write_session(&st->aux, sess);
         sc_list_add_tail(&st->disconnects, &sess->list);
     }
-
-    return sess;
 }
 
 void state_disconnect_sessions(struct state *st)
@@ -624,7 +616,7 @@ void state_disconnect_sessions(struct state *st)
     }
 }
 
-void state_on_meta(struct state *st, struct cmd_meta *cmd)
+void state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
 {
     bool found;
     struct meta_node node;
@@ -671,9 +663,19 @@ void state_on_meta(struct state *st, struct cmd_meta *cmd)
 
     state_write_infos(st, &st->aux);
     state_write_vars(st, &st->aux);
+
+    char* str = sc_str_create_fmt("Term[%lu] : ", st->meta.term);
+
+    sc_array_foreach (st->meta.nodes, node) {
+        sc_str_append_fmt(&str, "[%s:%s:%s] ", node.name, meta_role_str[node.role], node.connected ? "connected" : "disconnected");
+    }
+
+    aux_add_log(&st->aux, index, "INFO", str);
+
+    sc_str_destroy(str);
 }
 
-void state_on_term_start(struct state *st, struct cmd_start_term *start)
+void state_on_term_start(struct state *st, struct cmd_term_start *start)
 {
     st->realtime = start->realtime;
     st->monotonic = start->monotonic;
@@ -1327,11 +1329,11 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         struct cmd_meta m;
 
         m = cmd_decode_meta(&cmd);
-        state_on_meta(st, &m);
+        state_on_meta(st, index, &m);
     } break;
 
     case CMD_TERM_START: {
-        struct cmd_start_term s;
+        struct cmd_term_start s;
 
         s = cmd_decode_term_start(&cmd);
         state_on_term_start(st, &s);
@@ -1354,8 +1356,8 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         struct cmd_client_disconnect c;
 
         c = cmd_decode_client_disconnect(&cmd);
-        return state_on_client_disconnect(st, c.name, c.clean);
-    }
+        state_on_client_disconnect(st, c.name, c.clean);
+    } break;
 
     case CMD_TIMESTAMP: {
         struct cmd_timestamp t;
@@ -1366,8 +1368,14 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
 
     case CMD_INFO: {
         state_on_info(st, &cmd);
-        return NULL;
-    }
+    } break;
+
+    case CMD_LOG: {
+        struct cmd_log l;
+
+        l = cmd_decode_log(&cmd);
+        aux_add_log(&st->aux, index, l.level, l.log);
+    } break;
 
     default:
         rs_abort("");

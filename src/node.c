@@ -39,6 +39,8 @@ struct node *node_create(const char *name, struct server *server, bool connect)
     n->match = 0;
     n->conn_timer = SC_TIMER_INVALID;
     n->interval = 32;
+    n->ss_index = 0;
+    n->ss_pos = 0;
 
     sc_list_init(&n->list);
     sc_queue_create(n->uris, 2);
