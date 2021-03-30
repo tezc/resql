@@ -26,7 +26,7 @@
 
 #include <string.h>
 
-const char *meta_role_str[] = {"leader", "follower", "joined"};
+const char *meta_role_str[] = {"leader", "follower"};
 
 void meta_node_init(struct meta_node *n, struct sc_uri *uri)
 {
@@ -181,6 +181,7 @@ void meta_encode(struct meta *m, struct sc_buf *buf)
 
 void meta_decode(struct meta *m, struct sc_buf *buf)
 {
+    bool prev;
     uint32_t count;
     struct meta_node n;
 
@@ -196,7 +197,8 @@ void meta_decode(struct meta *m, struct sc_buf *buf)
         sc_array_add(m->nodes, n);
     }
 
-    if (sc_buf_get_bool(buf)) {
+    prev = sc_buf_get_bool(buf);
+    if (prev) {
         m->prev = rs_malloc(sizeof(*m->prev));
         meta_init(m->prev, m->name);
         meta_decode(m->prev, buf);
@@ -232,6 +234,34 @@ static void meta_update(struct meta *m)
     sc_buf_term(&tmp);
 }
 
+static bool meta_validate(struct meta *m, struct sc_uri *uri)
+{
+    size_t n, u;
+    struct sc_uri *r;
+
+    if (*uri->userinfo == '\0' || *uri->scheme == '\0' || *uri->port == '\0') {
+        return false;
+    }
+
+    n = sc_array_size(m->nodes);
+    for (size_t i = 0; i < n; i++) {
+        if (strcmp(m->nodes[i].name, uri->userinfo) == 0) {
+            return false;
+        }
+
+        u = sc_array_size(m->nodes[i].uris);
+        for (size_t j = 0; j < u; j++) {
+            r = m->nodes[i].uris[j];
+            if (strcmp(r->host, uri->host) == 0 &&
+                strcmp(r->port, uri->port) == 0) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 bool meta_add(struct meta *m, struct sc_uri *uri)
 {
     struct meta_node node;
@@ -239,10 +269,8 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
 
     assert(m->prev == NULL);
 
-    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-        if (strcmp(m->nodes[i].name, uri->userinfo) == 0) {
-            return false;
-        }
+    if (!meta_validate(m, uri)) {
+        return false;
     }
 
     tmp = rs_malloc(sizeof(*tmp));
@@ -253,6 +281,7 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
     meta_node_init(&node, sc_uri_create(uri->str));
     node.role = META_FOLLOWER;
     sc_array_add(m->nodes, node);
+
     meta_update(m);
 
     return true;
@@ -260,22 +289,13 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
 
 bool meta_remove(struct meta *m, const char *name)
 {
-    bool found = false;
     struct meta *tmp;
 
     assert(m->prev == NULL);
 
-    for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-        if (strcmp(m->nodes[i].name, name) == 0) {
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
+    if (!meta_exists(m, name)) {
         return false;
     }
-
 
     tmp = rs_malloc(sizeof(*tmp));
     meta_init(tmp, "");
@@ -284,6 +304,7 @@ bool meta_remove(struct meta *m, const char *name)
 
     for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         if (strcmp(m->nodes[i].name, name) == 0) {
+            meta_node_term(&m->nodes[i]);
             sc_array_del(m->nodes, i);
             break;
         }
@@ -312,6 +333,33 @@ void meta_remove_prev(struct meta *m)
     meta_term(m->prev);
     rs_free(m->prev);
     m->prev = NULL;
+}
+
+void meta_rollback(struct meta *m, uint64_t index)
+{
+    struct meta *tmp = m->prev;
+
+    if (!m->prev || m->prev->index <= index) {
+        return;
+    }
+
+    assert(m->prev != NULL);
+
+    m->prev = NULL;
+    meta_copy(m, tmp);
+    meta_term(tmp);
+    rs_free(tmp);
+
+    assert(m->prev == NULL);
+}
+
+void meta_replace(struct meta *m, void *data, uint32_t len)
+{
+    struct sc_buf tmp = sc_buf_wrap(data, len, SC_BUF_READ);
+
+    meta_term(m);
+    meta_init(m, "");
+    meta_decode(m, &tmp);
 }
 
 void meta_set_connected(struct meta *m, const char *name)
@@ -361,10 +409,10 @@ void meta_set_leader(struct meta *m, const char *name)
     meta_update(m);
 }
 
-int meta_parse_uris(struct meta *m, char *addrs)
+bool meta_parse_uris(struct meta *m, char *addrs)
 {
     bool found;
-    int rc = RS_ERROR;
+    bool rc = false;
     char *dup, *save = NULL;
     const char *tok;
     struct meta_node n;
@@ -372,7 +420,7 @@ int meta_parse_uris(struct meta *m, char *addrs)
 
     dup = sc_str_create(addrs);
     if (dup == NULL) {
-        return RS_ERROR;
+        return false;
     }
 
     while ((tok = sc_str_token_begin(dup, &save, " ")) != NULL) {
@@ -381,7 +429,8 @@ int meta_parse_uris(struct meta *m, char *addrs)
         }
 
         uri = sc_uri_create(tok);
-        if (uri == NULL || *uri->userinfo == '\0') {
+        if (uri == NULL || *uri->userinfo == '\0' || *uri->port == '\0' ||
+            *uri->host == '\0') {
             goto clean_uri;
         }
 
@@ -402,12 +451,12 @@ int meta_parse_uris(struct meta *m, char *addrs)
     }
 
     meta_update(m);
-    rc = RS_OK;
+    rc = true;
 
 clean_uri:
     sc_str_destroy(dup);
 
-    if (rc == RS_ERROR) {
+    if (!rc) {
         sc_str_destroy(m->name);
         sc_str_destroy(m->uris);
     }

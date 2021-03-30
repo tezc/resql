@@ -1139,6 +1139,7 @@ void server_on_append_req(struct server *s, struct node *node, struct msg *msg)
         if (curr) {
             if (entry_term(curr) != entry_term(entry)) {
                 store_remove_after(&s->store, index - 1);
+                meta_rollback(&s->meta, index - 1);
             } else {
                 index++;
                 continue;
@@ -1146,10 +1147,7 @@ void server_on_append_req(struct server *s, struct node *node, struct msg *msg)
         }
 
         if (entry_flags(entry) == CMD_META) {
-            meta_term(&s->meta);
-            meta_init(&s->meta, "");
-            cmd_decode_meta_to(entry_data(entry), entry_data_len(entry),
-                               &s->meta);
+            meta_replace(&s->meta, entry_data(entry), entry_data_len(entry));
         }
 retry:
         rc = store_put_entry(&s->store, index, entry);
