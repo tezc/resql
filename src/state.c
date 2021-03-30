@@ -117,10 +117,11 @@ int state_randomness(sqlite3_vfs *vfs, int size, char *out)
 {
     (void) vfs;
 
-    struct sc_rand *rand;
+    struct sc_rand *r;
+    struct state *st = t_state;
 
-    rand = t_state->readonly ? &t_state->rrand : &t_state->wrand;
-    sc_rand_read(rand, out, size);
+    r = st->readonly ? &st->rrand : &st->wrand;
+    sc_rand_read(r, out, size);
 
     return size;
 }
@@ -139,9 +140,10 @@ int state_max_page(uint32_t max, uint32_t curr)
 {
     (void) max;
 
-    struct state *state = t_state;
+    struct state *s = t_state;
 
-    if (state->client && curr > state->max_page) {
+    if (s->client && curr > s->max_page) {
+        s->full = true;
         return -1;
     }
 
@@ -201,7 +203,6 @@ void state_init(struct state *st, struct state_cb cb, const char *path,
     st->ss_path = sc_str_create_fmt("%s/%s", path, STATE_SS_FILE);
     st->ss_tmp_path = sc_str_create_fmt("%s/%s", path, STATE_SS_TMP_FILE);
     st->max_page = UINT64_MAX;
-    st->auth = sc_str_create("");
 
     sc_buf_init(&st->tmp, 1024);
     meta_init(&st->meta, name);
@@ -217,7 +218,6 @@ void state_term(struct state *st)
 {
     state_close(st);
 
-    sc_str_destroy(st->auth);
     sc_buf_term(&st->tmp);
     sc_str_destroy(st->path);
     sc_str_destroy(st->ss_path);
@@ -264,6 +264,31 @@ int state_authorizer(void *user, int action, const char *arg0, const char *arg1,
     return SQLITE_OK;
 }
 
+int state_check_err(struct state *st, int rc)
+{
+    switch (rc) {
+    case SQLITE_OK:         /* Successful result */
+    case SQLITE_ERROR:      /* Generic error */
+    case SQLITE_TOOBIG:     /* String or BLOB exceeds size limit */
+    case SQLITE_CONSTRAINT: /* Abort due to constraint violation */
+    case SQLITE_MISMATCH:   /* Data type mismatch */
+    case SQLITE_AUTH:       /* Authorization denied */
+    case SQLITE_RANGE:      /* 2nd parameter to sqlite3_bind out of range */
+    case SQLITE_ROW:        /* sqlite3_step() has another row ready */
+    case SQLITE_DONE:       /* sqlite3_step() has finished executing */
+        break;
+
+    case SQLITE_FULL:
+        if (st->readonly || st->full) {
+            break;
+        }
+    default:
+        rs_abort("sqlite : rc = (%d)(%s). \n", rc, sqlite3_errstr(rc));
+    }
+
+    return rc;
+}
+
 int state_write_infos(struct state *st, struct aux *aux)
 {
     struct info *info;
@@ -283,7 +308,6 @@ int state_write_vars(struct state *st, struct aux *aux)
 
     sc_buf_clear(&st->tmp);
 
-    sc_buf_put_str(&st->tmp, st->auth);
     sc_buf_put_64(&st->tmp, st->term);
     sc_buf_put_64(&st->tmp, st->index);
     meta_encode(&st->meta, &st->tmp);
@@ -320,7 +344,6 @@ int state_read_vars(struct state *st, struct aux *aux)
         return rc;
     }
 
-    sc_str_set(&st->auth, sc_buf_get_str(&st->tmp));
     st->term = sc_buf_get_64(&st->tmp);
     st->index = sc_buf_get_64(&st->tmp);
     meta_decode(&st->meta, &st->tmp);
@@ -331,6 +354,7 @@ int state_read_vars(struct state *st, struct aux *aux)
     st->wrand.i = sc_buf_get_64(&st->tmp);
     st->wrand.j = sc_buf_get_64(&st->tmp);
     sc_buf_get_data(&st->tmp, st->wrand.init, sizeof(st->wrand.init));
+    sc_rand_init(&st->rrand, st->wrand.init);
 
     sql = "SELECT * FROM resql_sessions";
     rc = sqlite3_prepare(st->aux.db, sql, -1, &sess, 0);
@@ -560,15 +584,14 @@ struct session *state_on_client_connect(struct state *st, const char *name,
     return sess;
 }
 
-struct session *state_on_client_disconnect(struct state *st, const char *name,
-                                           bool clean)
+void state_on_client_disconnect(struct state *st, const char *name, bool clean)
 {
     bool found;
     struct session *sess;
 
     found = sc_map_get_sv(&st->names, name, (void **) &sess);
     if (!found) {
-        return NULL;
+        return;
     }
 
     session_disconnected(sess, st->timestamp);
@@ -580,11 +603,8 @@ struct session *state_on_client_disconnect(struct state *st, const char *name,
         session_destroy(sess);
     } else {
         aux_write_session(&st->aux, sess);
-        sc_list_del(NULL, &sess->list);
         sc_list_add_tail(&st->disconnects, &sess->list);
     }
-
-    return sess;
 }
 
 void state_disconnect_sessions(struct state *st)
@@ -596,7 +616,7 @@ void state_disconnect_sessions(struct state *st)
     }
 }
 
-void state_on_meta(struct state *st, struct cmd_meta *cmd)
+void state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
 {
     bool found;
     struct meta_node node;
@@ -608,6 +628,7 @@ void state_on_meta(struct state *st, struct cmd_meta *cmd)
 
     sc_map_foreach (&st->nodes, name, info) {
         found = false;
+
         sc_array_foreach (st->meta.nodes, node) {
             if (strcmp(node.name, name) == 0) {
                 found = true;
@@ -642,9 +663,19 @@ void state_on_meta(struct state *st, struct cmd_meta *cmd)
 
     state_write_infos(st, &st->aux);
     state_write_vars(st, &st->aux);
+
+    char* str = sc_str_create_fmt("Term[%lu] : ", st->meta.term);
+
+    sc_array_foreach (st->meta.nodes, node) {
+        sc_str_append_fmt(&str, "[%s:%s:%s] ", node.name, meta_role_str[node.role], node.connected ? "connected" : "disconnected");
+    }
+
+    aux_add_log(&st->aux, index, "INFO", str);
+
+    sc_str_destroy(str);
 }
 
-void state_on_term_start(struct state *st, struct cmd_start_term *start)
+void state_on_term_start(struct state *st, struct cmd_term_start *start)
 {
     st->realtime = start->realtime;
     st->monotonic = start->monotonic;
@@ -727,13 +758,17 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     while ((type = sc_buf_get_8(req)) != TASK_FLAG_END) {
         switch (type) {
         case TASK_PARAM_INDEX:
+            /**
+             * Sqlite index starts from '1', to make it consistent with
+             * sqlite_column_xxx api which starts from '0', add 1 to
+             * index so users can work starting from '0'.
+             */
             idx = sc_buf_get_32(req);
-            idx++; // Sqlite index starts from '1', to make it consistent with
-                   // sqlite_column_xxx api which starts from '0', add 1 to
-                   // index so users can work starting from '0'.
+            idx++;
             break;
         case TASK_PARAM_NAME:
             param = sc_buf_get_str(req);
+
             idx = sqlite3_bind_parameter_index(stmt, param);
             if (idx == 0) {
                 st->last_err = "Invalid parameter name";
@@ -750,6 +785,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
         switch (type) {
         case TASK_PARAM_INTEGER: {
             int64_t t = sc_buf_get_64(req);
+
             rc = sqlite3_bind_int64(stmt, idx, t);
             if (rc != SQLITE_OK) {
                 return RS_ERROR;
@@ -758,6 +794,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
 
         case TASK_PARAM_FLOAT: {
             double f = sc_buf_get_double(req);
+
             rc = sqlite3_bind_double(stmt, idx, f);
             if (rc != SQLITE_OK) {
                 return RS_ERROR;
@@ -765,10 +802,10 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
         } break;
 
         case TASK_PARAM_TEXT: {
-            uint32_t str_size = sc_buf_peek_32(req);
+            uint32_t size = sc_buf_peek_32(req);
             const char *val = sc_buf_get_str(req);
 
-            rc = sqlite3_bind_text(stmt, idx, val, str_size, SQLITE_STATIC);
+            rc = sqlite3_bind_text(stmt, idx, val, size, SQLITE_STATIC);
             if (rc != SQLITE_OK) {
                 return RS_ERROR;
             }
@@ -776,9 +813,9 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
 
         case TASK_PARAM_BLOB: {
             uint32_t blen = sc_buf_get_32(req);
-            void *blob_data = sc_buf_get_blob(req, blen);
+            void *data = sc_buf_get_blob(req, blen);
 
-            rc = sqlite3_bind_blob(stmt, idx, blob_data, blen, SQLITE_STATIC);
+            rc = sqlite3_bind_blob(stmt, idx, data, blen, SQLITE_STATIC);
             if (rc != SQLITE_OK) {
                 return RS_ERROR;
             }
@@ -813,17 +850,17 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             sc_buf_put_str(resp, name);
         }
 
-        uint32_t row_count = 0;
-        uint32_t row_count_pos = sc_buf_wpos(resp);
-        sc_buf_put_32(resp, row_count);
+        uint32_t row = 0;
+        uint32_t row_pos = sc_buf_wpos(resp);
+        sc_buf_put_32(resp, row);
 
         do {
-            row_count++;
+            row++;
 
             for (int i = 0; i < column_count; i++) {
-                int column_type = sqlite3_column_type(stmt, i);
+                int t = sqlite3_column_type(stmt, i);
 
-                switch (column_type) {
+                switch (t) {
                 case SQLITE_INTEGER: {
                     int64_t val = sqlite3_column_int64(stmt, i);
                     sc_buf_put_8(resp, TASK_PARAM_INTEGER);
@@ -852,7 +889,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
                     int len = sqlite3_column_bytes(stmt, i);
 
                     sc_buf_put_8(resp, TASK_PARAM_BLOB);
-                    sc_buf_put_blob(resp, data, (size_t) len);
+                    sc_buf_put_blob(resp, data, (uint32_t) len);
                 } break;
 
                 case SQLITE_NULL: {
@@ -865,10 +902,11 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             }
         } while ((rc = sqlite3_step(stmt)) == SQLITE_ROW);
 
-        sc_buf_set_32_at(resp, row_count_pos, row_count);
+        sc_buf_set_32_at(resp, row_pos, row);
     }
 
     if (rc != SQLITE_DONE) {
+        state_check_err(st, rc);
         return RS_ERROR;
     }
 
@@ -886,7 +924,7 @@ static int state_exec_stmt(struct state *st, bool readonly, struct sc_buf *req,
     const char *str = sc_buf_get_str(req);
 
     rc = sqlite3_prepare_v3(st->aux.db, str, len, 0, &stmt, NULL);
-    if (rc != RS_OK) {
+    if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
@@ -1113,6 +1151,7 @@ error:
     sc_buf_put_str(resp, state_errstr(st));
     sc_buf_put_8(resp, TASK_FLAG_END);
 
+    st->client = false;
     rc = sqlite3_step(st->aux.rollback);
     if (rc != SQLITE_DONE) {
         sc_log_error("Rollback failure : %s \n", sqlite3_errmsg(st->aux.db));
@@ -1160,7 +1199,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
     int rc;
     uint32_t head, pos;
     enum task_flag flag;
-    struct session *session;
+    struct session *sess;
     struct sc_buf req = sc_buf_wrap(buf, len, SC_BUF_READ);
 
     msg_create_client_resp_header(resp);
@@ -1169,8 +1208,9 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
     st->last_err = NULL;
     st->client = true;
     st->readonly = true;
+    st->full = false;
 
-    found = sc_map_get_64v(&st->ids, cid, (void **) &session);
+    found = sc_map_get_64v(&st->ids, cid, (void **) &sess);
     if (!found) {
         st->last_err = "Session does not exist.";
         goto error;
@@ -1180,6 +1220,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 
     rc = sqlite3_step(st->aux.begin);
     if (rc != SQLITE_DONE) {
+        state_check_err(st, rc);
         goto error;
     }
 
@@ -1196,7 +1237,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
             rc = state_exec_stmt(st, true, &req, resp);
             break;
         case TASK_FLAG_STMT_ID:
-            rc = state_exec_stmt_id(st, session, true, &req, resp);
+            rc = state_exec_stmt_id(st, sess, true, &req, resp);
             break;
         default:
             rc = RS_ERROR;
@@ -1225,6 +1266,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 
     rc = sqlite3_step(st->aux.commit);
     if (rc != SQLITE_DONE) {
+        state_check_err(st, rc);
         goto error;
     }
 
@@ -1241,6 +1283,7 @@ error:
 
     rc = sqlite3_step(st->aux.rollback);
     if (rc != SQLITE_DONE) {
+        state_check_err(st, rc);
         sc_log_error("Rollback failure : %s \n", sqlite3_errmsg(st->aux.db));
     }
 
@@ -1259,6 +1302,7 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
 
     st->client = false;
     st->readonly = false;
+    st->full = false;
     st->term = entry_term(entry);
     st->index = index;
 
@@ -1267,14 +1311,14 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
 
     switch (type) {
     case CMD_INIT: {
-        struct cmd_init init;
+        struct cmd_init c;
 
-        init = cmd_decode_init(&cmd);
-        st->realtime = init.realtime;
-        st->monotonic = init.monotonic;
+        c = cmd_decode_init(&cmd);
+        st->realtime = c.realtime;
+        st->monotonic = c.monotonic;
 
-        sc_rand_init(&st->wrand, (unsigned char *) init.rand);
-        sc_rand_init(&st->rrand, (unsigned char *) init.rand);
+        sc_rand_init(&st->wrand, c.rand);
+        sc_rand_init(&st->rrand, c.rand);
 
         aux_add_log(&st->aux, index, "INFO", "Cluster initialized");
 
@@ -1285,11 +1329,11 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         struct cmd_meta m;
 
         m = cmd_decode_meta(&cmd);
-        state_on_meta(st, &m);
+        state_on_meta(st, index, &m);
     } break;
 
     case CMD_TERM_START: {
-        struct cmd_start_term s;
+        struct cmd_term_start s;
 
         s = cmd_decode_term_start(&cmd);
         state_on_term_start(st, &s);
@@ -1312,8 +1356,8 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
         struct cmd_client_disconnect c;
 
         c = cmd_decode_client_disconnect(&cmd);
-        return state_on_client_disconnect(st, c.name, c.clean);
-    }
+        state_on_client_disconnect(st, c.name, c.clean);
+    } break;
 
     case CMD_TIMESTAMP: {
         struct cmd_timestamp t;
@@ -1324,8 +1368,14 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
 
     case CMD_INFO: {
         state_on_info(st, &cmd);
-        return NULL;
-    }
+    } break;
+
+    case CMD_LOG: {
+        struct cmd_log l;
+
+        l = cmd_decode_log(&cmd);
+        aux_add_log(&st->aux, index, l.level, l.log);
+    } break;
 
     default:
         rs_abort("");

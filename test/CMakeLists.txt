@@ -128,13 +128,15 @@ resql_test(client_test.c)
 resql_test(cluster_test.c)
 resql_test(config_test.c)
 resql_test(leader_test.c)
+resql_test(meta_test.c)
 resql_test(page_test.c)
 resql_test(restart_test.c)
 resql_test(session_test.c)
+resql_test(single_test.c)
 resql_test(snapshot_test.c)
 resql_test(state_test.c)
 resql_test(store_test.c)
-resql_test(single_test.c)
+
 
 add_custom_target(check ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
         ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --verbose
@@ -143,9 +145,9 @@ add_custom_target(check ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
 add_custom_target(coverage)
 add_custom_command(
         TARGET coverage
-        COMMAND lcov --capture --directory ../src
+        COMMAND lcov --capture --directory .
         --output-file coverage.info --rc lcov_branch_coverage=1
-        COMMAND lcov --remove coverage.info '/usr/*' '*example*' '*test*' '*/deps/*'
+        COMMAND lcov --remove coverage.info '/usr/*' '*test*' '*/c-client/*' '*/sqlite/*' '*/sc/*'
         --output-file coverage.info --rc lcov_branch_coverage=1
         COMMAND lcov --list coverage.info --rc lcov_branch_coverage=1
 )

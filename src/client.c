@@ -55,16 +55,15 @@ void client_processed(struct client *c)
 {
     c->msg_wait = false;
     sc_list_del(NULL, &c->read);
-    sc_list_clear(&c->read);
     conn_allow_read(&c->conn);
 }
 
-void client_print(struct client *c, char *buf, int len)
+void client_print(struct client *c, char *buf, size_t len)
 {
     int rc;
 
     rc = snprintf(buf, len, "Client : %s, ", c->name);
-    if (rc < 0 || rc >= len) {
+    if (rc < 0 || (size_t) rc >= len) {
         *buf = '\0';
         return;
     }

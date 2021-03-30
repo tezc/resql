@@ -24,7 +24,7 @@
 #include "sc/sc_str.h"
 #include "sc/sc_time.h"
 
-void cmd_encode_init(struct sc_buf *buf, char rand[256])
+void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256])
 {
     sc_buf_put_64(buf, sc_time_ms());
     sc_buf_put_64(buf, sc_time_mono_ms());
@@ -48,9 +48,9 @@ void cmd_encode_term_start(struct sc_buf *buf)
     sc_buf_put_64(buf, sc_time_mono_ms());
 }
 
-struct cmd_start_term cmd_decode_term_start(struct sc_buf *buf)
+struct cmd_term_start cmd_decode_term_start(struct sc_buf *buf)
 {
-    struct cmd_start_term start;
+    struct cmd_term_start start;
 
     start.realtime = sc_buf_get_64(buf);
     start.monotonic = sc_buf_get_64(buf);
@@ -129,4 +129,20 @@ struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *buf)
     time.monotonic = sc_buf_get_64(buf);
 
     return time;
+}
+
+void cmd_encode_log(struct sc_buf *buf, const char* level, const char* log)
+{
+    sc_buf_put_str(buf, level);
+    sc_buf_put_str(buf, log);
+}
+
+struct cmd_log cmd_decode_log(struct sc_buf *buf)
+{
+    struct cmd_log log;
+
+    log.level = sc_buf_get_str(buf);
+    log.log = sc_buf_get_str(buf);
+
+    return log;
 }

@@ -69,7 +69,8 @@ void session_destroy(struct session *s)
     rs_free(s);
 }
 
-void session_connected(struct session *s, const char *local, const char *remote, uint64_t ts)
+void session_connected(struct session *s, const char *local, const char *remote,
+                       uint64_t ts)
 {
     char tmp[32] = {0};
     struct tm tm, *p;
@@ -146,12 +147,12 @@ int session_del_stmt(struct session *s, uint64_t id)
     return RS_OK;
 }
 
-sqlite3_stmt *session_get_stmt(struct session *s, uint64_t id)
+void *session_get_stmt(struct session *s, uint64_t id)
 {
     bool found;
-    sqlite3_stmt *stmt;
+    void *stmt;
 
-    found = sc_map_get_64v(&s->stmts, id, (void **) &stmt);
+    found = sc_map_get_64v(&s->stmts, id, &stmt);
 
     return found ? stmt : NULL;
 }

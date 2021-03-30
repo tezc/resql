@@ -31,9 +31,11 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define RESET  "\x1b[0m"
 #define COLOR  "\x1b[1;36m"
@@ -56,6 +58,8 @@ const char *read_stmt = "SELECT * FROM bench_resql WHERE id = ?;";
 const char *write_stmt = "INSERT INTO bench_resql VALUES (?, ?, ?, ?);";
 
 _Atomic uint64_t ops;
+_Atomic uint64_t end_ts;
+_Atomic uint64_t start_ts;
 
 struct resql_benchmark
 {
@@ -232,8 +236,8 @@ void resql_benchmark_init(struct resql_benchmark *b)
     pthread_mutexattr_t attr;
     pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
-    b->url = strdup("tcp://127.0.0.1:7600");
-    b->clients = 1;
+    b->url = strdup("unix:///tmp/resql tcp://127.0.0.1:7600");
+    b->clients = 10;
     b->batch = 1;
     b->ops = 10000;
     b->table_size = 10000;
@@ -284,15 +288,16 @@ struct task
     pthread_mutex_t *mtx;
 
     struct hdr_histogram *hdr;
+    unsigned long long total_ops;
     unsigned long long ops;
     unsigned int test;
     struct resql_config *config;
 };
 
-unsigned int start;
+_Atomic unsigned int start;
 unsigned int seed;
 
-unsigned int fastrand()
+unsigned int rand_int()
 {
     seed = (214013u * seed + 2531011u);
     return (seed >> 16u) % 100;
@@ -301,7 +306,7 @@ unsigned int fastrand()
 void *client_fn(void *arg)
 {
     int rc;
-    uint64_t id, it;
+    uint64_t id, it, n;
     resql *c;
     resql_stmt r, w;
     resql_result *rs;
@@ -346,9 +351,12 @@ void *client_fn(void *arg)
     id = task->id * 1000000000ull;
     it = id;
 
+    uint64_t m = 0;
+    atomic_compare_exchange_strong(&start_ts, &m, sc_time_mono_ns());
+
     while (task->ops != 0) {
         uint64_t s;
-        unsigned int val = fastrand();
+        unsigned int val = rand_int();
         unsigned int batch = bench.batch <= task->ops ? bench.batch : task->ops;
 
         if (val <= task->test) {
@@ -386,7 +394,11 @@ void *client_fn(void *arg)
             hdr_record_values(task->hdr, (sc_time_mono_ns() - s) / 1000, batch);
         }
 
-        ops += batch;
+        n = atomic_fetch_add_explicit(&ops, batch, memory_order_release);
+        if (n == task->total_ops - batch) {
+            end_ts = sc_time_mono_ns();
+        }
+
         task->ops -= batch;
     }
 
@@ -417,7 +429,7 @@ int sleep_micro(uint64_t us)
 
 void print_progress(double percentage)
 {
-    const char* bar = "||||||||||||||||||||||||||||||||||||||||||||||||||";
+    const char *bar = "||||||||||||||||||||||||||||||||||||||||||||||||||";
     const size_t len = strlen(bar);
 
     double val = (percentage * 100);
@@ -432,6 +444,7 @@ void print_progress(double percentage)
 int main(int argc, char **argv)
 {
     int rc;
+    size_t total_ops, client_ops, curr;
     struct task *t;
     struct sigaction action;
     struct hdr_histogram *h;
@@ -522,13 +535,20 @@ int main(int argc, char **argv)
 
     t = calloc(1, bench.clients * sizeof(*t));
 
+    total_ops = bench.ops;
+    client_ops = bench.ops / bench.clients;
+
     for (unsigned int i = 0; i < bench.clients; i++) {
+        curr = total_ops < client_ops * 2 ? total_ops : client_ops;
+        total_ops -= curr;
+
         t[i] = (struct task){.id = i + 1,
                              .cond = &bench.cond,
                              .mtx = &bench.mtx,
                              .ready_mtx = &bench.ready_mtx,
                              .ready = &bench.ready,
-                             .ops = bench.ops / bench.clients,
+                             .total_ops = bench.ops,
+                             .ops = curr,
                              .test = bench.test,
                              .config = &config};
 
@@ -565,7 +585,7 @@ int main(int argc, char **argv)
     }
 
     while (true) {
-        uint64_t val = ops;
+        uint64_t val = atomic_load_explicit(&ops, memory_order_acquire);
 
         print_progress(((double) val / (double) bench.ops));
 
@@ -573,10 +593,8 @@ int main(int argc, char **argv)
             break;
         }
 
-        sleep_micro(50);
+        sleep_micro(200000);
     }
-
-    printf("\n\n");
 
     for (unsigned int i = 0; i < bench.clients; i++) {
         rc = sc_thread_term(&t[i].thread);
@@ -585,36 +603,36 @@ int main(int argc, char **argv)
         }
     }
 
-    uint64_t total = sc_time_mono_ns() - ts;
-
     for (unsigned int i = 0; i < bench.clients; i++) {
         hdr_add(h, t[i].hdr);
         hdr_close(t[i].hdr);
     }
 
-    const double thput = (double) bench.ops / ((double) total / 1e9);
+    printf("\n\n");
+
+    double total = (double) (end_ts - ts);
+
+    const double th = (double) bench.ops / (total / 1e9);
     const double p0 = ((double) hdr_min(h)) / (double) 1000.0f;
     const double p50 = hdr_value_at_percentile(h, 50.0) / (double) 1000.0f;
     const double p90 = hdr_value_at_percentile(h, 90.0) / (double) 1000.0f;
     const double p95 = hdr_value_at_percentile(h, 95.0) / (double) 1000.0f;
     const double p99 = hdr_value_at_percentile(h, 99.0) / (double) 1000.0f;
-    const double p100 = ((double) hdr_max(h)) / (double) 1000.0f;
+    const double p999 = hdr_value_at_percentile(h, 99.9) / (double) 1000.0f;
     const double avg = hdr_mean(h) / (double) 1000.0f;
 
     printf("\nlatency (milliseconds): \n\n");
-    printf("p0.00 : %.3f ms\n", p0);
-    printf("p0.50 : %.3f ms\n", p50);
-    printf("p0.90 : %.3f ms\n", p90);
-    printf("p0.95 : %.3f ms\n", p95);
-    printf("p0.99 : %.3f ms\n", p99);
-    printf("max   : %.3f ms\n", p100);
+    printf("p0.00  : %.3f ms\n", p0);
+    printf("p0.50  : %.3f ms\n", p50);
+    printf("p0.90  : %.3f ms\n", p90);
+    printf("p0.95  : %.3f ms\n", p95);
+    printf("p0.99  : %.3f ms\n", p99);
+    printf("p0.999 : %.3f ms\n", p999);
     printf("\n\n");
 
-    printf("Total time  : " COLOR " %.3f seconds. \n" RESET,
-           (double) total / 1e9);
+    printf("Total time  : " COLOR " %.3f seconds. \n" RESET, total / 1e9);
     printf("Avg latency : " COLOR " %.3f milliseconds. \n" RESET, avg);
-    printf("Throughput  : " COLOR " %.3f operations per second. \n" RESET,
-           thput);
+    printf("Throughput  : " COLOR " %.3f operations per second. \n" RESET, th);
     printf("\n\n");
 
     resql_put_sql(c, clear_stmt);

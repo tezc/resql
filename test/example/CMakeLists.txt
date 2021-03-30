@@ -16,6 +16,7 @@ endmacro()
 
 
 resql_example(single_test)
+resql_example(multi_test)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/example)
 set(CTEST_BINARY_DIRECTORY ${PROJECT_BINARY_DIR}/example)

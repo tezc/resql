@@ -98,7 +98,7 @@ int aux_init(struct aux *aux, const char *path, int mode)
     return aux_prepare(aux);
 
 error:
-    sc_log_error("sqlite3_create_function %s \n", sqlite3_errstr(rc));
+    sc_log_error("sqlite3 : %s \n", sqlite3_errstr(rc));
     return RS_ERROR;
 }
 
@@ -349,7 +349,7 @@ int aux_prepare(struct aux *aux)
     return RS_OK;
 
 error:
-    sc_log_error("Sqlite : %s \n", sqlite3_errmsg(aux->db));
+    sc_log_error("sqlite : %s \n", sqlite3_errmsg(aux->db));
     return RS_ERROR;
 }
 

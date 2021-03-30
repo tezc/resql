@@ -30,42 +30,30 @@
     #include <Ws2tcpip.h>
     #include <windows.h>
     #include <winsock2.h>
+    #include <afunix.h>
     #pragma comment(lib, "ws2_32.lib")
+    #pragma warning(disable : 4996)
     #define rs_poll WSAPoll
 
-typedef SOCKET sc_sock_int;
-
+    typedef SOCKET sc_sock_int;
 #else
+    #include <poll.h>
     #include <sys/socket.h>
-typedef int sc_sock_int;
+    #include <sys/time.h>
+    #include <time.h>
+
+    typedef int sc_sock_int;
     #define rs_poll poll
 #endif
 
 #include "resql.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
-#ifdef _WIN32
-    #pragma warning(disable : 4996)
-#else
-    #include <poll.h>
-#endif
-
-
-#if defined(_WIN32) || defined(_WIN64)
-    #include <assert.h>
-    #include <windows.h>
-
-#else
-    #include <assert.h>
-    #include <stdlib.h>
-    #include <sys/time.h>
-    #include <time.h>
-#endif
 
 static uint64_t sc_time_mono_ms()
 {
@@ -862,19 +850,6 @@ static void sc_buf_put_blob(struct sc_buf *buf, const void *ptr, uint32_t len)
     sc_buf_put_raw(buf, ptr, len);
 }
 
-#if defined(_WIN32) || defined(_WIN64)
-    #include <Ws2tcpip.h>
-    #include <windows.h>
-    #include <winsock2.h>
-    #pragma comment(lib, "ws2_32.lib")
-
-typedef SOCKET sc_sock_int;
-
-#else
-    #include <sys/socket.h>
-typedef int sc_sock_int;
-#endif
-
 #define SC_SOCK_BUF_SIZE 32768
 
 enum sc_sock_rc
@@ -916,11 +891,6 @@ struct sc_sock
 };
 
 #if defined(_WIN32) || defined(_WIN64)
-    #include <Ws2tcpip.h>
-    #include <afunix.h>
-    #include <assert.h>
-
-    #pragma warning(disable : 4996)
     #define sc_close(n)    closesocket(n)
     #define sc_unlink(n)   DeleteFileA(n)
     #define SC_ERR         SOCKET_ERROR
@@ -1509,9 +1479,8 @@ int resql_column_count(struct resql_result *rs)
     return rs->column_count;
 }
 
-#define MSG_REMOTE_LEN 1u
-#define MSG_RC_LEN     1u
-#define MSG_MAX_SIZE   (2 * 1000 * 1000 * 1000)
+#define MSG_RC_LEN   1u
+#define MSG_MAX_SIZE (2 * 1000 * 1000 * 1000)
 
 #define MSG_SIZE_LEN          4
 #define MSG_TYPE_LEN          1
@@ -2003,7 +1972,7 @@ static void resql_generate_name(struct resql *c, char *dest)
     p += sizeof(ts);
 
     while (p + sizeof(num) < end) {
-        num = rand();
+        num = (unsigned int) rand();
         memcpy(p, &num, sizeof(num));
         p += sizeof(num);
     }

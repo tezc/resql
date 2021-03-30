@@ -1,0 +1,5 @@
+---
+Checks:              '-*,clang-analyzer-*,misc-*,portability-*,bugprone-*,-bugprone-sizeof-expression'
+WarningsAsErrors:    '-*,clang-analyzer-*,misc-*,portability-*,bugprone-*'
+HeaderFilterRegex:   '.*'
+FormatStyle:         file

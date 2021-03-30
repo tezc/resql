@@ -21,7 +21,6 @@
 #define RESQL_META_H
 
 #include "sc/sc_buf.h"
-#include "sqlite/sqlite3.h"
 
 #include <stdint.h>
 
@@ -29,17 +28,16 @@ enum meta_role
 {
     META_LEADER,
     META_FOLLOWER,
-    META_JOINED
 };
 
-extern const char* meta_role_str[];
+extern const char *meta_role_str[];
 
 struct meta_node
 {
-    char* name;
+    char *name;
     bool connected;
     enum meta_role role;
-    struct sc_uri** uris;
+    struct sc_uri **uris;
 };
 
 struct meta
@@ -51,25 +49,27 @@ struct meta
     uint32_t voter;
     struct meta_node *nodes;
 
-    struct meta* prev;
+    struct meta *prev;
 };
 
 void meta_init(struct meta *m, const char *cluster_name);
 void meta_term(struct meta *m);
 
-void meta_copy(struct meta *m, struct meta* src);
+void meta_copy(struct meta *m, struct meta *src);
 void meta_encode(struct meta *m, struct sc_buf *buf);
 void meta_decode(struct meta *m, struct sc_buf *buf);
 bool meta_add(struct meta *meta, struct sc_uri *uri);
-bool meta_remove(struct meta *meta, const char* name);
-bool meta_exists(struct meta *m, const char* name);
-void meta_remove_prev(struct meta* m);
+bool meta_remove(struct meta *meta, const char *name);
+bool meta_exists(struct meta *m, const char *name);
+void meta_remove_prev(struct meta *m);
+void meta_rollback(struct meta *m, uint64_t index);
+void meta_replace(struct meta *m, void* data, uint32_t len);
 
-void meta_set_connected(struct meta* m, const char* name);
-void meta_set_disconnected(struct meta* m, const char* name);
-void meta_clear_connection(struct meta* m);
+void meta_set_connected(struct meta *m, const char *name);
+void meta_set_disconnected(struct meta *m, const char *name);
+void meta_clear_connection(struct meta *m);
 void meta_set_leader(struct meta *m, const char *name);
-int meta_parse_uris(struct meta *m, char *addrs);
+bool meta_parse_uris(struct meta *m, char *addrs);
 
 void meta_print(struct meta *m, struct sc_buf *buf);
 

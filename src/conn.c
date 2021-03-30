@@ -19,7 +19,6 @@
 
 #include "conn.h"
 #include "metric.h"
-#include "msg.h"
 #include "rs.h"
 
 #include "sc/sc_sock.h"

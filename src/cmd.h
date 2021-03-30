@@ -35,6 +35,14 @@ enum cmd_id
     CMD_CLIENT_DISCONNECT,
     CMD_TIMESTAMP,
     CMD_INFO,
+    CMD_LOG
+};
+
+struct cmd_init
+{
+    uint64_t monotonic;
+    uint64_t realtime;
+    unsigned char rand[256];
 };
 
 struct cmd_meta
@@ -42,7 +50,7 @@ struct cmd_meta
     struct meta meta;
 };
 
-struct cmd_start_term
+struct cmd_term_start
 {
     uint64_t monotonic;
     uint64_t realtime;
@@ -72,14 +80,14 @@ struct cmd_info
     struct sc_buf node_info;
 };
 
-struct cmd_init
+struct cmd_log
 {
-    uint64_t monotonic;
-    uint64_t realtime;
-    char rand[256];
+    const char *level;
+    const char *log;
 };
 
-void cmd_encode_init(struct sc_buf *buf, char rand[256]);
+
+void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256]);
 struct cmd_init cmd_decode_init(struct sc_buf *buf);
 
 void cmd_encode_meta(struct sc_buf *buf, struct meta *meta);
@@ -87,7 +95,7 @@ void cmd_decode_meta_to(void *data, int len, struct meta *meta);
 struct cmd_meta cmd_decode_meta(struct sc_buf *buf);
 
 void cmd_encode_term_start(struct sc_buf *buf);
-struct cmd_start_term cmd_decode_term_start(struct sc_buf *buf);
+struct cmd_term_start cmd_decode_term_start(struct sc_buf *buf);
 
 void cmd_encode_client_connect(struct sc_buf *buf, const char *name,
                                const char *local, const char *remote);
@@ -99,5 +107,8 @@ struct cmd_client_disconnect cmd_decode_client_disconnect(struct sc_buf *buf);
 
 void cmd_encode_timestamp(struct sc_buf *buf);
 struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *buf);
+
+void cmd_encode_log(struct sc_buf *buf, const char* level, const char* log);
+struct cmd_log cmd_decode_log(struct sc_buf *buf);
 
 #endif

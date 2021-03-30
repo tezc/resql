@@ -17,39 +17,33 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "server.h"
+#include "rs.h"
+#include "test_util.h"
 
-#ifndef RESQL_CLIENT_H
-#define RESQL_CLIENT_H
+#include "resql.h"
 
-#include "conn.h"
-#include "msg.h"
+#include <unistd.h>
 
-#include "sc/sc_buf.h"
-#include "sc/sc_sock.h"
-#include "sc/sc_str.h"
 
-struct client
+static void multi()
 {
-    struct conn conn;
-    struct sc_list list;
+    test_server_create(0, 3);
+    test_server_create(1, 3);
+    //test_server_create(2, 3);
 
-    char *name;
-    uint64_t ts;
-    uint64_t id;
-    uint64_t seq;
+    sleep(3);
 
-    struct msg msg;
-    uint64_t commit_index;
-    uint64_t round_index;
-    struct sc_list read;
-    bool msg_wait;
-    bool terminated;
-};
+    test_server_create(2, 3);
 
-struct client *client_create(struct conn *conn, const char *name);
-void client_destroy(struct client *c);
-void client_print(struct client *c, char *buf, size_t len);
-void client_processed(struct client *c);
-bool client_pending(struct client *c);
+    pause();
+}
 
-#endif
+
+
+int main(void)
+{
+    test_execute(multi);
+
+    return 0;
+}
