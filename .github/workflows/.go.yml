@@ -1,3 +1,5 @@
+name: "Go Client"
+
 on:
   push:
     branches:

@@ -1,3 +1,5 @@
+name: "C client"
+
 on:
   push:
     branches:
