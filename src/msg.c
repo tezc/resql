@@ -571,8 +571,7 @@ static void msg_print_disconnect_req(struct msg *msg, struct sc_buf *buf)
     struct msg_disconnect_req *m = &msg->disconnect_req;
 
     sc_buf_put_text(buf, "| %-15s | %s   \n", "Rc ", msg_rc_str[m->rc]);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Sequence ", msg_rc_str[m->rc]);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Flags ", m->flags);
+    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Flags ", m->flags);
 }
 
 static void msg_print_disconnect_resp(struct msg *msg, struct sc_buf *buf)
