@@ -30,6 +30,7 @@
 #include "sc/sc_time.h"
 
 #include <errno.h>
+#include <inttypes.h>
 
 
 struct snapshot_task
@@ -221,8 +222,9 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
     state_term(&state);
     sc_cond_signal(&ss->cond, (void *) (uintptr_t) RS_OK);
 
-    sc_log_info("snapshot done in : %lu, for [%lu, %lu] \n",
-                sc_time_mono_ns() - start, first, last);
+    sc_log_info("snapshot done in : " PRIu64 " milliseconds, for [" PRIu64
+                "," PRIu64 "] \n",
+                ss->time / 1000 / 1000, first, last);
 }
 
 void snapshot_set_thread_name(struct snapshot *ss)

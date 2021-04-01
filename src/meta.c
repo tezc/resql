@@ -24,6 +24,8 @@
 #include "sc/sc_str.h"
 #include "sc/sc_uri.h"
 
+#include <inttypes.h>
+
 const char *meta_role_str[] = {"leader", "follower"};
 
 void meta_node_init(struct meta_node *n, struct sc_uri *uri)
@@ -467,7 +469,7 @@ void meta_print(struct meta *m, struct sc_buf *buf)
 {
     sc_buf_put_text(buf, "\n| -------------------------------\n");
     sc_buf_put_text(buf, "| Cluster : %s \n", m->name);
-    sc_buf_put_text(buf, "| Term    : %lu \n", (unsigned long) m->term);
+    sc_buf_put_text(buf, "| Term    : "PRIu64" \n", (unsigned long) m->term);
 
     for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         sc_buf_put_text(buf, "| Node    : %s, Role : %s \n", m->nodes[i].name,

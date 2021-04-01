@@ -133,7 +133,7 @@ int file_write(struct file *file, const void *ptr, size_t size)
 
     wr = fwrite(ptr, 1, size, file->fp);
     if (wr != size) {
-        sc_log_error("Failed to write %lu bytes, written : % lu  \n", size, wr);
+        sc_log_error("Failed to write %zu bytes, written : %zu  \n", size, wr);
         return RS_ERROR;
     }
 
@@ -158,7 +158,7 @@ int file_read(struct file *file, void *ptr, size_t size)
 
     read = fread(ptr, 1, size, file->fp);
     if (read != size) {
-        sc_log_error("Failed to read %lu bytes, written : % lu  \n", size,
+        sc_log_error("Failed to read %zu bytes, written : % lu  \n", size,
                      read);
         return RS_ERROR;
     }

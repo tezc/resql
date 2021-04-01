@@ -173,7 +173,7 @@ void *rs_malloc(size_t size)
 
     mem = malloc(size);
     if (mem == NULL && size != 0) {
-        rs_abort("Out of memory for size %lu \n", size);
+        rs_abort("Out of memory for size %zu \n", size);
     }
 
     return mem;
@@ -185,7 +185,7 @@ void *rs_calloc(size_t n, size_t size)
 
     mem = calloc(n, size);
     if (mem == NULL && size != 0) {
-        rs_abort("Out of memory for size %lu \n", size);
+        rs_abort("Out of memory for size %zu \n", size);
     }
 
     return mem;
@@ -197,7 +197,7 @@ void *rs_realloc(void *p, size_t size)
 
     mem = realloc(p, size);
     if (mem == NULL && size != 0) {
-        rs_abort("Out of memory for size %lu \n", size);
+        rs_abort("Out of memory for size %zu \n", size);
     }
 
     return mem;

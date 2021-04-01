@@ -28,6 +28,7 @@
 #include "sc/sc_str.h"
 
 #include <limits.h>
+#include <inttypes.h>
 
 #define STORE_MAX_ENTRY_SIZE (512 * 1024 * 1024)
 #define DEF_PAGE_FILE_0      "page.0.resql"
@@ -76,10 +77,10 @@ static void store_read(struct store *s)
         store_swap(s);
     }
 
-    sc_log_info("Log page [%s] from (%llu, %llu] \n", s->pages[0]->path,
+    sc_log_info("Log page [%s] from ("PRIu64"," PRIu64"] \n", s->pages[0]->path,
                 s->pages[0]->prev_index, page_last_index(s->pages[0]));
 
-    sc_log_info("Log page [%s] from (%llu, %llu] \n", s->pages[1]->path,
+    sc_log_info("Log page [%s] from ("PRIu64"," PRIu64"] \n", s->pages[1]->path,
                 s->pages[1]->prev_index, page_last_index(s->pages[1]));
 
     c = sc_array_size(s->pages[1]->entries);

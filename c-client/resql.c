@@ -28,21 +28,21 @@
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <Ws2tcpip.h>
+    #include <afunix.h>
     #include <windows.h>
     #include <winsock2.h>
-    #include <afunix.h>
     #pragma comment(lib, "ws2_32.lib")
     #pragma warning(disable : 4996)
     #define rs_poll WSAPoll
 
-    typedef SOCKET sc_sock_int;
+typedef SOCKET sc_sock_int;
 #else
     #include <poll.h>
     #include <sys/socket.h>
     #include <sys/time.h>
     #include <time.h>
 
-    typedef int sc_sock_int;
+typedef int sc_sock_int;
     #define rs_poll poll
 #endif
 
@@ -958,6 +958,7 @@ static int sc_sock_cleanup()
     #include <netinet/tcp.h>
     #include <sys/un.h>
     #include <unistd.h>
+    #include <inttypes.h>
 
     #define sc_close(n)    close(n)
     #define sc_unlink(n)   unlink(n)
@@ -1859,7 +1860,9 @@ retry:
     } else {
         seq = msg.connect_resp.sequence;
         if (seq != c->seq && seq != c->seq - 1) {
-            resql_err(c, "Client does not exist on the server anymore.(%d, %d)",
+            resql_err(c,
+                      "Client does not exist on the server anymore.(" PRIu64
+                      "," PRIu64 ")",
                       seq, c->seq);
             c->seq = seq;
             return RESQL_FATAL;
@@ -2052,7 +2055,7 @@ int resql_create(struct resql **client, struct resql_config *conf)
         }
 
         c->uris[c->uri_count++] = u;
-        if (c->uri_count + 1 == sizeof(c->uris) / sizeof(struct sc_uri*)) {
+        if (c->uri_count + 1 == sizeof(c->uris) / sizeof(struct sc_uri *)) {
             break;
         }
     }

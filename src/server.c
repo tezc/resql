@@ -36,6 +36,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #define BATCH_SIZE    (SC_SOCK_BUF_SIZE - 128)
 #define DEF_META_FILE "meta.resql"
@@ -836,14 +837,14 @@ static void server_on_election_timeout(struct server *s)
     connected = sc_list_count(&s->connected_nodes) + 1;
 
     if (connected < (s->meta.voter / 2) + 1) {
-        sc_log_info("Cluster nodes = %lu, "
-                    "Connected nodes = %lu, "
+        sc_log_info("Cluster nodes = %zu, "
+                    "Connected nodes = %zu, "
                     "No election will take place \n",
-                    s->meta.voter, connected);
+                    (size_t) s->meta.voter, connected);
         return;
     }
 
-    sc_log_info("Starting election for term %lu \n", s->meta.term + 1);
+    sc_log_info("Starting election for term["PRIu64 "\n", s->meta.term + 1);
 
     s->role = SERVER_ROLE_CANDIDATE;
     s->prevote_count = 1;
@@ -1344,7 +1345,7 @@ void server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 
     if (resp->done) {
         n->next = s->ss.index + 1;
-        server_warn(s, "Snapshot[%lu] sent to node : %s", s->ss.index, n->name);
+        server_warn(s, "Snapshot["PRIu64"] sent to : %s", s->ss.index, n->name);
     }
 }
 
@@ -1551,7 +1552,7 @@ static void server_on_term_start(struct server *s, struct meta *meta)
         return;
     }
 
-    sc_log_info("Term[%llu], leader[%s] \n", meta->term, s->leader->name);
+    sc_log_info("Term["PRIu64"], leader[%s] \n", meta->term, s->leader->name);
     s->cluster_up = true;
 }
 
@@ -1817,7 +1818,7 @@ static void server_flush_snapshot(struct server *s, struct node *n)
         n->ss_index = s->ss.index;
         n->ss_pos = 0;
 
-        server_log(s, "WARNING", "Sending snapshot[%lu] to node : %s",
+        server_log(s, "WARNING", "Sending snapshot["PRIu64"] to node : %s",
                    n->ss_index, n->name);
     }
 
