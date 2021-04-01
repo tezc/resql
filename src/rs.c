@@ -242,21 +242,21 @@ _Noreturn void rs_exit(const char *fmt, ...)
     exit(EXIT_FAILURE);
 }
 
-thread_local struct sc_rand rc4;
+thread_local struct sc_rand tl_rc4;
 
 void rs_rand_init()
 {
     unsigned char buf[256];
 
     file_random(buf, sizeof(buf));
-    sc_rand_init(&rc4, buf);
+    sc_rand_init(&tl_rc4, buf);
 }
 
 unsigned int rs_rand()
 {
     unsigned int val;
 
-    sc_rand_read(&rc4, &val, sizeof(val));
+    sc_rand_read(&tl_rc4, &val, sizeof(val));
 
     return val;
 }

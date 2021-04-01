@@ -1172,7 +1172,7 @@ retry:
             store_expand(&s->store);
             goto retry;
 
-            rs_abort("Failed to create entry \n");
+            //rs_abort("Failed to create entry \n");
         }
         index++;
     }

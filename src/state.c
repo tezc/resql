@@ -97,7 +97,7 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
             sqlite3_result_text(ctx, ret, -1, NULL);
         }
     } else if (strcmp((char *) cmd, "max-size") == 0) {
-        if (argc < 1 || argc > 2) {
+        if (argc > 2) {
             sqlite3_result_error(ctx, usage_max_size, -1);
             return;
         }
