@@ -108,13 +108,13 @@ static size_t metric_get_physical_memory(void)
 
 size_t metric_get_rss(struct metric *metric)
 {
+    (void) metric;
+
     size_t rss;
     char buf[4096];
     char filename[256];
     int fd, count;
     char *p, *x;
-
-    (void) metric;
 
     snprintf(filename, 256, "/proc/%d/stat", getpid());
 
@@ -164,6 +164,8 @@ size_t metric_get_rss(struct metric *metric)
 
 size_t metric_get_rss(struct metric *metric)
 {
+    (void) metric;
+
     task_t task = MACH_PORT_NULL;
     struct task_basic_info t_info;
     mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
@@ -184,6 +186,8 @@ size_t metric_get_rss(struct metric *metric)
 
 size_t metric_get_rss(struct metric *metric)
 {
+    (void) metric;
+
     struct kinfo_proc info;
     size_t infolen = sizeof(info);
     int mib[4];
@@ -201,6 +205,7 @@ size_t metric_get_rss(struct metric *metric)
 #else
 size_t metric_get_rss(struct metric *metric)
 {
+    (void) metric;
     return 0;
 }
 #endif
