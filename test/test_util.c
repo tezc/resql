@@ -22,10 +22,11 @@
 #include "test_util.h"
 
 #include "sc/sc_log.h"
+#include "sc/sc_str.h"
 
 int init;
 
-static void init_all()
+void init_all()
 {
     if (!init) {
         setvbuf(stdout, NULL, _IONBF, 0);
@@ -119,6 +120,24 @@ struct server *test_server_start(int id, int cluster_size)
     return s;
 }
 
+struct server *test_server_create_conf(struct conf *conf, int id)
+{
+    int rc;
+    struct server *s;
+
+    s = server_create(conf);
+
+    rc = server_start(s, true);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    cluster[id] = s;
+    count++;
+
+    return s;
+}
+
 struct server *test_server_create(int id, int cluster_size)
 {
     char *opt[] = {"", "-e"};
@@ -159,11 +178,11 @@ void test_server_destroy(int id)
 {
     int rc;
 
-    assert(id >= 0 && id < 9);
-    assert(cluster[id] != NULL);
+    rs_assert(id >= 0 && id < 9);
+    rs_assert(cluster[id] != NULL);
 
     rc = server_stop(cluster[id]);
-    assert(rc == RS_OK);
+    rs_assert(rc == RS_OK);
 
     cluster[id] = NULL;
     count--;
@@ -176,7 +195,7 @@ void test_server_destroy_all()
     for (int i = 0; i < 9; i++) {
         if (cluster[i] != NULL) {
             rc = server_stop(cluster[i]);
-            assert(rc == RS_OK);
+            rs_assert(rc == RS_OK);
             cluster[i] = NULL;
         }
     }
@@ -209,7 +228,7 @@ int client_count;
 
 resql *test_client_create()
 {
-    assert(client_count < 256);
+    rs_assert(client_count < 256);
 
     int rc;
     bool found;
@@ -240,7 +259,7 @@ resql *test_client_create()
         }
     }
 
-    assert(found);
+    rs_assert(found);
     client_count++;
 
     return c;
@@ -266,7 +285,7 @@ void test_client_destroy(resql *c)
         }
     }
 
-    assert(found);
+    rs_assert(found);
     client_count--;
 }
 

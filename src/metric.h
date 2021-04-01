@@ -17,15 +17,16 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef RESQL_LIB_METRIC_H
-#define RESQL_LIB_METRIC_H
-
-#include "sc/sc_buf.h"
+#ifndef RESQL_METRIC_H
+#define RESQL_METRIC_H
 
 #include <limits.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/utsname.h>
+
+struct sc_buf;
 
 struct metric
 {
@@ -44,20 +45,19 @@ struct metric
     uint64_t ss_total;
     uint64_t ss_count;
     uint64_t ss_max;
-    uint64_t ss_size;
+    size_t ss_size;
     bool ss_success;
 
     char dir[PATH_MAX];
 };
 
 
-
 void metric_init(struct metric *m, const char *dir);
 void metric_term(struct metric *m);
 int metric_encode(struct metric *m, struct sc_buf *buf);
-void metric_recv(uint64_t val);
-void metric_send(uint64_t val);
+void metric_recv(int64_t val);
+void metric_send(int64_t val);
 void metric_fsync(uint64_t val);
-void metric_snapshot(bool success, uint64_t time, uint64_t size);
+void metric_snapshot(bool success, uint64_t time, size_t size);
 
 #endif

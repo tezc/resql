@@ -20,10 +20,8 @@
 #ifndef RESQL_FILE_H
 #define RESQL_FILE_H
 
-#include "rs.h"
-
-#include "sc/sc_str.h"
-
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 
 struct file
@@ -58,6 +56,6 @@ int file_remove_if_exists(const char *path);
 int file_mkdir(const char *path);
 int file_clear_dir(const char *path, const char *pattern);
 int file_copy(const char *dst, const char *src);
-void file_random(void* buf, size_t size);
+void file_random(void *buf, size_t size);
 
 #endif

@@ -1,4 +1,6 @@
 
+add_compile_options(-DSC_HAVE_CONFIG_H)
+
 add_executable(resql
         main.c
         aux.h
@@ -9,7 +11,6 @@ add_executable(resql
         cmd.c
         conf.h
         conf.c
-        config.h
         meta.h
         meta.c
         node.h
@@ -40,6 +41,7 @@ add_executable(resql
         sqlite/sqlite3.c
         sqlite/sqlite3ext.h
         sqlite/completion.c
+        sc/config.h
         sc/sc.h
         sc/sc.c
         sc/sc_queue.h
@@ -82,6 +84,9 @@ add_executable(resql
         conn.c
         info.h
         info.c)
+
+target_include_directories(resql PUBLIC src/)
+target_include_directories(resql PUBLIC ./)
 
 set(PGO_DIR "${CMAKE_SOURCE_DIR}/bin/pgo")
 set(GCC_PGO_GEN "-fprofile-generate=${PGO_DIR}")
@@ -171,9 +176,5 @@ endif ()
 
 #--------------------------------------------------------------- #
 
-add_compile_options(-DSC_HAVE_CONFIG_H)
-
 target_link_libraries(resql ${RESQL_LINK_LIBRARIES} ${ADDITIONAL_LIBRARIES})
-target_include_directories(resql PUBLIC ../../deps)
-target_include_directories(resql PUBLIC .)
 install(TARGETS resql RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)

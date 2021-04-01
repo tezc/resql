@@ -22,10 +22,8 @@
 #define RESQL_SESSION_H
 
 #include "sc/sc_buf.h"
-#include "sc/sc_map.h"
-#include "sc/sc_queue.h"
 #include "sc/sc_list.h"
-#include "sqlite/sqlite3.h"
+#include "sc/sc_map.h"
 
 #include <stdint.h>
 
@@ -49,8 +47,8 @@ struct session
 struct session *session_create(struct state *st, const char *name, uint64_t id);
 void session_destroy(struct session *s);
 
-void session_connected(struct session *s, const char *local,
-                       const char *remote, uint64_t ts);
+void session_connected(struct session *s, const char *local, const char *remote,
+                       uint64_t ts);
 void session_disconnected(struct session *s, uint64_t timestamp);
 
 uint64_t session_create_stmt(struct session *s, uint64_t id, const char *sql,

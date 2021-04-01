@@ -17,6 +17,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "rs.h"
+
 #include "file.h"
 
 #include "sc/sc.h"
@@ -58,16 +60,6 @@ err:
     buf[0] = '\0';
 
     return 0;
-}
-
-void rs_vasprintf(char **buf, const char *fmt, va_list args)
-{
-    int rc;
-
-    rc = vasprintf(buf, fmt, args);
-    if (rc == -1) {
-        rs_abort("vasprintf : %s \n", strerror(errno));
-    }
 }
 
 char *rs_strncpy(char *dest, const char *src, size_t max)
@@ -112,7 +104,8 @@ size_t rs_dir_size(const char *path)
 int rs_write_pid_file(char *path)
 {
     int fd, rc;
-    ssize_t write_len, written;
+    size_t len;
+    ssize_t wr;
     char dir[PATH_MAX];
     char pidstr[32];
 
@@ -148,9 +141,9 @@ int rs_write_pid_file(char *path)
 
     sprintf(pidstr, "%ld", (long) getpid());
 
-    write_len = strlen(pidstr);
-    written = write(fd, pidstr, write_len);
-    if (written != write_len) {
+    len = strlen(pidstr);
+    wr = write(fd, pidstr, len);
+    if (wr < 0 || (size_t) wr != len) {
         close(fd);
         sc_log_error("Failed to write PID number at :'%s'", dir);
         exit(EXIT_FAILURE);
@@ -180,7 +173,7 @@ void *rs_malloc(size_t size)
 
     mem = malloc(size);
     if (mem == NULL && size != 0) {
-        rs_abort("Out of memory for size %lu \n", size);
+        rs_abort("Out of memory for size %zu \n", size);
     }
 
     return mem;
@@ -192,7 +185,7 @@ void *rs_calloc(size_t n, size_t size)
 
     mem = calloc(n, size);
     if (mem == NULL && size != 0) {
-        rs_abort("Out of memory for size %lu \n", size);
+        rs_abort("Out of memory for size %zu \n", size);
     }
 
     return mem;
@@ -204,7 +197,7 @@ void *rs_realloc(void *p, size_t size)
 
     mem = realloc(p, size);
     if (mem == NULL && size != 0) {
-        rs_abort("Out of memory for size %lu \n", size);
+        rs_abort("Out of memory for size %zu \n", size);
     }
 
     return mem;
@@ -228,7 +221,7 @@ _Noreturn void rs_on_abort(const char *file, const char *func, int line,
         va_end(args);
     }
 
-    sc_log_error("%s:%s:%d, msg : %s, errno : %d, errnostr : %s \n", file, func,
+    sc_log_error("%s:%s:%d, msg : %s, errno : %d, error : %s \n", file, func,
                  line, buf, errno, strerror(errno));
     abort();
 }
@@ -249,21 +242,21 @@ _Noreturn void rs_exit(const char *fmt, ...)
     exit(EXIT_FAILURE);
 }
 
-thread_local struct sc_rand rc4;
+thread_local struct sc_rand tl_rc4;
 
 void rs_rand_init()
 {
     unsigned char buf[256];
 
     file_random(buf, sizeof(buf));
-    sc_rand_init(&rc4, buf);
+    sc_rand_init(&tl_rc4, buf);
 }
 
 unsigned int rs_rand()
 {
     unsigned int val;
 
-    sc_rand_read(&rc4, &val, sizeof(val));
+    sc_rand_read(&tl_rc4, &val, sizeof(val));
 
     return val;
 }

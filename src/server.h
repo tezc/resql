@@ -23,7 +23,6 @@
 
 #include "conf.h"
 #include "metric.h"
-#include "msg.h"
 #include "snapshot.h"
 #include "state.h"
 #include "store.h"
@@ -69,7 +68,7 @@ enum server_fd_type
 struct server_job
 {
     enum server_job_type type;
-    void* data;
+    void *data;
 };
 
 struct server_endpoint
@@ -104,9 +103,9 @@ struct server
     bool stop_requested;
     bool cluster_up;
 
-    char* passwd;
+    char *passwd;
 
-    // Cluster managemenent
+    // Cluster management
     char *meta_path;
     char *meta_tmp_path;
 

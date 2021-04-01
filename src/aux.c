@@ -18,12 +18,14 @@
  */
 
 #include "aux.h"
+
+#include "info.h"
 #include "rs.h"
+#include "session.h"
 #include "state.h"
 
 #include "sc/sc_log.h"
-
-#include <stddef.h>
+#include "sc/sc_str.h"
 
 int sqlite3_completion_init(sqlite3 *db, char **pzErrMsg,
                             const sqlite3_api_routines *pApi);
@@ -31,9 +33,8 @@ int sqlite3_completion_init(sqlite3 *db, char **pzErrMsg,
 void aux_random(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
     (void) argv;
-    (void) argc;
 
-    assert(argc == 0);
+    rs_assert(argc == 0);
     int64_t val;
 
     state_randomness(NULL, sizeof(val), (char *) &val);
@@ -45,20 +46,21 @@ void aux_randomblob(sqlite3_context *ctx, int argc, sqlite3_value **argv)
     sqlite3_int64 n;
     char *p;
 
-    assert(argc == 1);
+    rs_assert(argc == 1);
 
     n = sqlite3_value_int64(argv[0]);
     if (n < 1) {
         n = 1;
     }
-    p = sqlite3_malloc64(n);
+
+    p = sqlite3_malloc64((sqlite3_uint64) n);
     if (!p) {
         sqlite3_result_error_nomem(ctx);
         return;
     }
 
-    state_randomness(NULL, n, p);
-    sqlite3_result_blob(ctx, p, n, sqlite3_free);
+    state_randomness(NULL, (int) n, p);
+    sqlite3_result_blob(ctx, p, (int) n, sqlite3_free);
 }
 
 void aux_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
@@ -479,14 +481,15 @@ int aux_read_info(struct aux *aux, struct info *n, sqlite3_stmt *stmt)
     return RS_OK;
 }
 
-int aux_add_log(struct aux *aux, uint64_t id, const char *level, const char *log)
+int aux_add_log(struct aux *aux, uint64_t id, const char *level,
+                const char *log)
 {
     assert(level != NULL);
     assert(log != NULL);
 
     int rc;
 
-    rc = sqlite3_bind_int64(aux->add_log, 1, id);
+    rc = sqlite3_bind_int64(aux->add_log, 1, (sqlite3_int64) id);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
@@ -530,36 +533,36 @@ int aux_write_session(struct aux *aux, struct session *s)
     uint64_t id;
     sqlite3_stmt *stmt;
 
-    rc = sqlite3_bind_text(aux->add_session, 1, s->name, sc_str_len(s->name),
-                           NULL);
+    rc = sqlite3_bind_text(aux->add_session, 1, s->name,
+                           (int) sc_str_len(s->name), NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
-    rc = sqlite3_bind_int64(aux->add_session, 2, s->id);
+    rc = sqlite3_bind_int64(aux->add_session, 2, (sqlite3_int64) s->id);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
-    rc = sqlite3_bind_int64(aux->add_session, 3, s->seq);
+    rc = sqlite3_bind_int64(aux->add_session, 3, (sqlite3_int64) s->seq);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
-    rc = sqlite3_bind_text(aux->add_session, 4, s->local, sc_str_len(s->local),
-                           NULL);
+    rc = sqlite3_bind_text(aux->add_session, 4, s->local,
+                           (int) sc_str_len(s->local), NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
     rc = sqlite3_bind_text(aux->add_session, 5, s->remote,
-                           sc_str_len(s->remote), NULL);
+                           (int) sc_str_len(s->remote), NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
     rc = sqlite3_bind_text(aux->add_session, 6, s->connect_time,
-                           sc_str_len(s->connect_time), NULL);
+                           (int) sc_str_len(s->connect_time), NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
@@ -587,18 +590,18 @@ int aux_write_session(struct aux *aux, struct session *s)
     }
 
     sc_map_foreach (&s->stmts, id, stmt) {
-        rc = sqlite3_bind_int64(aux->add_stmt, 1, id);
+        rc = sqlite3_bind_int64(aux->add_stmt, 1, (sqlite3_int64) id);
         if (rc != SQLITE_OK) {
             return RS_ERROR;
         }
 
-        rc = sqlite3_bind_int64(aux->add_stmt, 2, s->id);
+        rc = sqlite3_bind_int64(aux->add_stmt, 2, (sqlite3_int64) s->id);
         if (rc != SQLITE_OK) {
             return RS_ERROR;
         }
 
-        rc = sqlite3_bind_text(aux->add_stmt, 3, s->name, sc_str_len(s->name),
-                               NULL);
+        rc = sqlite3_bind_text(aux->add_stmt, 3, s->name,
+                               (int) sc_str_len(s->name), NULL);
         if (rc != SQLITE_OK) {
             return RS_ERROR;
         }
@@ -635,13 +638,13 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
     const void *p;
 
     sc_str_set(&s->name, (char *) sqlite3_column_text(sess_tb, 0));
-    s->id = sqlite3_column_int64(sess_tb, 1);
-    s->seq = sqlite3_column_int64(sess_tb, 2);
+    s->id = (uint64_t) sqlite3_column_int64(sess_tb, 1);
+    s->seq = (uint64_t) sqlite3_column_int64(sess_tb, 2);
     sc_str_set(&s->local, (char *) sqlite3_column_text(sess_tb, 3));
     sc_str_set(&s->remote, (char *) sqlite3_column_text(sess_tb, 4));
     sc_str_set(&s->connect_time, (char *) sqlite3_column_text(sess_tb, 5));
 
-    len = sqlite3_column_bytes(sess_tb, 6);
+    len = (uint32_t) sqlite3_column_bytes(sess_tb, 6);
     p = sqlite3_column_blob(sess_tb, 6);
 
     sc_buf_clear(&s->resp);
@@ -651,14 +654,15 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
         return RS_ERROR;
     }
 
-    rc = sqlite3_bind_text(stmt_tb, 1, s->name, sc_str_len(s->name), NULL);
+    rc = sqlite3_bind_text(stmt_tb, 1, s->name, (int) sc_str_len(s->name),
+                           NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
 
     while (sqlite3_step(stmt_tb) == SQLITE_ROW) {
         sqlite3_stmt *stmt;
-        uint64_t id = sqlite3_column_int64(stmt_tb, 0);
+        uint64_t id = (uint64_t) sqlite3_column_int64(stmt_tb, 0);
         char *str = (char *) sqlite3_column_text(stmt_tb, 3);
 
         rc = sqlite3_prepare_v3(aux->db, str, -1, SQLITE_PREPARE_PERSISTENT,
@@ -691,8 +695,8 @@ int aux_del_session(struct aux *aux, struct session *s)
         return RS_ERROR;
     }
 
-    rc = sqlite3_bind_text(aux->rm_session, 1, s->name, sc_str_len(s->name),
-                           NULL);
+    rc = sqlite3_bind_text(aux->rm_session, 1, s->name,
+                           (int) sc_str_len(s->name), NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
@@ -707,7 +711,7 @@ int aux_del_session(struct aux *aux, struct session *s)
         return RS_ERROR;
     }
 
-    rc = sqlite3_bind_int64(aux->rm_all_stmts, 1, s->id);
+    rc = sqlite3_bind_int64(aux->rm_all_stmts, 1, (sqlite3_int64) s->id);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
@@ -748,8 +752,8 @@ int aux_write_kv(struct aux *aux, const char *key, struct sc_buf *buf)
     sqlite3_stmt *stmt;
 
     rc = sqlite3_prepare_v3(aux->db,
-                            "INSERT OR REPLACE INTO resql_kv VALUES(?,?);",
-                            -1, 0, &stmt, NULL);
+                            "INSERT OR REPLACE INTO resql_kv VALUES(?,?);", -1,
+                            0, &stmt, NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
@@ -781,9 +785,8 @@ int aux_read_kv(struct aux *aux, const char *key, struct sc_buf *buf)
     int rc, ret = RS_ERROR;
     sqlite3_stmt *stmt;
 
-    rc = sqlite3_prepare_v3(aux->db,
-                            "SELECT value FROM resql_kv where key=?;", -1,
-                            0, &stmt, NULL);
+    rc = sqlite3_prepare_v3(aux->db, "SELECT value FROM resql_kv where key=?;",
+                            -1, 0, &stmt, NULL);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }
@@ -799,7 +802,7 @@ int aux_read_kv(struct aux *aux, const char *key, struct sc_buf *buf)
     }
 
     sc_buf_put_raw(buf, sqlite3_column_blob(stmt, 0),
-                   sqlite3_column_bytes(stmt, 0));
+                   (uint32_t) sqlite3_column_bytes(stmt, 0));
 
     ret = RS_OK;
 
@@ -813,8 +816,8 @@ int aux_add_stmt(struct aux *aux, const char *client, uint64_t cid, uint64_t id,
 {
     int rc = 0;
 
-    rc |= sqlite3_bind_int64(aux->add_stmt, 1, id);
-    rc |= sqlite3_bind_int64(aux->add_stmt, 2, cid);
+    rc |= sqlite3_bind_int64(aux->add_stmt, 1, (sqlite3_int64) id);
+    rc |= sqlite3_bind_int64(aux->add_stmt, 2, (sqlite3_int64) cid);
     rc |= sqlite3_bind_text(aux->add_stmt, 3, client, -1, NULL);
     rc |= sqlite3_bind_text(aux->add_stmt, 4, sql, -1, NULL);
 
@@ -844,7 +847,7 @@ int aux_rm_stmt(struct aux *aux, uint64_t id)
 {
     int rc;
 
-    rc = sqlite3_bind_int64(aux->rm_stmt, 1, id);
+    rc = sqlite3_bind_int64(aux->rm_stmt, 1, (sqlite3_int64) id);
     if (rc != SQLITE_OK) {
         return RS_ERROR;
     }

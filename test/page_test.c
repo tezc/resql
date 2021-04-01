@@ -47,17 +47,17 @@ static void page_open_test(void)
     file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, 5000);
-    assert(rc == RS_OK);
+    rs_assert(rc == RS_OK);
 
     size_t page_size = page.map.len;
-    assert(page_fsync(&page, page_last_index(&page)) == RS_OK);
-    assert(page_term(&page) == RS_OK);
+    rs_assert(page_fsync(&page, page_last_index(&page)) == RS_OK);
+    rs_assert(page_term(&page) == RS_OK);
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
-    assert(rc == RS_OK);
-    assert(page.map.len == page_size);
-    assert(page.prev_index == 5000);
-    assert(page_term(&page) == RS_OK);
+    rs_assert(rc == RS_OK);
+    rs_assert(page.map.len == page_size);
+    rs_assert(page.prev_index == 5000);
+    rs_assert(page_term(&page) == RS_OK);
 }
 
 static void page_reopen_test(void)
@@ -70,10 +70,10 @@ static void page_reopen_test(void)
     struct page page;
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, prev_index);
-    assert(rc == RS_OK);
+    rs_assert(rc == RS_OK);
 
     char *data = "data";
-    char *entry;
+    unsigned char *entry;
 
     for (int i = 0; i < 1000; i++) {
         page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -83,22 +83,22 @@ static void page_reopen_test(void)
         }
     }
 
-    assert(page_term(&page) == RS_OK);
+    rs_assert(page_term(&page) == RS_OK);
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
-    assert(rc == RS_OK);
+    rs_assert(rc == RS_OK);
 
     for (uint64_t i = 0; i < 1000; i++) {
         entry = page_entry_at(&page, prev_index + 1 + i);
-        assert(entry != NULL);
-        assert(entry_term(entry) == i);
-        assert(entry_flags(entry) == i);
-        assert(entry_cid(entry) == i);
-        assert(entry_seq(entry) == i);
-        assert(strcmp(entry_data(entry), data) == 0);
+        rs_assert(entry != NULL);
+        rs_assert(entry_term(entry) == i);
+        rs_assert(entry_flags(entry) == i);
+        rs_assert(entry_cid(entry) == i);
+        rs_assert(entry_seq(entry) == i);
+        rs_assert(strcmp(entry_data(entry), data) == 0);
     }
 
-    assert(page_term(&page) == RS_OK);
+    rs_assert(page_term(&page) == RS_OK);
 }
 
 static void page_expand_test(void)
@@ -111,10 +111,10 @@ static void page_expand_test(void)
     struct page page;
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, prev_index);
-    assert(rc == RS_OK);
+    rs_assert(rc == RS_OK);
 
     char *data = "data";
-    char *entry;
+    unsigned char *entry;
 
     for (int i = 0; i < 1000; i++) {
         page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -124,19 +124,19 @@ static void page_expand_test(void)
         }
     }
 
-    assert(page_expand(&page) == RS_OK);
+    rs_assert(page_expand(&page) == RS_OK);
 
     for (uint64_t i = 0; i < 1000; i++) {
         entry = page_entry_at(&page, prev_index + 1 + i);
-        assert(entry != NULL);
-        assert(entry_term(entry) == i);
-        assert(entry_flags(entry) == i);
-        assert(entry_cid(entry) == i);
-        assert(entry_seq(entry) == i);
-        assert(strcmp(entry_data(entry), data) == 0);
+        rs_assert(entry != NULL);
+        rs_assert(entry_term(entry) == i);
+        rs_assert(entry_flags(entry) == i);
+        rs_assert(entry_cid(entry) == i);
+        rs_assert(entry_seq(entry) == i);
+        rs_assert(strcmp(entry_data(entry), data) == 0);
     }
 
-    assert(page_term(&page) == RS_OK);
+    rs_assert(page_term(&page) == RS_OK);
 }
 
 static void page_remove_after_test(void)
@@ -149,10 +149,10 @@ static void page_remove_after_test(void)
     struct page page;
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, prev_index);
-    assert(rc == RS_OK);
+    rs_assert(rc == RS_OK);
 
     char *data = "data";
-    char *entry;
+    unsigned char *entry;
 
     for (int i = 0; i < 1000; i++) {
         page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -161,23 +161,23 @@ static void page_remove_after_test(void)
     page_remove_after(&page, prev_index + 501);
 
 
-    assert(page_term(&page) == RS_OK);
+    rs_assert(page_term(&page) == RS_OK);
 
     rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
-    assert(rc == RS_OK);
-    assert(page_entry_count(&page) == 501);
+    rs_assert(rc == RS_OK);
+    rs_assert(page_entry_count(&page) == 501);
 
     for (uint64_t i = 0; i < 501; i++) {
         entry = page_entry_at(&page, prev_index + 1 + i);
-        assert(entry != NULL);
-        assert(entry_term(entry) == i);
-        assert(entry_flags(entry) == i);
-        assert(entry_cid(entry) == i);
-        assert(entry_seq(entry) == i);
-        assert(strcmp(entry_data(entry), data) == 0);
+        rs_assert(entry != NULL);
+        rs_assert(entry_term(entry) == i);
+        rs_assert(entry_flags(entry) == i);
+        rs_assert(entry_cid(entry) == i);
+        rs_assert(entry_seq(entry) == i);
+        rs_assert(strcmp(entry_data(entry), data) == 0);
     }
 
-    assert(page_term(&page) == RS_OK);
+    rs_assert(page_term(&page) == RS_OK);
 }
 
 int main(void)

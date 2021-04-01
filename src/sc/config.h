@@ -25,7 +25,7 @@
 #define sc_array_realloc rs_realloc
 #define sc_array_free    rs_free
 
-#define sc_buf_malloc  rs_malloc
+#define sc_buf_calloc  rs_calloc
 #define sc_buf_realloc rs_realloc
 #define sc_buf_free    rs_free
 
@@ -38,6 +38,10 @@
 #define sc_str_malloc  rs_malloc
 #define sc_str_realloc rs_realloc
 #define sc_str_free    rs_free
+
+#define sc_sock_malloc  malloc
+#define sc_sock_realloc  realloc
+#define sc_sock_free  free
 
 #define sc_timer_malloc rs_malloc
 #define sc_timer_free   rs_free

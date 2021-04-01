@@ -43,11 +43,11 @@ static void client_simple()
         client_assert(c, rc == RESQL_OK);
 
         do {
-            assert(resql_column_count(rs) == 1);
+            rs_assert(resql_column_count(rs) == 1);
 
             while ((row = resql_row(rs)) != NULL) {
-                assert(row[0].type == RESQL_TEXT);
-                assert(strcmp("resql", row[0].text) == 0);
+                rs_assert(row[0].type == RESQL_TEXT);
+                rs_assert(strcmp("resql", row[0].text) == 0);
             }
 
         } while (resql_next(rs));
@@ -61,11 +61,11 @@ static void client_simple()
         client_assert(c, rc == RESQL_OK);
 
         do {
-            assert(resql_column_count(rs) == 1);
+            rs_assert(resql_column_count(rs) == 1);
 
             while ((row = resql_row(rs)) != NULL) {
-                assert(row[0].type == RESQL_TEXT);
-                assert(strcmp("resql", row[0].text) == 0);
+                rs_assert(row[0].type == RESQL_TEXT);
+                rs_assert(strcmp("resql", row[0].text) == 0);
             }
         } while (resql_next(rs));
     }
@@ -99,7 +99,7 @@ static void client_prepared()
         resql_put_prepared(c, &stmt);
         resql_bind_param_int(c, ":key1", i);
         resql_bind_param_text(c, ":key2", "test");
-        resql_bind_param_float(c, ":key3", 3.11);
+        resql_bind_param_float(c, ":key3", (double) 3.11);
         resql_bind_param_blob(c, ":key4", 5, "blob");
 
         rc = resql_exec(c, false, &rs);
@@ -107,7 +107,7 @@ static void client_prepared()
 
         do {
             while (resql_row(rs)) {
-                assert(true);
+                rs_assert(true);
             }
         } while (resql_next(rs));
     }
@@ -121,23 +121,23 @@ static void client_prepared()
 
     int x = 0;
     do {
-        assert(resql_column_count(rs) == 4);
+        rs_assert(resql_column_count(rs) == 4);
 
         while ((row = resql_row(rs)) != NULL) {
-            assert(row[0].type == RESQL_INTEGER);
-            assert(row[1].type == RESQL_TEXT);
-            assert(row[2].type == RESQL_FLOAT);
-            assert(row[3].type == RESQL_BLOB);
-            assert(strcmp("a", row[0].name) == 0);
-            assert(strcmp("b", row[1].name) == 0);
-            assert(strcmp("c", row[2].name) == 0);
-            assert(strcmp("d", row[3].name) == 0);
+            rs_assert(row[0].type == RESQL_INTEGER);
+            rs_assert(row[1].type == RESQL_TEXT);
+            rs_assert(row[2].type == RESQL_FLOAT);
+            rs_assert(row[3].type == RESQL_BLOB);
+            rs_assert(strcmp("a", row[0].name) == 0);
+            rs_assert(strcmp("b", row[1].name) == 0);
+            rs_assert(strcmp("c", row[2].name) == 0);
+            rs_assert(strcmp("d", row[3].name) == 0);
 
-            assert(row[0].intval == x++);
-            assert(strcmp(row[1].text, "test") == 0);
-            assert(row[2].floatval == 3.11);
-            assert(row[3].len == 5);
-            assert(strcmp(row[3].blob, "blob") == 0);
+            rs_assert(row[0].intval == x++);
+            rs_assert(strcmp(row[1].text, "test") == 0);
+            rs_assert(row[2].floatval == (double) 3.11);
+            rs_assert(row[3].len == 5);
+            rs_assert(strcmp(row[3].blob, "blob") == 0);
         }
     } while (resql_next(rs));
 }
@@ -154,13 +154,13 @@ static void client_error()
     c = test_client_create();
 
     rc = resql_del_prepared(c, &stmt);
-    assert(rc == RESQL_SQL_ERROR);
+    rs_assert(rc == RESQL_SQL_ERROR);
 
     resql_put_sql(
             c,
             "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
     rc = resql_exec(c, false, &rs);
-    assert(rc == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
 
     resql_put_sql(c, "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
     resql_bind_param_int(c, ":key1", 1);
@@ -182,7 +182,7 @@ static void client_error()
     client_assert(c, rc == RESQL_OK);
 
     while (resql_next(rs)) {
-        assert(true);
+        rs_assert(true);
     }
 
     resql_put_sql(c, "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
@@ -205,7 +205,7 @@ static void client_error()
         k++;
     } while (resql_next(rs));
 
-    assert(k == 2);
+    rs_assert(k == 2);
 
     resql_put_sql(c, "SELECT * FROM test");
     rc = resql_exec(c, false, &rs);
@@ -213,24 +213,24 @@ static void client_error()
 
     int x = 0;
     do {
-        assert(resql_column_count(rs) == 4);
+        rs_assert(resql_column_count(rs) == 4);
 
         while ((row = resql_row(rs)) != NULL) {
 
-            assert(row[0].type == RESQL_INTEGER);
-            assert(row[1].type == RESQL_TEXT);
-            assert(row[2].type == RESQL_FLOAT);
-            assert(row[3].type == RESQL_BLOB);
-            assert(strcmp("a", row[0].name) == 0);
-            assert(strcmp("b", row[1].name) == 0);
-            assert(strcmp("c", row[2].name) == 0);
-            assert(strcmp("d", row[3].name) == 0);
+            rs_assert(row[0].type == RESQL_INTEGER);
+            rs_assert(row[1].type == RESQL_TEXT);
+            rs_assert(row[2].type == RESQL_FLOAT);
+            rs_assert(row[3].type == RESQL_BLOB);
+            rs_assert(strcmp("a", row[0].name) == 0);
+            rs_assert(strcmp("b", row[1].name) == 0);
+            rs_assert(strcmp("c", row[2].name) == 0);
+            rs_assert(strcmp("d", row[3].name) == 0);
 
-            assert(row[0].intval == x++);
-            assert(strcmp(row[1].text, "test") == 0);
-            assert(row[2].floatval == 3.11);
-            assert(row[3].len == 5);
-            assert(strcmp(row[3].blob, "blob") == 0);
+            rs_assert(row[0].intval == x++);
+            rs_assert(strcmp(row[1].text, "test") == 0);
+            rs_assert(row[2].floatval == (double) 3.11);
+            rs_assert(row[3].len == 5);
+            rs_assert(strcmp(row[3].blob, "blob") == 0);
         }
     } while (resql_next(rs));
 
@@ -256,7 +256,7 @@ static void client_many()
             c,
             "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
     rc = resql_exec(c, false, &rs);
-    assert(rc == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
 
     for (int i = 0; i < 1000; i++) {
         resql_put_sql(c,
@@ -271,7 +271,7 @@ static void client_many()
 
         do {
             while (resql_row(rs) != NULL) {
-                assert(true);
+                rs_assert(true);
             }
         } while (resql_next(rs));
     }
@@ -313,7 +313,7 @@ static void client_big()
 
         do {
             while (resql_row(rs)) {
-                assert(true);
+                rs_assert(true);
             }
         } while (resql_next(rs));
     }

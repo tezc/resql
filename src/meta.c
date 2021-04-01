@@ -18,13 +18,14 @@
  */
 
 #include "meta.h"
+
 #include "rs.h"
 
 #include "sc/sc_array.h"
 #include "sc/sc_str.h"
 #include "sc/sc_uri.h"
 
-#include <string.h>
+#include <inttypes.h>
 
 const char *meta_role_str[] = {"leader", "follower"};
 
@@ -58,7 +59,7 @@ void meta_node_encode(struct meta_node *n, struct sc_buf *buf)
     sc_buf_put_str(buf, n->name);
     sc_buf_put_bool(buf, n->connected);
     sc_buf_put_8(buf, n->role);
-    sc_buf_put_32(buf, sc_array_size(n->uris));
+    sc_buf_put_32(buf, (uint32_t) sc_array_size(n->uris));
 
     sc_array_foreach (n->uris, uri) {
         sc_buf_put_str(buf, uri->str);
@@ -72,7 +73,7 @@ void meta_node_decode(struct meta_node *n, struct sc_buf *buf)
 
     n->name = sc_str_create(sc_buf_get_str(buf));
     n->connected = sc_buf_get_8(buf);
-    n->role = sc_buf_get_8(buf);
+    n->role = (enum meta_role) sc_buf_get_8(buf);
 
     sc_array_create(n->uris, 2);
 
@@ -164,7 +165,7 @@ void meta_encode(struct meta *m, struct sc_buf *buf)
     sc_buf_put_64(buf, m->term);
     sc_buf_put_64(buf, m->index);
     sc_buf_put_32(buf, m->voter);
-    sc_buf_put_32(buf, sc_array_size(m->nodes));
+    sc_buf_put_32(buf, (uint32_t) sc_array_size(m->nodes));
 
     sc_array_foreach (m->nodes, n) {
         meta_node_encode(&n, buf);
@@ -209,7 +210,7 @@ static void meta_update(struct meta *m)
 {
     struct sc_buf tmp;
 
-    m->voter = sc_array_size(m->nodes);
+    m->voter = (uint32_t) sc_array_size(m->nodes);
 
     sc_buf_init(&tmp, 1024);
 
@@ -397,6 +398,7 @@ void meta_set_leader(struct meta *m, const char *name)
         if (strcmp(m->nodes[i].name, name) == 0) {
             m->nodes[i].role = META_LEADER;
             found = true;
+
             continue;
         }
 
@@ -405,7 +407,7 @@ void meta_set_leader(struct meta *m, const char *name)
         }
     }
 
-    assert(found);
+    rs_assert(found);
     meta_update(m);
 }
 
@@ -468,7 +470,7 @@ void meta_print(struct meta *m, struct sc_buf *buf)
 {
     sc_buf_put_text(buf, "\n| -------------------------------\n");
     sc_buf_put_text(buf, "| Cluster : %s \n", m->name);
-    sc_buf_put_text(buf, "| Term    : %lu \n", (unsigned long) m->term);
+    sc_buf_put_text(buf, "| Term    : %" PRIu64 " \n", m->term);
 
     for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         sc_buf_put_text(buf, "| Node    : %s, Role : %s \n", m->nodes[i].name,

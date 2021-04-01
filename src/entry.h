@@ -21,8 +21,6 @@
 #ifndef RESQL_ENTRY_H
 #define RESQL_ENTRY_H
 
-#include "sc/sc_buf.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -36,25 +34,28 @@
 #define ENTRY_DATA_OFFSET  36
 #define ENTRY_HEADER_SIZE  36
 
+struct sc_buf;
+
 void entry_encode(struct sc_buf *buf, uint64_t term, uint64_t seq, uint64_t cid,
                   uint32_t flags, void *data, uint32_t len);
 
 int entry_decode(struct sc_buf *buf);
 
 uint32_t entry_encoded_len(uint32_t len);
-uint32_t entry_crc(char *entry);
-uint32_t entry_len(char *entry);
-uint64_t entry_term(char *entry);
-uint64_t entry_seq(char *entry);
+uint32_t entry_crc(unsigned char *entry);
+uint32_t entry_len(unsigned char *entry);
+uint64_t entry_term(unsigned char *entry);
+uint64_t entry_seq(unsigned char *entry);
 
-uint64_t entry_cid(char *entry);
-uint32_t entry_flags(char *entry);
+uint64_t entry_cid(unsigned char *entry);
+uint32_t entry_flags(unsigned char *entry);
 
-void *entry_data(char *entry);
-uint32_t entry_data_len(char *entry);
+void *entry_data(unsigned char *entry);
+uint32_t entry_data_len(unsigned char *entry);
 
 #define entry_foreach(buf, len, entry)                                         \
-    for ((entry) = ((char *) (buf)); (entry) < ((char *) (buf)) + (len);       \
+    for ((entry) = ((unsigned char *) (buf));                                  \
+         (entry) < ((unsigned char *) (buf)) + (len);                          \
          (entry) += entry_len(entry))
 
 #endif

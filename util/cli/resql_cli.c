@@ -420,7 +420,7 @@ void completion(const char *buf, linenoiseCompletions *lc)
     }
 
 
-    for (i = len - 1; i >= 0 && (isalnum(buf[i]) || buf[i] == '_'); i--) {
+    for (i = len - 1; (isalnum(buf[i]) || buf[i] == '_'); i--) {
     }
 
     if (i == len - 1) {

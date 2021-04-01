@@ -6,6 +6,9 @@ macro(resql_test name)
     add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}>)
 endmacro()
 
+add_compile_options(-DSC_HAVE_CONFIG_H -g -fno-omit-frame-pointer -DRS_ENABLE_ASSERT)
+include_directories(../src)
+
 add_library(resql-server STATIC
         ../src/aux.h
         ../src/aux.c
@@ -13,7 +16,6 @@ add_library(resql-server STATIC
         ../src/client.c
         ../src/cmd.h
         ../src/cmd.c
-        ../src/config.h
         ../src/conf.h
         ../src/conf.c
         ../src/info.h
@@ -50,6 +52,7 @@ add_library(resql-server STATIC
         ../src/sqlite/sqlite3.h
         ../src/sqlite/sqlite3.c
         ../src/sqlite/completion.c
+        ../src/sc/config.h
         ../src/sc/sc.h
         ../src/sc/sc.c
         ../src/sc/sc_array.h
@@ -111,7 +114,6 @@ set_source_files_properties(
  -DSQLITE_USE_ALLOCA"
 )
 
-add_compile_options(-DSC_HAVE_CONFIG_H -g -fno-omit-frame-pointer)
 target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
 
 add_library(resql-test test_util.c ../c-client/resql.c)
@@ -125,10 +127,12 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/test)
 set(CTEST_BINARY_DIRECTORY ${PROJECT_BINARY_DIR}/test)
 
 resql_test(client_test.c)
+resql_test(c_client_test.c)
 resql_test(cluster_test.c)
 resql_test(config_test.c)
 resql_test(leader_test.c)
 resql_test(meta_test.c)
+resql_test(msg_test.c)
 resql_test(page_test.c)
 resql_test(restart_test.c)
 resql_test(session_test.c)
@@ -136,7 +140,6 @@ resql_test(single_test.c)
 resql_test(snapshot_test.c)
 resql_test(state_test.c)
 resql_test(store_test.c)
-
 
 add_custom_target(check ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
         ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --verbose

@@ -184,18 +184,16 @@ endif ()
 
 
 # -------------------- Sanitizer Start ------------------------- #
-if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
-    option(SANITIZER "Use sanitizer (undefined, address, thread, none)" "none")
+option(SANITIZER "Use sanitizer (undefined, address, thread, none)" "none")
 
-    if (${SANITIZER} MATCHES "(undefined)")
-        try_sanitizer("undefined")
-    elseif (${SANITIZER} MATCHES "(address)")
-        try_sanitizer("address")
-    elseif (${SANITIZER} MATCHES "(thread)")
-        try_sanitizer("thread")
-    else ()
-        message(STATUS "Building without a sanitizer")
-    endif ()
+if (${SANITIZER} MATCHES "(undefined)")
+    try_sanitizer("undefined")
+elseif (${SANITIZER} MATCHES "(address)")
+    try_sanitizer("address")
+elseif (${SANITIZER} MATCHES "(thread)")
+    try_sanitizer("thread")
+else ()
+    message(STATUS "Building without a sanitizer")
 endif ()
 # -------------------- Sanitizer End --------------------------- #
 
@@ -212,7 +210,7 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
     define_flag(C_FLAGS_COMMON HAVE_FREEBSD)
 else ()
-    message(AUTHOR_WARNING "WARNING: This platform may or may not be supported: ${CMAKE_SYSTEM_NAME}")
+    message(AUTHOR_WARNING "WARNING: Unknown platform: ${CMAKE_SYSTEM_NAME}")
     message(AUTHOR_WARNING "${ISSUE_REPORT_MSG}")
 endif ()
 # -------------------- Operating System End -------------------- #
@@ -248,6 +246,13 @@ endif ()
 
 # -------------------- Code Coverage End ------------------------ #
 
+# -------------------- Clang Tidy Start ------------------------- #
+if (RESQL_CLANG_TIDY)
+    message(STATUS "Enabled CLANG_TIDY")
+
+    set(CMAKE_C_CLANG_TIDY "clang-tidy")
+endif ()
+# -------------------- Clang Tidy End --------------------------- #
 
 # -------------------- Compile Flags Start ---------------------- #
 
@@ -290,30 +295,7 @@ if (${HAVE_BACKTRACE})
     define_flag(C_FLAGS_COMMON HAVE_BACKTRACE)
 endif ()
 
-enable_warning_if_supported(-Wduplicated-cond)
-enable_warning_if_supported(-Wduplicated-branches)
-enable_warning_if_supported(-Wlogical-op)
-enable_warning_if_supported(-Wrestrict)
-enable_warning_if_supported(-Wnull)
-enable_warning_if_supported(-Wdouble-promotion)
-enable_warning_if_supported(-Wno-unused-parameter)
-enable_warning_if_supported(-Wno-unused-variable)
-enable_warning_if_supported(-Wno-unused-function)
-enable_warning_if_supported(-Wno-unused-but-set-variable)
-enable_warning_if_supported(-Wno-unused-result)
-enable_warning_if_supported(-Wno-sign-compare)
-enable_warning_if_supported(-Wno-error=stringop-overflow=)
-enable_warning_if_supported(-Wno-stringop-overflow)
-
-
-#option(MARCH_NATIVE "Use march=native" "ON")
-#if (MARCH_NATIVE)
-#    enable_c_flag_if_avail(-march=native C_FLAGS_REL HAVE_MARCH_NATIVE)
-#else ()
-#    MESSAGE("Build without march=native")
-#endif ()
-
-set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wall -Werror -pedantic -Wno-error=unused-variable -Wno-error=unused-function")
+set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wall -Werror -pedantic -Wextra")
 set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")

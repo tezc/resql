@@ -18,12 +18,14 @@
  */
 
 #include "entry.h"
+
 #include "rs.h"
 
 #include "sc/sc_buf.h"
 #include "sc/sc_crc32.h"
 
-uint64_t entry_get_64(const unsigned char* p)
+// clang-format off
+uint64_t entry_get_64(const unsigned char *p)
 {
     uint64_t val;
 
@@ -39,7 +41,7 @@ uint64_t entry_get_64(const unsigned char* p)
     return val;
 }
 
-uint32_t entry_get_32(const unsigned char* p)
+uint32_t entry_get_32(const unsigned char *p)
 {
     uint32_t val;
 
@@ -50,24 +52,25 @@ uint32_t entry_get_32(const unsigned char* p)
 
     return val;
 }
+// clang-format on
 
 void entry_encode(struct sc_buf *buf, uint64_t term, uint64_t seq, uint64_t cid,
                   uint32_t flags, void *data, uint32_t len)
 {
     uint32_t crc;
-    uint32_t enclen = entry_encoded_len(len);
+    uint32_t enc = entry_encoded_len(len);
     uint32_t head = sc_buf_wpos(buf);
 
     sc_buf_set_wpos(buf, head + ENTRY_LEN_OFFSET);
 
-    sc_buf_put_32(buf, enclen);
+    sc_buf_put_32(buf, enc);
     sc_buf_put_64(buf, term);
     sc_buf_put_64(buf, seq);
     sc_buf_put_64(buf, cid);
     sc_buf_put_32(buf, flags);
     sc_buf_put_raw(buf, data, len);
 
-    crc = sc_crc32(0, buf->mem + head + ENTRY_CRC_LEN, enclen - ENTRY_CRC_LEN);
+    crc = sc_crc32(0, buf->mem + head + ENTRY_CRC_LEN, enc - ENTRY_CRC_LEN);
     sc_buf_set_32_at(buf, head, crc);
 }
 
@@ -94,45 +97,43 @@ uint32_t entry_encoded_len(uint32_t len)
     return ENTRY_HEADER_SIZE + len;
 }
 
-uint32_t entry_crc(char *entry)
+uint32_t entry_crc(unsigned char *entry)
 {
-    return entry_get_32((unsigned char*) entry + ENTRY_CRC_OFFSET);
+    return entry_get_32(entry + ENTRY_CRC_OFFSET);
 }
 
-uint32_t entry_len(char *entry)
+uint32_t entry_len(unsigned char *entry)
 {
-    return entry_get_32((unsigned char*)entry + ENTRY_LEN_OFFSET);
+    return entry_get_32(entry + ENTRY_LEN_OFFSET);
 }
 
-uint64_t entry_term(char *entry)
+uint64_t entry_term(unsigned char *entry)
 {
-    return entry_get_64((unsigned char*)entry + ENTRY_TERM_OFFSET);
+    return entry_get_64(entry + ENTRY_TERM_OFFSET);
 }
 
-uint64_t entry_seq(char *entry)
+uint64_t entry_seq(unsigned char *entry)
 {
-    return entry_get_64((unsigned char*)entry + ENTRY_SEQ_OFFSET);
+    return entry_get_64(entry + ENTRY_SEQ_OFFSET);
 }
 
-uint64_t entry_cid(char *entry)
+uint64_t entry_cid(unsigned char *entry)
 {
-    return entry_get_64((unsigned char*)entry + ENTRY_CID_OFFSET);
+    return entry_get_64(entry + ENTRY_CID_OFFSET);
 }
 
-uint32_t entry_flags(char *entry)
+uint32_t entry_flags(unsigned char *entry)
 {
-    return entry_get_32((unsigned char*)entry + ENTRY_FLAGS_OFFSET);
+    return entry_get_32(entry + ENTRY_FLAGS_OFFSET);
 }
 
-void *entry_data(char *entry)
+void *entry_data(unsigned char *entry)
 {
     return entry + ENTRY_DATA_OFFSET;
 }
 
-uint32_t entry_data_len(char *entry)
+uint32_t entry_data_len(unsigned char *entry)
 {
     uint32_t total = entry_len(entry);
     return total - ENTRY_HEADER_SIZE;
 }
-
-

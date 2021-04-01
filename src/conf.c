@@ -19,17 +19,17 @@
 
 
 #include "conf.h"
-#include "file.h"
+
+#include "rs.h"
 
 #include "sc/sc_buf.h"
 #include "sc/sc_ini.h"
 #include "sc/sc_log.h"
 #include "sc/sc_option.h"
 #include "sc/sc_str.h"
-#include "sc/sc_time.h"
 
 #include <errno.h>
-#include <string.h>
+#include <inttypes.h>
 #include <unistd.h>
 
 #define ANSI_RESET "\x1b[0m"
@@ -406,7 +406,7 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
     }
 }
 
-static void conf_to_buf(struct sc_buf *buf, enum conf_index i, void *val)
+static void conf_to_buf(struct sc_buf *buf, enum conf_index i, void *v)
 {
     struct conf_item item = conf_list[i];
 
@@ -414,13 +414,13 @@ static void conf_to_buf(struct sc_buf *buf, enum conf_index i, void *val)
 
     switch (item.type) {
     case CONF_BOOL:
-        sc_buf_put_text(buf, "%s \n", ((bool) val) == true ? "true" : "false");
+        sc_buf_put_text(buf, "%s \n", *((bool *) v) == true ? "true" : "false");
         break;
     case CONF_INTEGER:
-        sc_buf_put_text(buf, "%llu \n", (uint64_t *) val);
+        sc_buf_put_text(buf, "%" PRIu64 " \n", *(uint64_t *) v);
         break;
     case CONF_STRING:
-        sc_buf_put_text(buf, "%s \n", val);
+        sc_buf_put_text(buf, "%s \n", (char *) v);
         break;
     }
 }
@@ -444,7 +444,7 @@ void conf_print(struct conf *c)
     conf_to_buf(&buf, CONF_NODE_LOG_LEVEL, c->node.log_level);
     conf_to_buf(&buf, CONF_NODE_LOG_DESTINATION, c->node.log_dest);
     conf_to_buf(&buf, CONF_NODE_DIRECTORY, c->node.dir);
-    conf_to_buf(&buf, CONF_NODE_IN_MEMORY, (void *) c->node.in_memory);
+    conf_to_buf(&buf, CONF_NODE_IN_MEMORY, &c->node.in_memory);
 
     sc_buf_put_text(&buf, "\t %s \n",
                     "-------------------------------------------------");
@@ -454,15 +454,15 @@ void conf_print(struct conf *c)
     sc_buf_put_text(&buf, "\t %s \n",
                     "-------------------------------------------------");
 
-    conf_to_buf(&buf, CONF_ADVANCED_FSYNC, (void *) c->advanced.fsync);
-    conf_to_buf(&buf, CONF_ADVANCED_HEARTBEAT, (void *) c->advanced.heartbeat);
+    conf_to_buf(&buf, CONF_ADVANCED_FSYNC, &c->advanced.fsync);
+    conf_to_buf(&buf, CONF_ADVANCED_HEARTBEAT, &c->advanced.heartbeat);
 
     sc_buf_put_text(&buf, "\t %s \n",
                     "-------------------------------------------------");
     conf_to_buf(&buf, CONF_CMDLINE_CONF_FILE, c->cmdline.config_file);
-    conf_to_buf(&buf, CONF_CMDLINE_EMPTY, (void *) c->cmdline.empty);
-    conf_to_buf(&buf, CONF_CMDLINE_SYSTEMD, (void *) c->cmdline.systemd);
-    conf_to_buf(&buf, CONF_CMDLINE_WIPE, (void *) c->cmdline.wipe);
+    conf_to_buf(&buf, CONF_CMDLINE_EMPTY, &c->cmdline.empty);
+    conf_to_buf(&buf, CONF_CMDLINE_SYSTEMD, &c->cmdline.systemd);
+    conf_to_buf(&buf, CONF_CMDLINE_WIPE, &c->cmdline.wipe);
 
     sc_log_info("%s \n", buf.mem);
     sc_buf_term(&buf);

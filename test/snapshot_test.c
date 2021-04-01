@@ -17,6 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "file.h"
 #include "resql.h"
 #include "rs.h"
 #include "server.h"
@@ -63,24 +64,24 @@ static void snapshot_simple()
     rc = resql_exec(c, false, &rs);
     client_assert(c, rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_row(rs)[0].intval == 1000000);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_row(rs)[0].intval == 1000000);
 
     resql_put_sql(c, "Select * from snapshot;");
     rc = resql_exec(c, false, &rs);
     client_assert(c, rc == RESQL_OK);
 
     x = 0;
-    assert(resql_row_count(rs) == 1000000);
+    rs_assert(resql_row_count(rs) == 1000000);
 
     while ((row = resql_row(rs)) != NULL) {
         snprintf(tmp, sizeof(tmp), "%d", x++);
 
-        assert(row[0].type == RESQL_TEXT);
-        assert(strcmp(tmp, row[0].text) == 0);
+        rs_assert(row[0].type == RESQL_TEXT);
+        rs_assert(strcmp(tmp, row[0].text) == 0);
     }
 
-    assert(resql_next(rs) == false);
+    rs_assert(resql_next(rs) == false);
 }
 
 int main(void)

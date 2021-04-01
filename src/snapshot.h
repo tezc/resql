@@ -26,7 +26,6 @@
 #include "sc/sc_thread.h"
 
 #include <limits.h>
-#include <stdbool.h>
 #include <stdint.h>
 
 #define SNAPSHOT_MAX_PAGE_COUNT 4
@@ -47,7 +46,7 @@ struct snapshot
 
     // Latest snapshot
     uint64_t time;
-    uint64_t size;
+    size_t size;
     uint64_t latest_index;
     uint64_t latest_term;
 

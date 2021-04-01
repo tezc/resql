@@ -18,11 +18,12 @@
  */
 
 #include "info.h"
+
 #include "rs.h"
 
 #include "sc/sc_str.h"
 
-struct info *info_create(const char* name)
+struct info *info_create(const char *name)
 {
     struct info *info;
 
@@ -49,17 +50,17 @@ void info_set_connected(struct info *info, bool connected)
     sc_str_set(&info->connected, connected ? "true" : "false");
 }
 
-void info_set_role(struct info *info, const char* role)
+void info_set_role(struct info *info, const char *role)
 {
     sc_str_set(&info->role, role);
 }
 
-void info_set_urls(struct info *info, const char* urls)
+void info_set_urls(struct info *info, const char *urls)
 {
     sc_str_set(&info->urls, urls);
 }
 
-void info_set_stats(struct info *info, struct sc_buf* stats)
+void info_set_stats(struct info *info, struct sc_buf *stats)
 {
     sc_buf_clear(&info->stats);
     sc_buf_put_raw(&info->stats, sc_buf_rbuf(stats), sc_buf_size(stats));

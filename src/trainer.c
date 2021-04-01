@@ -25,7 +25,7 @@
 void train_single()
 {
     int rc;
-    int ops =0 ;
+    int ops = 0;
     resql *c;
     resql_result *rs;
     resql_stmt stmt;
@@ -117,8 +117,9 @@ void train_multi()
     }
 
     resql_put_sql(c, "DROP TABLE IF EXISTS multi;");
-    resql_put_sql(c,
-                  "CREATE TABLE multi (id INTEGER PRIMARY KEY, name TEXT, points FLOAT, data BLOB, date TEXT);");
+    resql_put_sql(
+            c,
+            "CREATE TABLE multi (id INTEGER PRIMARY KEY, name TEXT, points FLOAT, data BLOB, date TEXT);");
     rc = resql_exec(c, false, &rs);
     if (rc != RESQL_OK) {
         printf("Failed : %s \n", resql_errstr(c));
@@ -171,6 +172,9 @@ void train_multi()
 
 int main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
+
     int rc;
     int ops = 0;
     resql *c;

@@ -96,6 +96,7 @@ char *sc_str_create_va(const char *fmt, va_list va)
     va_copy(args, va);
     rc = vsnprintf(tmp, sizeof(tmp), fmt, args);
     if (rc < 0) {
+        va_end(args);
         return NULL;
     }
     va_end(args);
@@ -399,7 +400,8 @@ bool sc_str_replace(char **str, const char *replace, const char *with)
         memcpy(tmp, orig, len_unmatch);
         tmp += len_unmatch;
 
-        memcpy(tmp, with, with_len);
+        // Copy extra '\0' byte just to silence sanitizer.
+        memcpy(tmp, with, with_len + 1);
         tmp += with_len;
         orig += len_unmatch + replace_len;
     }

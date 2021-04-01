@@ -28,21 +28,21 @@
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <Ws2tcpip.h>
+    #include <afunix.h>
     #include <windows.h>
     #include <winsock2.h>
-    #include <afunix.h>
     #pragma comment(lib, "ws2_32.lib")
     #pragma warning(disable : 4996)
     #define rs_poll WSAPoll
 
-    typedef SOCKET sc_sock_int;
+typedef SOCKET sc_sock_int;
 #else
     #include <poll.h>
     #include <sys/socket.h>
     #include <sys/time.h>
     #include <time.h>
 
-    typedef int sc_sock_int;
+typedef int sc_sock_int;
     #define rs_poll poll
 #endif
 
@@ -958,6 +958,7 @@ static int sc_sock_cleanup()
     #include <netinet/tcp.h>
     #include <sys/un.h>
     #include <unistd.h>
+    #include <inttypes.h>
 
     #define sc_close(n)    close(n)
     #define sc_unlink(n)   unlink(n)
@@ -1390,6 +1391,9 @@ bool resql_next(struct resql_result *rs)
     flag = (enum task_flag) sc_buf_get_8(&rs->buf);
     if (flag == TASK_FLAG_ROW) {
         rs->column_count = sc_buf_get_32(&rs->buf);
+
+        assert(rs->column_cap >= 0);
+
         if (rs->column_count > rs->column_cap) {
             size = sizeof(*rs->row) * rs->column_count;
             rs->row = resql_realloc(rs->row, size);
@@ -1856,7 +1860,9 @@ retry:
     } else {
         seq = msg.connect_resp.sequence;
         if (seq != c->seq && seq != c->seq - 1) {
-            resql_err(c, "Client does not exist on the server anymore.(%d, %d)",
+            resql_err(c,
+                      "Client does not exist on the server anymore.(%" PRIu64
+                      ",%" PRIu64 ")",
                       seq, c->seq);
             c->seq = seq;
             return RESQL_FATAL;
@@ -1956,6 +1962,7 @@ static void resql_generate_name(struct resql *c, char *dest)
                             "abcdefghijklmnopqrstuvwxyz"
                             "ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
     unsigned int num, len;
+    size_t sz = sizeof(c); // NOLINT
     uint64_t ts;
     uint32_t generated[40] = {0};
     char *end, *p = (char *) generated;
@@ -1966,8 +1973,8 @@ static void resql_generate_name(struct resql *c, char *dest)
     len = (num % 16) + 8;
     end = p + (sizeof(generated[0]) * len);
 
-    memcpy(p, &c, sizeof(c));
-    p += sizeof(c);
+    memcpy(p, &c, sz);
+    p += sz;
     memcpy(p, &ts, sizeof(ts));
     p += sizeof(ts);
 
@@ -2048,7 +2055,7 @@ int resql_create(struct resql **client, struct resql_config *conf)
         }
 
         c->uris[c->uri_count++] = u;
-        if (c->uri_count + 1 == sizeof(c->uris) / sizeof(c->uris[0])) {
+        if (c->uri_count + 1 == sizeof(c->uris) / sizeof(struct sc_uri *)) {
             break;
         }
     }

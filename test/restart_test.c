@@ -19,6 +19,7 @@
 
 #include "server.h"
 #include "rs.h"
+#include "file.h"
 #include "test_util.h"
 
 #include "resql.h"
@@ -46,12 +47,12 @@ static void restart_simple()
         client_assert(c, rc == RESQL_OK);
 
         do {
-            assert(resql_column_count(rs) == 1);
+            rs_assert(resql_column_count(rs) == 1);
             row = resql_row(rs);
 
             while (resql_row(rs)) {
-                assert(row[0].type == RESQL_TEXT);
-                assert(strcmp("resql", row[0].text) == 0);
+                rs_assert(row[0].type == RESQL_TEXT);
+                rs_assert(strcmp("resql", row[0].text) == 0);
             }
         } while (resql_next(rs));
     }
@@ -66,12 +67,12 @@ static void restart_simple()
         client_assert(c, rc == RESQL_OK);
 
         do {
-            assert(resql_column_count(rs) == 1);
+            rs_assert(resql_column_count(rs) == 1);
             row = resql_row(rs);
 
             while (resql_row(rs)) {
-                assert(row[0].type == RESQL_TEXT);
-                assert(strcmp("resql", row[0].text) == 0);
+                rs_assert(row[0].type == RESQL_TEXT);
+                rs_assert(strcmp("resql", row[0].text) == 0);
             }
         } while (resql_next(rs));
     }
@@ -97,12 +98,12 @@ static void restart_simple2()
         client_assert(c, rc == RESQL_OK);
 
         do {
-            assert(resql_column_count(rs) == 1);
+            rs_assert(resql_column_count(rs) == 1);
             row = resql_row(rs);
 
             while (resql_row(rs)) {
-                assert(row[0].type == RESQL_TEXT);
-                assert(strcmp("resql", row[0].text) == 0);
+                rs_assert(row[0].type == RESQL_TEXT);
+                rs_assert(strcmp("resql", row[0].text) == 0);
             }
         } while (resql_next(rs));
     }

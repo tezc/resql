@@ -82,7 +82,7 @@ void kill_test()
     rc = resql_exec(c, true, &rs);
     client_assert(c, rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 3);
+    rs_assert(resql_row_count(rs) == 3);
 
     l1 = strdup(resql_row(rs)[0].text);
     l2 = strdup(resql_row(rs)[0].text);
@@ -94,15 +94,15 @@ void kill_test()
     rc = resql_exec(c, true, &rs);
     client_assert(c, rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 3);
+    rs_assert(resql_row_count(rs) == 3);
 
     n1 = resql_row(rs)[0].text;
     n2 = resql_row(rs)[0].text;
     n3 = resql_row(rs)[0].text;
 
-    assert(strcmp(l1, n1) == 0);
-    assert(strcmp(l2, n2) == 0);
-    assert(strcmp(l3, n3) == 0);
+    rs_assert(strcmp(l1, n1) == 0);
+    rs_assert(strcmp(l2, n2) == 0);
+    rs_assert(strcmp(l3, n3) == 0);
 
     free(l1);
     free(l2);
@@ -139,7 +139,7 @@ void kill2_test()
     rc = resql_exec(c, true, &rs);
     client_assert(c, rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 3);
+    rs_assert(resql_row_count(rs) == 3);
 
     l1 = strdup(resql_row(rs)[0].text);
     l2 = strdup(resql_row(rs)[0].text);
@@ -152,15 +152,15 @@ void kill2_test()
         rc = resql_exec(c, true, &rs);
         client_assert(c, rc == RESQL_OK);
 
-        assert(resql_row_count(rs) == 3);
+        rs_assert(resql_row_count(rs) == 3);
 
         n1 = resql_row(rs)[0].text;
         n2 = resql_row(rs)[0].text;
         n3 = resql_row(rs)[0].text;
 
-        assert(strcmp(l1, n1) == 0);
-        assert(strcmp(l2, n2) == 0);
-        assert(strcmp(l3, n3) == 0);
+        rs_assert(strcmp(l1, n1) == 0);
+        rs_assert(strcmp(l2, n2) == 0);
+        rs_assert(strcmp(l3, n3) == 0);
     }
 
     free(l1);

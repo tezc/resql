@@ -20,6 +20,8 @@
 
 #include "file.h"
 
+#include "rs.h"
+
 #include "sc/sc_log.h"
 #include "sc/sc_str.h"
 
@@ -27,8 +29,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdarg.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -134,7 +134,7 @@ int file_write(struct file *file, const void *ptr, size_t size)
 
     wr = fwrite(ptr, 1, size, file->fp);
     if (wr != size) {
-        sc_log_error("Failed to write %lu bytes, written : % lu  \n", size, wr);
+        sc_log_error("Failed to write %zu bytes, written : %zu  \n", size, wr);
         return RS_ERROR;
     }
 
@@ -159,7 +159,7 @@ int file_read(struct file *file, void *ptr, size_t size)
 
     read = fread(ptr, 1, size, file->fp);
     if (read != size) {
-        sc_log_error("Failed to read %lu bytes, written : % lu  \n", size,
+        sc_log_error("Failed to read %zu bytes, written : % lu  \n", size,
                      read);
         return RS_ERROR;
     }
@@ -170,18 +170,6 @@ int file_read(struct file *file, void *ptr, size_t size)
 int file_lseek(struct file *file, size_t offset)
 {
     return fseek(file->fp, offset, SEEK_SET);
-}
-
-int file_vfprintf(struct file *file, const char *fmt, va_list list)
-{
-    int rc;
-
-    rc = vfprintf(file->fp, fmt, list);
-    if (rc < 0) {
-        rs_abort("Failed to write to file : %s \n", file->path);
-    }
-
-    return rc;
 }
 
 const char *file_path(struct file *file)
@@ -321,7 +309,7 @@ int file_copy(const char *dst, const char *src)
         out = buf;
 
         do {
-            n_written = write(fd_dest, out, n_read);
+            n_written = write(fd_dest, out, (size_t) n_read);
             if (n_written < 0) {
                 if (errno == EINTR) {
                     continue;

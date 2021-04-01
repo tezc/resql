@@ -26,20 +26,22 @@ fi
 cleanup() {
   cd "$cwd"
 
+  (kill -9 "$trainer_pid" || true) > /dev/null 2>&1
+  (kill -9 "$server_pid" || true) > /dev/null 2>&1
+  (kill -9 "$(jobs -p)" || true) > /dev/null 2>&1
+  rm -rf bin/resql-trainer bin/build/ bin/pgo/
+
+  echo "Clean-up done"
+
   if [ -n "$1" ]; then
     rm -rf bin/resql bin/resql-cli bin/resql-benchmark
-    kill "$(jobs -p)" || true
     echo "Aborted by $1"
   elif [ "$status" -ne 0 ]; then
-    rm -rf bin/resql bin/resql-cli
-    kill "$(jobs -p)" || true
+    rm -rf bin/resql bin/resql-cli bin/resql-benchmark
     echo "Failure (status $status)"
   else
     echo "Success"
   fi
-
-  echo "Clean-up done"
-  rm -rf bin/resql-trainer bin/build/ bin/pgo/
 }
 
 trap 'status=$?; cleanup; exit $status' EXIT
@@ -81,7 +83,7 @@ fi
 
 echo "Tests has been completed successfully."
 
-./resql -w
+rm -rf *.resql
 rm -rf resql resql-cli resql-benchmark build/*
 cd build
 cmake ../.. -DPGO=use

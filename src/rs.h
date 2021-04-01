@@ -27,7 +27,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define RS_VERSION  "0.0.17-latest"
+#define RS_VERSION "0.0.17-latest"
+
+#ifndef RESQL_FILE_NAME
+    #define RESQL_FILE_NAME "unknown file name"
+#endif
 
 #ifdef RS_COMPILER_GIT_BRANCH
     #define RS_GIT_BRANCH RS_COMPILER_GIT_BRANCH
@@ -41,7 +45,7 @@
     #define RS_GIT_COMMIT "UNKNOWN"
 #endif
 
-#define RS_STORE_EXTENSION  ".resql"
+#define RS_STORE_EXTENSION ".resql"
 
 #define rs_entry(ptr, type, elem)                                              \
     ((type *) ((char *) (ptr) -offsetof(type, elem)))
@@ -60,32 +64,44 @@
     #endif
 #endif
 
+#ifdef RS_ENABLE_ASSERT
+    #include <stdio.h>
+    #define rs_assert(a)                                                       \
+        if (!(a)) {                                                            \
+            fprintf(stderr, "[%s:%d] Assert : %s \n", __FILE__, __LINE__, #a); \
+            fflush(stderr);                                                    \
+            abort();                                                           \
+        }
+#else
+    #define rs_assert(a) (void) (a)
+#endif
+
+// clang-format off
 enum rs_rc
 {
     RS_OK = 0,
     RS_ERROR = -1,
     RS_DONE = -2,
     RS_NOOP = -3,
-    RS_NOTOPEN = -4,
-    RS_RETRY = -5,
-    RS_NONBLOCK = -6,
-    RS_ENOENT = -7,
-    RS_EMPTY = -8,
-    RS_INVALID = -9,
-    RS_PARTIAL = -10,
-    RS_EXISTS = -11,
-    RS_TIMEOUT = -12,
-    RS_INPROGRESS = -13,
-    RS_NOTFOUND = -14,
-    RS_OOM = -15,
-    RS_FULL = -16
+    RS_RETRY = -4,
+    RS_NONBLOCK = -5,
+    RS_ENOENT = -6,
+    RS_EMPTY = -7,
+    RS_INVALID = -8,
+    RS_PARTIAL = -9,
+    RS_EXISTS = -10,
+    RS_TIMEOUT = -11,
+    RS_INPROGRESS = -12,
+    RS_NOTFOUND = -13,
+    RS_FULL = -14
 };
+
+// clang-format on
 
 #define rs_exp(fmt, ...) fmt, __VA_ARGS__
 
 #define rs_abort(...)                                                          \
-    (rs_on_abort(RESQL_FILE_NAME, __func__, __LINE__,                      \
-                 rs_exp(__VA_ARGS__, "")))
+    (rs_on_abort(RESQL_FILE_NAME, __func__, __LINE__, rs_exp(__VA_ARGS__, "")))
 
 _Noreturn void rs_on_abort(const char *file, const char *func, int line,
                            const char *fmt, ...);
@@ -95,8 +111,7 @@ _Noreturn void rs_exit(const char *fmt, ...);
 
 int rs_snprintf(char *buf, size_t max_len, const char *fmt, ...);
 int rs_vsnprintf(char *buf, size_t max_len, const char *fmt, va_list list);
-void rs_vasprintf(char **buf, const char *fmt, va_list args);
-char* rs_strncpy(char *dest, const char* src, size_t max);
+char *rs_strncpy(char *dest, const char *src, size_t max);
 
 size_t rs_dir_size(const char *path);
 

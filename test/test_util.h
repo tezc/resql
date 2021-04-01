@@ -21,6 +21,7 @@
 
 #include "resql.h"
 #include "rs.h"
+#include "conf.h"
 
 #define test_execute(A) (test_util_run(A, #A))
 
@@ -31,8 +32,10 @@
         }                                                                      \
     } while (0)
 
+void init_all();
 void test_util_run(void (*test_fn)(void), const char *fn_name);
 
+struct server *test_server_create_conf(struct conf *conf, int id);
 struct server *test_server_create(int id, int cluster_size);
 struct server *test_server_start(int id, int cluster_size);
 void test_server_destroy(int id);

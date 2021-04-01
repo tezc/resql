@@ -169,8 +169,6 @@ const char *resql_errstr(resql *c);
  * resql_shutdown(), client's prepared statements are deallocated on the
  * server automatically. This operation cannot be pipelined with others.
  *
- * parametered statements and indexed statements are supported.
- *
  * resql_stmt stmt;
  *
  * e.g
