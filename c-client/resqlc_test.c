@@ -61,7 +61,7 @@ static void test_reset()
 
     assert(col[2].type == RESQL_FLOAT);
     assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 4.11);
+    assert(col[2].floatval == (double) 4.11);
 
     assert(col[3].type == RESQL_BLOB);
     assert(strcmp(col[3].name, "data") == 0);
@@ -136,7 +136,7 @@ static void test_single_index()
 
     assert(col[2].type == RESQL_FLOAT);
     assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    assert(col[2].floatval == (double) 3.11);
 
     assert(col[3].type == RESQL_BLOB);
     assert(strcmp(col[3].name, "data") == 0);
@@ -179,7 +179,7 @@ static void test_single_param()
 
     assert(col[2].type == RESQL_FLOAT);
     assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    assert(col[2].floatval == (double) 3.11);
 
     assert(col[3].type == RESQL_BLOB);
     assert(strcmp(col[3].name, "data") == 0);
@@ -226,7 +226,7 @@ static void test_prepared_index()
 
     assert(col[2].type == RESQL_FLOAT);
     assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    assert(col[2].floatval == (double) 3.11);
 
     assert(col[3].type == RESQL_BLOB);
     assert(strcmp(col[3].name, "data") == 0);
@@ -278,7 +278,7 @@ static void test_prepared_param()
 
     assert(col[2].type == RESQL_FLOAT);
     assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    assert(col[2].floatval == (double) 3.11);
 
     assert(col[3].type == RESQL_BLOB);
     assert(strcmp(col[3].name, "data") == 0);
@@ -337,7 +337,7 @@ static void test_prepared_param_many()
 
         assert(col[2].type == RESQL_FLOAT);
         assert(strcmp(col[2].name, "points") == 0);
-        assert(col[2].floatval == 3.11);
+        assert(col[2].floatval == (double) 3.11);
 
         assert(col[3].type == RESQL_BLOB);
         assert(strcmp(col[3].name, "data") == 0);
@@ -364,7 +364,7 @@ static void test_prepared_param_many()
 
         assert(col[2].type == RESQL_FLOAT);
         assert(strcmp(col[2].name, "points") == 0);
-        assert(col[2].floatval == 3.11);
+        assert(col[2].floatval == (double) 3.11);
 
         assert(col[3].type == RESQL_BLOB);
         assert(strcmp(col[3].name, "data") == 0);

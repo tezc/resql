@@ -29,5 +29,9 @@ jobs:
           make -j
           make check
           rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=address -DCMAKE_C_FLAGS=-m32
+          make -j
+          make check
+          rm -rf *
           cd ..
           ./build.sh

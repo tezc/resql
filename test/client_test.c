@@ -99,7 +99,7 @@ static void client_prepared()
         resql_put_prepared(c, &stmt);
         resql_bind_param_int(c, ":key1", i);
         resql_bind_param_text(c, ":key2", "test");
-        resql_bind_param_float(c, ":key3", 3.11);
+        resql_bind_param_float(c, ":key3", (double) 3.11);
         resql_bind_param_blob(c, ":key4", 5, "blob");
 
         rc = resql_exec(c, false, &rs);
@@ -135,7 +135,7 @@ static void client_prepared()
 
             rs_assert(row[0].intval == x++);
             rs_assert(strcmp(row[1].text, "test") == 0);
-            rs_assert(row[2].floatval == 3.11);
+            rs_assert(row[2].floatval == (double) 3.11);
             rs_assert(row[3].len == 5);
             rs_assert(strcmp(row[3].blob, "blob") == 0);
         }
@@ -228,7 +228,7 @@ static void client_error()
 
             rs_assert(row[0].intval == x++);
             rs_assert(strcmp(row[1].text, "test") == 0);
-            rs_assert(row[2].floatval == 3.11);
+            rs_assert(row[2].floatval == (double) 3.11);
             rs_assert(row[3].len == 5);
             rs_assert(strcmp(row[3].blob, "blob") == 0);
         }
