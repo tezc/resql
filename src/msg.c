@@ -32,9 +32,7 @@ static const char *msg_rc_str[] = {
         "MSG_CORRUPT",
         "MSG_UNEXPECTED",
         "MSG_TIMEOUT",
-        "MSG_NOT_LEADER",
-        "MSG_OUT_OF_DISK",
-        "MSG_OUT_OF_MEMORY"};
+        "MSG_NOT_LEADER"};
 
 const char *msg_type_str[] = {
         "CONNECT_REQ",

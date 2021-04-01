@@ -53,10 +53,10 @@ static void connectresp_test()
     sc_buf_init(&buf, 1024);
     sc_buf_init(&buf2, 1024);
 
-    msg_create_connect_resp(&buf, 0, 100, 100, "node");
+    msg_create_connect_resp(&buf, MSG_CLUSTER_NAME_MISMATCH, 100, 100, "node");
     msg_parse(&buf, &msg);
 
-    rs_assert(msg.connect_resp.rc == 0);
+    rs_assert(msg.connect_resp.rc == MSG_CLUSTER_NAME_MISMATCH);
     rs_assert(msg.connect_resp.sequence == 100);
     rs_assert(msg.connect_resp.term == 100);
     rs_assert(strcmp(msg.connect_resp.nodes, "node") == 0);
@@ -76,10 +76,10 @@ static void disconnectreq_test()
     sc_buf_init(&buf, 1024);
     sc_buf_init(&buf2, 1024);
 
-    msg_create_disconnect_req(&buf, 11, 12);
+    msg_create_disconnect_req(&buf, MSG_CLUSTER_NAME_MISMATCH, 12);
     msg_parse(&buf, &msg);
 
-    rs_assert(msg.disconnect_req.rc == 11);
+    rs_assert(msg.disconnect_req.rc == MSG_CLUSTER_NAME_MISMATCH);
     rs_assert(msg.disconnect_req.flags == 12);
 
     msg_print(&msg, &buf2);
@@ -97,10 +97,10 @@ static void disconnectresp_test()
     sc_buf_init(&buf, 1024);
     sc_buf_init(&buf2, 1024);
 
-    msg_create_disconnect_resp(&buf, 11, 12);
+    msg_create_disconnect_resp(&buf, MSG_CLUSTER_NAME_MISMATCH, 12);
     msg_parse(&buf, &msg);
 
-    rs_assert(msg.disconnect_resp.rc == 11);
+    rs_assert(msg.disconnect_resp.rc == MSG_CLUSTER_NAME_MISMATCH);
     rs_assert(msg.disconnect_resp.flags == 12);
 
     msg_print(&msg, &buf2);
