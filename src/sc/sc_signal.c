@@ -305,6 +305,8 @@ int sc_signal_init()
 
 static void *sc_instruction(ucontext_t *uc)
 {
+    (void) uc;
+
     void* p = NULL;
 
 #if defined(__APPLE__)
