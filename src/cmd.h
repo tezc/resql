@@ -75,11 +75,6 @@ struct cmd_timestamp
     uint64_t realtime;
 };
 
-struct cmd_info
-{
-    struct sc_buf node_info;
-};
-
 struct cmd_log
 {
     const char *level;
@@ -91,7 +86,6 @@ void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256]);
 struct cmd_init cmd_decode_init(struct sc_buf *buf);
 
 void cmd_encode_meta(struct sc_buf *buf, struct meta *meta);
-void cmd_decode_meta_to(void *data, int len, struct meta *meta);
 struct cmd_meta cmd_decode_meta(struct sc_buf *buf);
 
 void cmd_encode_term_start(struct sc_buf *buf);

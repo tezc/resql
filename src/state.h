@@ -22,21 +22,20 @@
 #define RESQL_STATE_H
 
 #include "aux.h"
-#include "cmd.h"
-#include "entry.h"
-#include "file.h"
 #include "meta.h"
+#include "rs.h"
 
-#include "sc/sc_array.h"
-#include "sc/sc_map.h"
 #include "sc/sc.h"
+#include "sc/sc_list.h"
+#include "sc/sc_map.h"
+
 
 struct state_cb
 {
-    void* arg;
-    const char* (*add_node)(void* arg, const char* node);
-    const char* (*remove_node)(void* arg, const char* node);
-    const char* (*shutdown)(void* arg, const char* node);
+    void *arg;
+    const char *(*add_node)(void *arg, const char *node);
+    const char *(*remove_node)(void *arg, const char *node);
+    const char *(*shutdown)(void *arg, const char *node);
 };
 
 struct state
@@ -53,7 +52,7 @@ struct state
     bool client;
     bool readonly;
     bool full;
-    uint64_t max_page;
+    int64_t max_page;
 
     struct aux aux;
     struct meta meta;
@@ -98,6 +97,6 @@ void state_initial_snapshot(struct state *st);
 int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
                          uint32_t len, struct sc_buf *resp);
 
-struct session *state_apply(struct state *st, uint64_t index, char *entry);
+struct session *state_apply(struct state *st, uint64_t index, unsigned char *entry);
 
 #endif

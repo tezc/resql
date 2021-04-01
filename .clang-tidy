@@ -1,5 +1,5 @@
 ---
-Checks:              '-*,clang-analyzer-*,misc-*,portability-*,bugprone-*,-bugprone-sizeof-expression'
-WarningsAsErrors:    '-*,clang-analyzer-*,misc-*,portability-*,bugprone-*'
+Checks:              '-*,clang-analyzer-*,misc-*,portability-*,bugprone-*,-clang-analyzer-security.insecureAPI*'
+WarningsAsErrors:    '-*,clang-analyzer-*,misc-*,portability-*,bugprone-*,-clang-analyzer-security.insecureAPI*'
 HeaderFilterRegex:   '.*'
 FormatStyle:         file

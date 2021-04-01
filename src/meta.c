@@ -24,8 +24,6 @@
 #include "sc/sc_str.h"
 #include "sc/sc_uri.h"
 
-#include <string.h>
-
 const char *meta_role_str[] = {"leader", "follower"};
 
 void meta_node_init(struct meta_node *n, struct sc_uri *uri)
@@ -58,7 +56,7 @@ void meta_node_encode(struct meta_node *n, struct sc_buf *buf)
     sc_buf_put_str(buf, n->name);
     sc_buf_put_bool(buf, n->connected);
     sc_buf_put_8(buf, n->role);
-    sc_buf_put_32(buf, sc_array_size(n->uris));
+    sc_buf_put_32(buf, (uint32_t) sc_array_size(n->uris));
 
     sc_array_foreach (n->uris, uri) {
         sc_buf_put_str(buf, uri->str);
@@ -72,7 +70,7 @@ void meta_node_decode(struct meta_node *n, struct sc_buf *buf)
 
     n->name = sc_str_create(sc_buf_get_str(buf));
     n->connected = sc_buf_get_8(buf);
-    n->role = sc_buf_get_8(buf);
+    n->role = (enum meta_role) sc_buf_get_8(buf);
 
     sc_array_create(n->uris, 2);
 
@@ -164,7 +162,7 @@ void meta_encode(struct meta *m, struct sc_buf *buf)
     sc_buf_put_64(buf, m->term);
     sc_buf_put_64(buf, m->index);
     sc_buf_put_32(buf, m->voter);
-    sc_buf_put_32(buf, sc_array_size(m->nodes));
+    sc_buf_put_32(buf, (uint32_t) sc_array_size(m->nodes));
 
     sc_array_foreach (m->nodes, n) {
         meta_node_encode(&n, buf);
@@ -209,7 +207,7 @@ static void meta_update(struct meta *m)
 {
     struct sc_buf tmp;
 
-    m->voter = sc_array_size(m->nodes);
+    m->voter = (uint32_t) sc_array_size(m->nodes);
 
     sc_buf_init(&tmp, 1024);
 
@@ -397,6 +395,7 @@ void meta_set_leader(struct meta *m, const char *name)
         if (strcmp(m->nodes[i].name, name) == 0) {
             m->nodes[i].role = META_LEADER;
             found = true;
+
             continue;
         }
 

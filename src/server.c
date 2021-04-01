@@ -17,32 +17,24 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "server.h"
+
 #include "client.h"
 #include "cmd.h"
-#include "conf.h"
-#include "conn.h"
+#include "entry.h"
 #include "file.h"
-#include "metric.h"
-#include "msg.h"
 #include "node.h"
-#include "rs.h"
-#include "server.h"
 #include "session.h"
-#include "state.h"
 
-#include "sc/sc.h"
 #include "sc/sc_array.h"
-#include "sc/sc_buf.h"
 #include "sc/sc_crc32.h"
 #include "sc/sc_log.h"
+#include "sc/sc_queue.h"
 #include "sc/sc_signal.h"
-#include "sc/sc_thread.h"
 #include "sc/sc_time.h"
-#include "sc/sc_timer.h"
 #include "sc/sc_uri.h"
 
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
 
 #define BATCH_SIZE    (SC_SOCK_BUF_SIZE - 128)
@@ -55,7 +47,7 @@ const char *server_shutdown(void *arg, const char *node);
 
 void server_global_init()
 {
-    srand(sc_time_mono_ns());
+    srand((int) sc_time_mono_ns());
     state_global_init();
     sc_signal_init();
     sc_crc32_init();
@@ -143,7 +135,9 @@ void server_destroy(struct server *s)
 {
     int rc;
     struct node *node;
+    struct conn *conn;
     struct client *client;
+    struct sc_list *list, *tmp;
     struct server_endpoint endp;
     struct server_job job;
 
@@ -162,18 +156,19 @@ void server_destroy(struct server *s)
     }
     sc_array_destroy(s->unknown_nodes);
 
-    state_term(&s->state);
-    store_term(&s->store);
-    meta_term(&s->meta);
-
-    sc_sock_poll_term(&s->loop);
-    sc_timer_term(&s->timer);
+    sc_list_foreach_safe (&s->pending_conns, tmp, list) {
+        conn = sc_list_entry(list, struct conn, list);
+        conn_destroy(conn);
+    }
 
     sc_map_foreach_value (&s->clients, client) {
         client_destroy(client);
     }
-    sc_map_term_sv(&s->clients);
-    sc_map_term_64v(&s->vclients);
+
+    sc_array_foreach (s->term_clients, client) {
+        client_destroy(client);
+    }
+    sc_array_destroy(s->term_clients);
 
     sc_array_foreach (s->endpoints, endp) {
         if (strcmp(endp.uri->scheme, "unix") == 0) {
@@ -189,16 +184,20 @@ void server_destroy(struct server *s)
     }
     sc_array_destroy(s->endpoints);
 
+    state_term(&s->state);
+    store_term(&s->store);
+    meta_term(&s->meta);
+
+    sc_sock_poll_term(&s->loop);
+    sc_timer_term(&s->timer);
+
+    sc_map_term_sv(&s->clients);
+    sc_map_term_64v(&s->vclients);
 
     sc_queue_foreach (s->jobs, job) {
         rs_free(job.data);
     }
     sc_queue_destroy(s->jobs);
-
-    sc_array_foreach (s->term_clients, client) {
-        client_destroy(client);
-    }
-    sc_array_destroy(s->term_clients);
 
     sc_thread_term(&s->thread);
     sc_str_destroy(s->meta_path);
@@ -209,6 +208,7 @@ void server_destroy(struct server *s)
     sc_sock_pipe_term(&s->efd);
     sc_sock_pipe_term(&s->sigfd);
 
+    metric_term(&s->metric);
     conf_term(&s->conf);
     rs_free(s);
 }
@@ -242,7 +242,7 @@ void server_prepare_cluster(struct server *s)
     if (s->conf.cmdline.empty) {
         rc = file_clear_dir(s->conf.node.dir, RS_STORE_EXTENSION);
         if (rc != RS_OK) {
-            rs_abort("cleardir");
+            rs_abort("clear dir");
         }
     }
 }
@@ -300,12 +300,12 @@ void server_read_meta(struct server *s)
 
         size = file_size(&file);
         sc_buf_clear(&s->tmp);
-        sc_buf_reserve(&s->tmp, size);
+        sc_buf_reserve(&s->tmp, (uint32_t) size);
 
-        file_read(&file, sc_buf_wbuf(&s->tmp), size);
+        file_read(&file, sc_buf_wbuf(&s->tmp), (size_t) size);
         file_term(&file);
 
-        sc_buf_mark_write(&s->tmp, size);
+        sc_buf_mark_write(&s->tmp, (uint32_t) size);
         sc_str_set(&s->conf.node.name, sc_buf_get_str(&s->tmp));
         sc_str_set(&s->voted_for, sc_buf_get_str(&s->tmp));
         meta_decode(&s->meta, &s->tmp);
@@ -391,7 +391,7 @@ static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
     (void) fd;
 
     char c;
-    size_t size;
+    int size;
 
     size = sc_sock_pipe_read(&s->efd, &c, sizeof(c));
     assert(size == 1);
@@ -737,7 +737,7 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
 
 static void server_schedule_election(struct server *s)
 {
-    uint32_t t = s->conf.advanced.heartbeat + (rs_rand() % 2048);
+    uint64_t t = s->conf.advanced.heartbeat + (rs_rand() % 2048);
     s->election_timer = sc_timer_add(&s->timer, t, SERVER_TIMER_ELECTION, NULL);
 }
 
@@ -1086,12 +1086,12 @@ static void server_on_prevote_resp(struct server *s, struct node *node,
 }
 
 static void server_on_applied_entry(struct server *s, uint64_t index,
-                                    char *entry, struct session *session);
+                                    unsigned char *entry, struct session *sess);
 
 void server_on_append_req(struct server *s, struct node *node, struct msg *msg)
 {
     int rc;
-    char *entry, *curr;
+    unsigned char *entry, *curr;
     uint64_t index;
     struct session *session;
     struct msg_append_req *req = &msg->append_req;
@@ -1527,8 +1527,6 @@ static void server_prepare_start(struct server *s)
 
 static void server_on_meta(struct server *s, struct meta *meta)
 {
-    bool b;
-
     if (meta->index < s->meta.index) {
         return;
     }
@@ -1597,13 +1595,13 @@ static void server_on_applied_client_req(struct server *s, uint64_t cid,
 }
 
 static void server_on_applied_entry(struct server *s, uint64_t index,
-                                    char *entry, struct session *sess)
+                                    unsigned char *entry, struct session *sess)
 {
     (void) index;
 
-    enum cmd_id type = entry_flags(entry);
+    enum cmd_id c = (enum cmd_id) entry_flags(entry);
 
-    switch (type) {
+    switch (c) {
     case CMD_META:
         server_on_meta(s, &s->state.meta);
         break;
@@ -1650,7 +1648,7 @@ static void server_check_commit(struct server *s)
     int rc;
     uint64_t match, round_index;
     uint32_t index = s->meta.voter / 2;
-    char *entry;
+    unsigned char *entry;
     struct client *c;
     struct sc_list *n, *it;
     struct session *session;
@@ -1701,7 +1699,7 @@ static void server_check_commit(struct server *s)
 static void server_job_add_node(struct server *s, struct server_job *job)
 {
     bool b;
-    const char *msg = "";
+    const char *msg;
     struct sc_uri *uri = NULL;
 
     if (s->meta.prev != NULL) {
@@ -1736,8 +1734,8 @@ out:
 static void server_job_remove_node(struct server *s, struct server_job *job)
 {
     bool b;
+    const char *msg;
     const char *name = job->data;
-    const char *msg = "";
 
     if (s->meta.prev != NULL) {
         msg = "Rejected config change, there is a pending change in progress.";
@@ -1780,8 +1778,6 @@ static void server_job_shutdown(struct server *s, struct server_job *job)
 
 static void server_handle_jobs(struct server *s)
 {
-    bool b;
-    struct sc_uri *uri;
     struct server_job job;
 
     sc_queue_foreach (s->jobs, job) {
@@ -1824,7 +1820,7 @@ static void server_flush_snapshot(struct server *s, struct node *n)
                    n->ss_index, n->name);
     }
 
-    len = sc_min(BATCH_SIZE, s->ss.map.len - n->ss_pos);
+    len = (uint32_t) sc_min(BATCH_SIZE, s->ss.map.len - n->ss_pos);
     data = s->ss.map.ptr + n->ss_pos;
     done = n->ss_pos + len == s->ss.map.len;
 
@@ -1848,10 +1844,10 @@ flush:
 static void server_flush(struct server *s)
 {
     int rc;
-    char *entries;
     uint32_t size, count;
     uint64_t prev;
     uint64_t timeout = s->conf.advanced.heartbeat;
+    unsigned char *entries;
     struct sc_list *l, *tmp;
     struct node *n;
     struct client *client;
@@ -1977,7 +1973,8 @@ disconnect:
 static void *server_run(void *arg)
 {
     int rc, events = 0, retry = 1;
-    uint32_t timeo, ev;
+    uint32_t ev;
+    uint64_t to;
     struct sc_sock_fd *fd;
     struct server *s = arg;
     struct sc_sock_poll *loop = &s->loop;
@@ -2000,9 +1997,9 @@ static void *server_run(void *arg)
     while (!s->stop_requested) {
         s->timestamp = sc_time_mono_ms();
 
-        timeo = sc_timer_timeout(&s->timer, s->timestamp, s, server_on_timeout);
+        to = sc_timer_timeout(&s->timer, s->timestamp, s, server_on_timeout);
         retry--;
-        events = sc_sock_poll_wait(loop, retry > 0 ? 0 : (int) timeo);
+        events = sc_sock_poll_wait(loop, retry > 0 ? 0 : (int) to);
 
         for (int i = 0; i < events; i++) {
             retry = 100;
@@ -2074,7 +2071,7 @@ int server_stop(struct server *s)
     int rc;
 
     sc_sock_pipe_write(&s->efd, &(char){1}, 1);
-    rc = (intptr_t) sc_thread_term(&s->thread);
+    rc = (int) (intptr_t) sc_thread_term(&s->thread);
 
     server_destroy(s);
 

@@ -18,14 +18,13 @@
  */
 
 
-#include "rs.h"
 #include "session.h"
+
+#include "rs.h"
 #include "state.h"
 
-#include "sc/sc_buf.h"
 #include "sc/sc_str.h"
 
-#include <string.h>
 #include <time.h>
 
 struct session *session_create(struct state *state, const char *name,

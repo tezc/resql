@@ -18,11 +18,11 @@
  */
 
 #include "conn.h"
+
 #include "metric.h"
 #include "rs.h"
+#include "server.h"
 
-#include "sc/sc_sock.h"
-#include "sc/sc_timer.h"
 #include "sc/sc_uri.h"
 
 struct conn *conn_create(struct sc_sock_poll *loop, struct sc_timer *timer,
@@ -193,7 +193,7 @@ retry:
 
     rc = sc_sock_recv(&c->sock, buf, cap, 0);
     if (rc > 0) {
-        sc_buf_mark_write(&c->in, rc);
+        sc_buf_mark_write(&c->in, (uint32_t) rc);
         metric_recv(rc);
     }
 
@@ -212,7 +212,7 @@ void conn_disallow_read(struct conn *c)
     sc_sock_poll_del(c->poll, fdt, SC_SOCK_READ, fdt);
 }
 
-void conn_set_type(struct conn *c, enum server_fd_type type)
+void conn_set_type(struct conn *c, int type)
 {
     c->sock.fdt.type = type;
 }
@@ -253,7 +253,7 @@ retry:
     }
 
     metric_send(rc);
-    sc_buf_mark_read(&c->out, rc);
+    sc_buf_mark_read(&c->out, (uint32_t) rc);
 
     if (sc_buf_size(&c->out) > 0) {
         goto retry;

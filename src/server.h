@@ -23,7 +23,6 @@
 
 #include "conf.h"
 #include "metric.h"
-#include "msg.h"
 #include "snapshot.h"
 #include "state.h"
 #include "store.h"
@@ -106,7 +105,7 @@ struct server
 
     char* passwd;
 
-    // Cluster managemenent
+    // Cluster management
     char *meta_path;
     char *meta_tmp_path;
 

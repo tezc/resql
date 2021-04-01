@@ -18,19 +18,18 @@
  */
 
 
+#include "snapshot.h"
+
 #include "file.h"
 #include "page.h"
 #include "rs.h"
 #include "server.h"
-#include "snapshot.h"
 
 #include "sc/sc_log.h"
 #include "sc/sc_str.h"
 #include "sc/sc_time.h"
 
 #include <errno.h>
-#include <fcntl.h>
-#include <stddef.h>
 
 
 struct snapshot_task
@@ -47,8 +46,8 @@ void snapshot_init(struct snapshot *ss, struct server *server)
     int rc;
 
     ss->server = server;
-    ss->path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
-                                 "snapshot.resql");
+    ss->path =
+            sc_str_create_fmt("%s/%s", server->conf.node.dir, "snapshot.resql");
     ss->tmp_path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
                                      "snapshot.tmp.resql");
     ss->tmp_recv_path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
@@ -187,7 +186,7 @@ void snapshot_take(struct snapshot *ss, struct page *page)
 static void snapshot_compact(struct snapshot *ss, struct page *page)
 {
     int rc;
-    uint32_t first, last;
+    uint64_t first, last;
     struct state state;
 
     uint64_t start = sc_time_mono_ns();
@@ -202,7 +201,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
     first = page->prev_index + 1;
     last = page_last_index(page);
 
-    for (uint32_t j = first; j <= last; j++) {
+    for (uint64_t j = first; j <= last; j++) {
         state_apply(&state, j, page_entry_at(page, j));
     }
 
@@ -217,7 +216,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
     ss->latest_term = state.term;
     ss->latest_index = state.index;
     ss->time = (sc_time_mono_ns() - start);
-    ss->size = file_size_at(state.ss_path);
+    ss->size = (size_t) file_size_at(state.ss_path);
 
     state_term(&state);
     sc_cond_signal(&ss->cond, (void *) (uintptr_t) RS_OK);
@@ -237,7 +236,7 @@ void snapshot_set_thread_name(struct snapshot *ss)
 
 static void *snapshot_run(void *arg)
 {
-    size_t size;
+    int size;
     struct snapshot *ss = arg;
     struct snapshot_task task;
 

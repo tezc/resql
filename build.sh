@@ -81,7 +81,7 @@ fi
 
 echo "Tests has been completed successfully."
 
-./resql -w
+rm -rf *.resql
 rm -rf resql resql-cli resql-benchmark build/*
 cd build
 cmake ../.. -DPGO=use

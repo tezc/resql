@@ -17,12 +17,10 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "client.h"
+
 #include "rs.h"
 #include "server.h"
-
-#include "sc/sc_log.h"
 
 struct client *client_create(struct conn *conn, const char *name)
 {
@@ -62,12 +60,7 @@ void client_print(struct client *c, char *buf, size_t len)
 {
     int rc;
 
-    rc = snprintf(buf, len, "Client : %s, ", c->name);
-    if (rc < 0 || (size_t) rc >= len) {
-        *buf = '\0';
-        return;
-    }
-
+    rc = rs_snprintf(buf, len, "Client : %s, ", c->name);
     sc_sock_print(&c->conn.sock, buf + rc, len - rc);
 }
 

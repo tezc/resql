@@ -21,14 +21,14 @@
 #define RESQL_CONN_H
 
 #include "msg.h"
-#include "rs.h"
-#include "server.h"
 
 #include "sc/sc_buf.h"
 #include "sc/sc_list.h"
-#include "sc/sc_map.h"
 #include "sc/sc_sock.h"
-#include "sc/sc_uri.h"
+
+#include <stdint.h>
+
+struct sc_uri;
 
 enum conn_state
 {
@@ -73,7 +73,7 @@ int conn_on_out_connected(struct conn *c);
 int conn_on_writable(struct conn *c);
 int conn_on_readable(struct conn *c);
 void conn_allow_read(struct conn *c);
-void conn_set_type(struct conn *c, enum server_fd_type type);
+void conn_set_type(struct conn *c, int type);
 void conn_disallow_read(struct conn *c);
 void conn_clear_events(struct conn *c);
 int conn_flush(struct conn *c);

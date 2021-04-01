@@ -22,13 +22,10 @@
 #define RESQL_NODE_H
 
 #include "conn.h"
-#include "msg.h"
+#include "meta.h"
 
 #include "sc/sc_list.h"
 #include "sc/sc_map.h"
-#include "sc/sc_sock.h"
-#include "sc/sc_str.h"
-#include "sc/sc_uri.h"
 
 struct node
 {
@@ -54,7 +51,6 @@ struct node
     int id;
     bool known;
     bool voted;
-    uint64_t vote_term;
     enum meta_role role;
 
     uint64_t in_timestamp;
@@ -68,7 +64,7 @@ void node_destroy(struct node *n);
 void node_disconnect(struct node *n);
 void node_update_indexes(struct node *n, uint64_t round, uint64_t match);
 void node_clear_indexes(struct node *n);
-void node_add_uris(struct node *n, struct sc_uri** uris);
+void node_add_uris(struct node *n, struct sc_uri **uris);
 int node_try_connect(struct node *n);
 void node_set_conn(struct node *n, struct conn *conn);
 

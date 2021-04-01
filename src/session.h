@@ -23,9 +23,7 @@
 
 #include "sc/sc_buf.h"
 #include "sc/sc_map.h"
-#include "sc/sc_queue.h"
 #include "sc/sc_list.h"
-#include "sqlite/sqlite3.h"
 
 #include <stdint.h>
 

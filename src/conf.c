@@ -19,17 +19,15 @@
 
 
 #include "conf.h"
-#include "file.h"
+#include "rs.h"
 
 #include "sc/sc_buf.h"
 #include "sc/sc_ini.h"
 #include "sc/sc_log.h"
 #include "sc/sc_option.h"
 #include "sc/sc_str.h"
-#include "sc/sc_time.h"
 
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
 
 #define ANSI_RESET "\x1b[0m"

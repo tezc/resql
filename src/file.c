@@ -19,6 +19,7 @@
 
 
 #include "file.h"
+#include "rs.h"
 
 #include "sc/sc_log.h"
 #include "sc/sc_str.h"
@@ -26,9 +27,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -172,18 +170,6 @@ int file_lseek(struct file *file, size_t offset)
     return fseek(file->fp, offset, SEEK_SET);
 }
 
-int file_vfprintf(struct file *file, const char *fmt, va_list list)
-{
-    int rc;
-
-    rc = vfprintf(file->fp, fmt, list);
-    if (rc < 0) {
-        rs_abort("Failed to write to file : %s \n", file->path);
-    }
-
-    return rc;
-}
-
 const char *file_path(struct file *file)
 {
     return file->path;
@@ -321,7 +307,7 @@ int file_copy(const char *dst, const char *src)
         out = buf;
 
         do {
-            n_written = write(fd_dest, out, n_read);
+            n_written = write(fd_dest, out, (size_t) n_read);
             if (n_written < 0) {
                 if (errno == EINTR) {
                     continue;

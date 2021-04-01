@@ -22,10 +22,11 @@
 #include "test_util.h"
 
 #include "sc/sc_log.h"
+#include "sc/sc_str.h"
 
 int init;
 
-static void init_all()
+void init_all()
 {
     if (!init) {
         setvbuf(stdout, NULL, _IONBF, 0);
@@ -107,6 +108,24 @@ struct server *test_server_start(int id, int cluster_size)
     conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
     s = server_create(&conf);
+
+    rc = server_start(s, true);
+    if (rc != RS_OK) {
+        abort();
+    }
+
+    cluster[id] = s;
+    count++;
+
+    return s;
+}
+
+struct server *test_server_create_conf(struct conf *conf, int id)
+{
+    int rc;
+    struct server *s;
+
+    s = server_create(conf);
 
     rc = server_start(s, true);
     if (rc != RS_OK) {

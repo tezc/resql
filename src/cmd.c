@@ -19,9 +19,6 @@
 
 
 #include "cmd.h"
-#include "meta.h"
-
-#include "sc/sc_str.h"
 #include "sc/sc_time.h"
 
 void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256])
@@ -61,12 +58,6 @@ struct cmd_term_start cmd_decode_term_start(struct sc_buf *buf)
 void cmd_encode_meta(struct sc_buf *buf, struct meta *meta)
 {
     meta_encode(meta, buf);
-}
-
-void cmd_decode_meta_to(void *data, int len, struct meta *meta)
-{
-    struct sc_buf tmp = sc_buf_wrap(data, len, SC_BUF_READ);
-    meta_decode(meta, &tmp);
 }
 
 struct cmd_meta cmd_decode_meta(struct sc_buf *buf)

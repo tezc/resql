@@ -19,7 +19,7 @@
 #ifndef RESQL_INFO_H
 #define RESQL_INFO_H
 
-#include "meta.h"
+#include "sc/sc_buf.h"
 
 struct info
 {

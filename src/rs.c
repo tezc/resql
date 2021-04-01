@@ -18,6 +18,7 @@
  */
 
 #include "file.h"
+#include "rs.h"
 
 #include "sc/sc.h"
 #include "sc/sc_log.h"
@@ -25,7 +26,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -58,16 +58,6 @@ err:
     buf[0] = '\0';
 
     return 0;
-}
-
-void rs_vasprintf(char **buf, const char *fmt, va_list args)
-{
-    int rc;
-
-    rc = vasprintf(buf, fmt, args);
-    if (rc == -1) {
-        rs_abort("vasprintf : %s \n", strerror(errno));
-    }
 }
 
 char *rs_strncpy(char *dest, const char *src, size_t max)
@@ -112,7 +102,8 @@ size_t rs_dir_size(const char *path)
 int rs_write_pid_file(char *path)
 {
     int fd, rc;
-    ssize_t write_len, written;
+    size_t len;
+    ssize_t wr;
     char dir[PATH_MAX];
     char pidstr[32];
 
@@ -148,9 +139,9 @@ int rs_write_pid_file(char *path)
 
     sprintf(pidstr, "%ld", (long) getpid());
 
-    write_len = strlen(pidstr);
-    written = write(fd, pidstr, write_len);
-    if (written != write_len) {
+    len = strlen(pidstr);
+    wr = write(fd, pidstr, len);
+    if (wr < 0 || (size_t) wr != len) {
         close(fd);
         sc_log_error("Failed to write PID number at :'%s'", dir);
         exit(EXIT_FAILURE);
@@ -228,7 +219,7 @@ _Noreturn void rs_on_abort(const char *file, const char *func, int line,
         va_end(args);
     }
 
-    sc_log_error("%s:%s:%d, msg : %s, errno : %d, errnostr : %s \n", file, func,
+    sc_log_error("%s:%s:%d, msg : %s, errno : %d, error : %s \n", file, func,
                  line, buf, errno, strerror(errno));
     abort();
 }

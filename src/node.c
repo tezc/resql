@@ -18,11 +18,14 @@
  */
 
 
-#include "msg.h"
 #include "node.h"
 
-#include "sc/sc.h"
+#include "rs.h"
+#include "server.h"
+
+#include "sc/sc_array.h"
 #include "sc/sc_queue.h"
+#include "sc/sc_str.h"
 #include "sc/sc_uri.h"
 
 struct node *node_create(const char *name, struct server *server, bool connect)

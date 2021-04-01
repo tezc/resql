@@ -18,6 +18,7 @@
  */
 
 #include "msg.h"
+
 #include "rs.h"
 
 #include <assert.h>
@@ -55,12 +56,12 @@ const char *msg_type_str[] = {
 
 // clang-format on
 
-bool msg_create_connect_req(struct sc_buf *buf, int flags,
+bool msg_create_connect_req(struct sc_buf *buf, uint32_t flags,
                             const char *cluster_name, const char *name)
 {
     uint32_t head = sc_buf_wpos(buf);
-    uint32_t len = MSG_SIZE_LEN + MSG_TYPE_LEN +
-                   sc_buf_32_len(flags) + sc_buf_str_len(MSG_RESQL_STR) +
+    uint32_t len = MSG_SIZE_LEN + MSG_TYPE_LEN + sc_buf_32_len(flags) +
+                   sc_buf_str_len(MSG_RESQL_STR) +
                    sc_buf_str_len(cluster_name) + sc_buf_str_len(name);
 
     sc_buf_put_32(buf, len);
@@ -160,22 +161,6 @@ bool msg_create_client_req(struct sc_buf *buf, bool readonly, uint64_t seq,
     }
 
     return true;
-}
-
-bool msg_create_client_req_header(struct sc_buf *buf)
-{
-    sc_buf_set_wpos(buf, MSG_CLIENT_REQ_HEADER);
-    return sc_buf_valid(buf);
-}
-
-bool msg_finalize_client_req(struct sc_buf *buf, bool readonly, uint64_t seq)
-{
-    sc_buf_set_32_at(buf, 0, sc_buf_wpos(buf));
-    sc_buf_set_8_at(buf, 4, MSG_CLIENT_REQ);
-    sc_buf_set_8_at(buf, 5, readonly);
-    sc_buf_set_64_at(buf, 6, seq);
-
-    return sc_buf_valid(buf);
 }
 
 bool msg_create_client_resp_header(struct sc_buf *buf)
@@ -445,7 +430,7 @@ int msg_parse(struct sc_buf *buf, struct msg *msg)
     tmp = sc_buf_wrap(p, len, SC_BUF_READ);
 
     msg->len = sc_buf_get_32(&tmp);
-    msg->type = sc_buf_get_8(&tmp);
+    msg->type = (enum msg_type) sc_buf_get_8(&tmp);
 
     switch (msg->type) {
     case MSG_CONNECT_REQ:
@@ -456,19 +441,19 @@ int msg_parse(struct sc_buf *buf, struct msg *msg)
         break;
 
     case MSG_CONNECT_RESP:
-        msg->connect_resp.rc = sc_buf_get_8(&tmp);
+        msg->connect_resp.rc = (enum msg_rc) sc_buf_get_8(&tmp);
         msg->connect_resp.sequence = sc_buf_get_64(&tmp);
         msg->connect_resp.term = sc_buf_get_64(&tmp);
         msg->connect_resp.nodes = sc_buf_get_str(&tmp);
         break;
 
     case MSG_DISCONNECT_REQ:
-        msg->disconnect_req.rc = sc_buf_get_8(&tmp);
+        msg->disconnect_req.rc = (enum msg_rc) sc_buf_get_8(&tmp);
         msg->disconnect_req.flags = sc_buf_get_32(&tmp);
         break;
 
     case MSG_DISCONNECT_RESP:
-        msg->disconnect_resp.rc = sc_buf_get_8(&tmp);
+        msg->disconnect_resp.rc = (enum msg_rc) sc_buf_get_8(&tmp);
         msg->disconnect_resp.flags = sc_buf_get_32(&tmp);
         break;
 
@@ -714,15 +699,6 @@ static void msg_print_shutdown_req(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_shutdown_req *m = &msg->shutdown_req;
     sc_buf_put_text(buf, "| %-15s | %llu \n", "Now", m->now ? "true" : "false");
-}
-
-void msg_print_network(struct msg *msg, const char *op, const char *from,
-                       const char *to, struct sc_buf *buf)
-{
-    sc_buf_put_text(buf, "\n");
-    sc_buf_put_text(buf, "%s \n", "------------------------------------");
-    sc_buf_put_text(buf, "| [%s]   %s ======> %s ", op, from, to);
-    msg_print(msg, buf);
 }
 
 void msg_print(struct msg *msg, struct sc_buf *buf)

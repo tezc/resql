@@ -21,13 +21,13 @@
 #include "entry.h"
 #include "page.h"
 #include "store.h"
+#include "rs.h"
 
-#include "sc/sc.h"
 #include "sc/sc_array.h"
 #include "sc/sc_log.h"
+#include "sc/sc_str.h"
 
 #include <limits.h>
-#include <string.h>
 
 #define STORE_MAX_ENTRY_SIZE (512 * 1024 * 1024)
 #define DEF_PAGE_FILE_0      "page.0.resql"
@@ -46,7 +46,7 @@ static void store_read(struct store *s)
 {
     int rc;
     char buf[PATH_MAX];
-    uint32_t c;
+    size_t c;
 
     rs_snprintf(buf, sizeof(buf), "%s/%s", s->path, DEF_PAGE_FILE_0);
     rc = page_init(s->pages[0], buf, -1, s->ss_index);
@@ -68,7 +68,7 @@ static void store_read(struct store *s)
         page_clear(s->pages[0], s->ss_index);
     }
 
-    if (s->pages[1]->prev_index != page_next_index(s->pages[0])) {
+    if (s->pages[1]->prev_index != page_last_index(s->pages[0])) {
         page_clear(s->pages[1], 0);
     }
 
@@ -77,10 +77,10 @@ static void store_read(struct store *s)
     }
 
     sc_log_info("Log page [%s] from (%llu, %llu] \n", s->pages[0]->path,
-                s->pages[0]->prev_index, page_next_index(s->pages[0]));
+                s->pages[0]->prev_index, page_last_index(s->pages[0]));
 
     sc_log_info("Log page [%s] from (%llu, %llu] \n", s->pages[1]->path,
-                s->pages[1]->prev_index, page_next_index(s->pages[1]));
+                s->pages[1]->prev_index, page_last_index(s->pages[1]));
 
     c = sc_array_size(s->pages[1]->entries);
     s->curr = (c > 0) ? s->pages[1] : s->pages[0];
@@ -184,7 +184,7 @@ int store_expand(struct store *s)
     return RS_OK;
 }
 
-int store_put_entry(struct store *s, uint64_t index, char *entry)
+int store_put_entry(struct store *s, uint64_t index, unsigned char *entry)
 {
     assert(index == s->last_index + 1);
     assert(s->last_term <= entry_term(entry));
@@ -216,9 +216,9 @@ retry:
     return RS_OK;
 }
 
-char *store_get_entry(struct store *s, uint64_t index)
+unsigned char *store_get_entry(struct store *s, uint64_t index)
 {
-    char *entry;
+    unsigned char *entry;
 
     entry = page_entry_at(s->pages[0], index);
     if (entry == NULL) {
@@ -230,14 +230,14 @@ char *store_get_entry(struct store *s, uint64_t index)
 
 uint64_t store_prev_term_of(struct store *s, uint64_t index)
 {
-    char *entry;
+    unsigned char *entry;
 
     entry = store_get_entry(s, index);
     return entry != NULL ? entry_term(entry) : s->ss_term;
 }
 
 void store_entries(struct store *s, uint64_t index, uint32_t limit,
-                   char **entries, uint32_t *size, uint32_t *count)
+                   unsigned char **entries, uint32_t *size, uint32_t *count)
 {
     page_get_entries(s->pages[0], index, limit, entries, size, count);
     if (*entries == NULL) {

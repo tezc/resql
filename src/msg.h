@@ -22,12 +22,10 @@
 
 #include "sc/sc_buf.h"
 #include "sc/sc_list.h"
-#include "sc/sc_str.h"
 
 #include <stdint.h>
 
 #define MSG_CONNECT_TYPE      0x01
-#define MSG_REMOTE_LEN        1u
 #define MSG_RC_LEN            1u
 #define MSG_MAX_SIZE          (2 * 1000 * 1000 * 1000)
 
@@ -159,7 +157,7 @@ struct msg_append_req
     uint64_t leader_commit;
     uint64_t round;
 
-    uint8_t *buf;
+    unsigned char *buf;
     uint32_t len;
 };
 
@@ -207,8 +205,8 @@ struct msg_snapshot_req
     uint64_t offset;
     bool done;
 
-    uint8_t *buf;
-    size_t len;
+    unsigned char *buf;
+    uint32_t len;
 };
 
 struct msg_snapshot_resp
@@ -257,12 +255,9 @@ struct msg
     uint32_t len;
 };
 
-void msg_print_network(struct msg *msg, const char *op, const char *from,
-                       const char *to, struct sc_buf *buf);
-
 void msg_print(struct msg *msg, struct sc_buf *buf);
 
-bool msg_create_connect_req(struct sc_buf *buf, int flags,
+bool msg_create_connect_req(struct sc_buf *buf, uint32_t flags,
                             const char *cluster_name, const char *name);
 
 bool msg_create_connect_resp(struct sc_buf *buf, enum msg_rc rc, uint64_t seq,
@@ -272,10 +267,8 @@ bool msg_create_disconnect_req(struct sc_buf *buf, enum msg_rc rc,
                                uint32_t flags);
 bool msg_create_disconnect_resp(struct sc_buf *buf, enum msg_rc rc,
                                 uint32_t flags);
-
-bool msg_create_client_req_header(struct sc_buf *buf);
-bool msg_finalize_client_req(struct sc_buf *buf, bool readonly, uint64_t seq);
-
+bool msg_create_client_req(struct sc_buf *buf, bool readonly, uint64_t seq,
+                           void *req, uint32_t size);
 bool msg_create_client_resp_header(struct sc_buf *buf);
 bool msg_finalize_client_resp(struct sc_buf *buf);
 

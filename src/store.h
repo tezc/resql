@@ -21,11 +21,7 @@
 #ifndef RESQL_STORE_H
 #define RESQL_STORE_H
 
-#include "file.h"
 #include "page.h"
-
-#include "sc/sc_buf.h"
-#include "sc/sc_list.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -58,14 +54,14 @@ int store_expand(struct store *s);
 
 int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
                        uint64_t cid, uint32_t flags, void *data, uint32_t len);
-int store_put_entry(struct store *store, uint64_t index, char *entry);
 
-char *store_get_entry(struct store *s, uint64_t index);
+int store_put_entry(struct store *store, uint64_t index, unsigned char *entry);
+
+unsigned char *store_get_entry(struct store *s, uint64_t index);
 uint64_t store_prev_term_of(struct store *s, uint64_t index);
 
 void store_entries(struct store *s, uint64_t index, uint32_t limit,
-                       char **entries, uint32_t *size,
-                       uint32_t *count);
+                   unsigned char **entries, uint32_t *size, uint32_t *count);
 
 void store_remove_after(struct store *s, uint64_t index);
 

@@ -20,11 +20,14 @@
 #ifndef RESQL_AUX_H
 #define RESQL_AUX_H
 
-#include "info.h"
-#include "meta.h"
-#include "session.h"
-
 #include "sqlite/sqlite3.h"
+
+#include <stdint.h>
+
+struct sc_buf;
+struct info;
+struct session;
+
 
 struct aux
 {
@@ -53,7 +56,8 @@ int aux_prepare(struct aux *aux);
 int aux_clear_info(struct aux *aux);
 int aux_write_info(struct aux *aux, struct info *info);
 int aux_read_info(struct aux *aux, struct info *info, sqlite3_stmt *stmt);
-int aux_add_log(struct aux *aux, uint64_t id, const char *level, const char *log);
+int aux_add_log(struct aux *aux, uint64_t id, const char *level,
+                const char *log);
 
 int aux_write_session(struct aux *aux, struct session *s);
 int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,

@@ -248,6 +248,13 @@ endif ()
 
 # -------------------- Code Coverage End ------------------------ #
 
+# -------------------- Clang Tidy Start ------------------------- #
+if (RESQL_CLANG_TIDY)
+    message(STATUS "Enabled CLANG_TIDY")
+
+    set(CMAKE_C_CLANG_TIDY "clang-tidy")
+endif ()
+# -------------------- Clang Tidy End --------------------------- #
 
 # -------------------- Compile Flags Start ---------------------- #
 

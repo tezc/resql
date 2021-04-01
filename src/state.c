@@ -17,23 +17,20 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "state.h"
 
-#include "aux.h"
 #include "cmd.h"
+#include "entry.h"
 #include "file.h"
 #include "info.h"
 #include "metric.h"
 #include "msg.h"
 #include "session.h"
-#include "state.h"
 
-#include "sc/sc_buf.h"
+#include "sc/sc_array.h"
 #include "sc/sc_log.h"
 #include "sc/sc_uri.h"
-#include "sqlite/sqlite3.h"
-
-#include <assert.h>
-#include <unistd.h>
+#include "sc/sc_str.h"
 
 #define STATE_FILE        "state.resql"
 #define STATE_SS_FILE     "snapshot.resql"
@@ -132,7 +129,7 @@ int state_currenttime(sqlite3_vfs *vfs, sqlite3_int64 *val)
 
     const uint64_t unixEpoch = 24405875 * (uint64_t) 8640000;
 
-    *val = unixEpoch + t_state->realtime;
+    *val = (unixEpoch + t_state->realtime);
     return SQLITE_OK;
 }
 
@@ -196,7 +193,7 @@ int state_global_shutdown()
 void state_init(struct state *st, struct state_cb cb, const char *path,
                 const char *name)
 {
-    *st = (struct state){{0}};
+    memset(st, 0, sizeof *st);
 
     st->cb = cb;
     st->path = sc_str_create_fmt("%s/%s", path, STATE_FILE);
@@ -230,7 +227,7 @@ int state_authorizer(void *user, int action, const char *arg0, const char *arg1,
     (void) arg2;
     (void) arg3;
 
-    uint32_t len;
+    size_t len;
     struct state *st = user;
 
     if (!st->client) {
@@ -315,8 +312,8 @@ int state_write_vars(struct state *st, struct aux *aux)
     sc_buf_put_64(&st->tmp, st->timestamp);
     sc_buf_put_64(&st->tmp, st->realtime);
     sc_buf_put_64(&st->tmp, st->monotonic);
-    sc_buf_put_64(&st->tmp, st->wrand.i);
-    sc_buf_put_64(&st->tmp, st->wrand.j);
+    sc_buf_put_8(&st->tmp, st->wrand.i);
+    sc_buf_put_8(&st->tmp, st->wrand.j);
     sc_buf_put_raw(&st->tmp, st->wrand.init, sizeof(st->wrand.init));
 
     rc = aux_write_kv(aux, "var", &st->tmp);
@@ -325,7 +322,7 @@ int state_write_vars(struct state *st, struct aux *aux)
     }
 
     sc_buf_clear(&st->tmp);
-    sc_buf_put_raw(&st->tmp, st->meta.name, sc_str_len(st->meta.name) + 1);
+    sc_buf_put_raw(&st->tmp, st->meta.name, (uint32_t) sc_str_len(st->meta.name) + 1);
 
     return aux_write_kv(aux, "cluster_name", &st->tmp);
 }
@@ -351,8 +348,8 @@ int state_read_vars(struct state *st, struct aux *aux)
     st->timestamp = sc_buf_get_64(&st->tmp);
     st->realtime = sc_buf_get_64(&st->tmp);
     st->monotonic = sc_buf_get_64(&st->tmp);
-    st->wrand.i = sc_buf_get_64(&st->tmp);
-    st->wrand.j = sc_buf_get_64(&st->tmp);
+    st->wrand.i = sc_buf_get_8(&st->tmp);
+    st->wrand.j = sc_buf_get_8(&st->tmp);
     sc_buf_get_data(&st->tmp, st->wrand.init, sizeof(st->wrand.init));
     sc_rand_init(&st->rrand, st->wrand.init);
 
@@ -490,7 +487,7 @@ void state_open(struct state *st, bool in_memory)
             rs_abort("db");
         }
 
-        metric_snapshot(true, 1000, file_size_at(st->ss_path));
+        metric_snapshot(true, 1000, (size_t) file_size_at(st->ss_path));
     }
 
     sc_log_info("Opened snapshot at index [%llu] \n", st->index);
@@ -664,10 +661,12 @@ void state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
     state_write_infos(st, &st->aux);
     state_write_vars(st, &st->aux);
 
-    char* str = sc_str_create_fmt("Term[%lu] : ", st->meta.term);
+    char *str = sc_str_create_fmt("Term[%lu] : ", st->meta.term);
 
     sc_array_foreach (st->meta.nodes, node) {
-        sc_str_append_fmt(&str, "[%s:%s:%s] ", node.name, meta_role_str[node.role], node.connected ? "connected" : "disconnected");
+        sc_str_append_fmt(&str, "[%s:%s:%s] ", node.name,
+                          meta_role_str[node.role],
+                          node.connected ? "connected" : "disconnected");
     }
 
     aux_add_log(&st->aux, index, "INFO", str);
@@ -812,10 +811,10 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
         } break;
 
         case TASK_PARAM_BLOB: {
-            uint32_t blen = sc_buf_get_32(req);
-            void *data = sc_buf_get_blob(req, blen);
+            uint32_t len = sc_buf_get_32(req);
+            void *data = sc_buf_get_blob(req, len);
 
-            rc = sqlite3_bind_blob(stmt, idx, data, blen, SQLITE_STATIC);
+            rc = sqlite3_bind_blob(stmt, idx, data, len, SQLITE_STATIC);
             if (rc != SQLITE_OK) {
                 return RS_ERROR;
             }
@@ -836,14 +835,14 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
 
     rc = sqlite3_step(stmt);
 
-    sc_buf_put_32(resp, sqlite3_changes(st->aux.db));
-    sc_buf_put_64(resp, sqlite3_last_insert_rowid(st->aux.db));
+    sc_buf_put_32(resp, (uint32_t) sqlite3_changes(st->aux.db));
+    sc_buf_put_64(resp, (uint64_t) sqlite3_last_insert_rowid(st->aux.db));
 
     if (rc == SQLITE_ROW) {
         sc_buf_put_8(resp, TASK_FLAG_ROW);
 
         int column_count = sqlite3_column_count(stmt);
-        sc_buf_put_32(resp, column_count);
+        sc_buf_put_32(resp, (uint32_t) column_count);
 
         for (int i = 0; i < column_count; i++) {
             const char *name = sqlite3_column_name(stmt, i);
@@ -864,7 +863,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
                 case SQLITE_INTEGER: {
                     int64_t val = sqlite3_column_int64(stmt, i);
                     sc_buf_put_8(resp, TASK_PARAM_INTEGER);
-                    sc_buf_put_64(resp, val);
+                    sc_buf_put_64(resp, (uint64_t) val);
                 } break;
 
                 case SQLITE_FLOAT: {
@@ -1083,7 +1082,7 @@ int state_exec_request(struct state *st, struct session *sess, uint64_t index,
 
     sc_buf_put_8(resp, TASK_FLAG_OK);
 
-    flag = sc_buf_get_8(&req);
+    flag = (enum task_flag) sc_buf_get_8(&req);
     rc = state_exec_non_stmt_task(st, sess, index, flag, &req, resp);
     if (rc != RS_NOOP) {
         return RS_OK;
@@ -1126,7 +1125,7 @@ int state_exec_request(struct state *st, struct session *sess, uint64_t index,
             break;
         }
 
-        flag = sc_buf_get_8(&req);
+        flag = (enum task_flag) sc_buf_get_8(&req);
 
     } while (true);
 
@@ -1163,7 +1162,7 @@ error:
 }
 
 struct session *state_on_client_request(struct state *st, uint64_t index,
-                                        char *entry)
+                                        unsigned char *entry)
 {
     bool found;
     uint32_t len;
@@ -1224,7 +1223,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
         goto error;
     }
 
-    flag = sc_buf_get_8(&req);
+    flag = (enum task_flag) sc_buf_get_8(&req);
 
     do {
         sc_buf_put_8(resp, TASK_FLAG_STMT);
@@ -1256,7 +1255,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
             break;
         }
 
-        flag = sc_buf_get_8(&req);
+        flag = (enum task_flag) sc_buf_get_8(&req);
 
     } while (true);
 
@@ -1292,7 +1291,7 @@ error:
     return RS_OK;
 }
 
-struct session *state_apply(struct state *st, uint64_t index, char *entry)
+struct session *state_apply(struct state *st, uint64_t index, unsigned char *entry)
 {
     struct sc_buf cmd;
     enum cmd_id type;
@@ -1307,7 +1306,7 @@ struct session *state_apply(struct state *st, uint64_t index, char *entry)
     st->index = index;
 
     cmd = sc_buf_wrap(entry_data(entry), entry_data_len(entry), SC_BUF_READ);
-    type = entry_flags(entry);
+    type = (enum cmd_id) entry_flags(entry);
 
     switch (type) {
     case CMD_INIT: {

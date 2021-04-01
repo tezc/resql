@@ -19,6 +19,7 @@
 
 
 #include "metric.h"
+
 #include "rs.h"
 
 #include "sc/sc.h"
@@ -28,9 +29,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/resource.h>
 #include <sys/statvfs.h>
 #include <time.h>
@@ -62,7 +60,7 @@ static size_t metric_free_disk(const char *dir)
  * 3) Was modified for Redis by Matt Stancliff.
  * 4) This note exists in order to comply with the original license.
  */
-static size_t metric_get_pyhsical_memory(void)
+static size_t metric_get_physical_memory(void)
 {
 #if defined(__unix__) || defined(__unix) || defined(unix) ||                   \
         (defined(__APPLE__) && defined(__MACH__))
@@ -150,7 +148,7 @@ size_t metric_get_rss(struct metric *metric)
     }
     *x = '\0';
 
-    rss = strtoll(p, NULL, 10);
+    rss = (size_t) strtoll(p, NULL, 10);
     rss *= sysconf(_SC_PAGESIZE);
 
     return rss;
@@ -211,21 +209,24 @@ thread_local struct metric *tl_metric;
 
 void metric_init(struct metric *m, const char *dir)
 {
+    time_t t;
+    struct tm *tm, result;
+
     tl_metric = m;
 
     *m = (struct metric){0};
 
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
+    t = time(NULL);
+    tm = localtime_r(&t, &result);
 
-    strftime(m->start, sizeof(m->start) - 1, "%d-%m-%Y %H:%M", t);
+    strftime(m->start, sizeof(m->start) - 1, "%d-%m-%Y %H:%M", tm);
 
     if (uname(&m->utsname) != 0) {
         rs_abort("uname : %s \n", strerror(errno));
     }
 
     m->pid = getpid();
-    m->total_memory = metric_get_pyhsical_memory();
+    m->total_memory = metric_get_physical_memory();
     m->start_time = sc_time_ms();
     m->bytes_recv = 0;
     m->bytes_sent = 0;
@@ -240,12 +241,12 @@ void metric_term(struct metric *metric)
     (void) metric;
 }
 
-void metric_recv(uint64_t val)
+void metric_recv(int64_t val)
 {
     tl_metric->bytes_recv += val;
 }
 
-void metric_send(uint64_t val)
+void metric_send(int64_t val)
 {
     tl_metric->bytes_sent += val;
 }
@@ -263,7 +264,7 @@ void metric_fsync(uint64_t val)
     m->fsync_count++;
 }
 
-void metric_snapshot(bool success, uint64_t time, uint64_t size)
+void metric_snapshot(bool success, uint64_t time, size_t size)
 {
     struct metric *m = tl_metric;
 
@@ -280,12 +281,17 @@ void metric_snapshot(bool success, uint64_t time, uint64_t size)
 
 int metric_encode(struct metric *m, struct sc_buf *buf)
 {
-    char tmp[128];
-    ssize_t sz;
+    char b[128];
+    time_t t;
+    size_t sz;
     uint64_t ts, val, div;
-    struct rusage usage = (struct rusage){{0}};
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
+    struct rusage u;
+    struct tm result, *tm;
+
+    t = time(NULL);
+    tm = localtime_r(&t, &result);
+
+    memset(&u, 0, sizeof(u));
 
     sc_buf_put_str(buf, RS_VERSION);
     sc_buf_put_str(buf, RS_GIT_BRANCH);
@@ -296,9 +302,9 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     sc_buf_put_str(buf, DEF_ARCH);
     sc_buf_put_fmt(buf, "%ld", m->pid);
 
-    strftime(tmp, sizeof(tmp) - 1, "%d-%m-%Y %H:%M", t);
+    strftime(b, sizeof(b) - 1, "%d-%m-%Y %H:%M", tm);
 
-    sc_buf_put_str(buf, tmp);
+    sc_buf_put_str(buf, b);
     sc_buf_put_str(buf, m->start);
     sc_buf_put_fmt(buf, "%llu", m->start_time);
 
@@ -306,28 +312,23 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     sc_buf_put_fmt(buf, "%llu", ts);
     sc_buf_put_fmt(buf, "%llu", ts / (60 * 60 * 24));
 
-    if (getrusage(RUSAGE_SELF, &usage) != 0) {
+    if (getrusage(RUSAGE_SELF, &u) != 0) {
         sc_log_error("getrusage : %s \n", strerror(errno));
     }
 
-    sc_buf_put_fmt(buf, "%ld.%06ld", usage.ru_stime.tv_sec,
-                   usage.ru_stime.tv_usec);
-    sc_buf_put_fmt(buf, "%ld.%06ld", usage.ru_utime.tv_sec,
-                   usage.ru_utime.tv_usec);
+    sc_buf_put_fmt(buf, "%ld.%06ld", u.ru_stime.tv_sec, u.ru_stime.tv_usec);
+    sc_buf_put_fmt(buf, "%ld.%06ld", u.ru_utime.tv_sec, u.ru_utime.tv_usec);
     sc_buf_put_fmt(buf, "%llu", m->bytes_recv);
     sc_buf_put_fmt(buf, "%llu", m->bytes_sent);
-    sc_buf_put_fmt(buf, "%s",
-                   sc_bytes_to_size(tmp, sizeof(tmp), m->bytes_recv));
-    sc_buf_put_fmt(buf, "%s",
-                   sc_bytes_to_size(tmp, sizeof(tmp), m->bytes_sent));
+    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->bytes_recv));
+    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->bytes_sent));
 
     sc_buf_put_fmt(buf, "%llu", m->total_memory);
-    sc_buf_put_fmt(buf, "%s",
-                   sc_bytes_to_size(tmp, sizeof(tmp), m->total_memory));
+    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->total_memory));
 
     sz = metric_get_rss(m);
-    sc_buf_put_fmt(buf, "%llu", sz);
-    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(tmp, sizeof(tmp), sz));
+    sc_buf_put_fmt(buf, "%zu", sz);
+    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
 
     sc_buf_put_fmt(buf, "%f", ((double) m->fsync_max) / 1000000);
 
@@ -336,7 +337,7 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 
     sc_buf_put_fmt(buf, "%s", m->ss_success ? "true" : "false");
     sc_buf_put_fmt(buf, "%llu", m->ss_size);
-    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(tmp, sizeof(tmp), m->ss_size));
+    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->ss_size));
     sc_buf_put_fmt(buf, "%f", ((double) m->ss_max) / 1000000);
 
     val = (m->ss_count == 0 ? 1 : m->ss_count);
@@ -344,12 +345,12 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
     sc_buf_put_str(buf, m->dir);
 
     sz = rs_dir_size(m->dir);
-    sc_buf_put_fmt(buf, "%llu", sz);
-    sc_buf_put_str(buf, sc_bytes_to_size(tmp, sizeof(tmp), sz));
+    sc_buf_put_fmt(buf, "%zu", sz);
+    sc_buf_put_str(buf, sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
 
     sz = metric_free_disk(m->dir);
-    sc_buf_put_fmt(buf, "%llu", sz);
-    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(tmp, sizeof(tmp), sz));
+    sc_buf_put_fmt(buf, "%zu", sz);
+    sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
 
     return RS_OK;
 }

@@ -108,10 +108,10 @@
     uint32_t sc_map_size_##name(struct sc_map_##name *map);                    \
                                                                                \
     /**                                                                        \
-     * Get map element count                                                   \
+     * Clear map                                                               \
      *                                                                         \
      * struct sc_map_str map;                                                  \
-     * uint32_t count = sc_map_size_str(&map);                                 \
+     * sc_map_clear_str(&map);                                                 \
      *                                                                         \
      * @param map map                                                          \
      */                                                                        \
@@ -144,6 +144,7 @@
      * @param V pointer to put value, if key is missing, value is undefined    \
      * @return 'true' if key exists, 'false' otherwise                         \
      */                                                                        \
+    /** NOLINTNEXTLINE */                                                      \
     bool sc_map_get_##name(struct sc_map_##name *map, K key, V *val);          \
                                                                                \
     /**                                                                        \
@@ -162,6 +163,7 @@
      *          - Pass NULL if you don't want to get previous 'value'          \
      * @return 'true' if key exists, 'false' otherwise                         \
      */                                                                        \
+    /** NOLINTNEXTLINE */                                                      \
     bool sc_map_del_##name(struct sc_map_##name *map, K key, V *val);
 
 /**
