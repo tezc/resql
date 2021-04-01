@@ -222,8 +222,8 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
     state_term(&state);
     sc_cond_signal(&ss->cond, (void *) (uintptr_t) RS_OK);
 
-    sc_log_info("snapshot done in : " PRIu64 " milliseconds, for [" PRIu64
-                "," PRIu64 "] \n",
+    sc_log_info("snapshot done in : %" PRIu64 " milliseconds, for [%" PRIu64
+                ",%" PRIu64 "] \n",
                 ss->time / 1000 / 1000, first, last);
 }
 

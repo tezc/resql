@@ -312,11 +312,11 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 
     sc_buf_put_str(buf, b);
     sc_buf_put_str(buf, m->start);
-    sc_buf_put_fmt(buf, PRIu64, m->start_time);
+    sc_buf_put_fmt(buf, "%"PRIu64, m->start_time);
 
     ts = (sc_time_ms() - m->start_time) / 1000;
-    sc_buf_put_fmt(buf, PRIu64, ts);
-    sc_buf_put_fmt(buf, PRIu64, ts / (60 * 60 * 24));
+    sc_buf_put_fmt(buf, "%"PRIu64, ts);
+    sc_buf_put_fmt(buf, "%"PRIu64, ts / (60 * 60 * 24));
 
     if (getrusage(RUSAGE_SELF, &u) != 0) {
         sc_log_error("getrusage : %s \n", strerror(errno));
@@ -324,12 +324,12 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 
     sc_buf_put_fmt(buf, "%ld.%06ld", u.ru_stime.tv_sec, u.ru_stime.tv_usec);
     sc_buf_put_fmt(buf, "%ld.%06ld", u.ru_utime.tv_sec, u.ru_utime.tv_usec);
-    sc_buf_put_fmt(buf, PRIu64, m->bytes_recv);
-    sc_buf_put_fmt(buf, PRIu64, m->bytes_sent);
+    sc_buf_put_fmt(buf, "%"PRIu64, m->bytes_recv);
+    sc_buf_put_fmt(buf, "%"PRIu64, m->bytes_sent);
     sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->bytes_recv));
     sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->bytes_sent));
 
-    sc_buf_put_fmt(buf, PRIu64, m->total_memory);
+    sc_buf_put_fmt(buf, "%"PRIu64, m->total_memory);
     sc_buf_put_fmt(buf, "%s", sc_bytes_to_size(b, sizeof(b), m->total_memory));
 
     sz = metric_get_rss(m);

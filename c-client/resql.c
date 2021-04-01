@@ -1861,8 +1861,8 @@ retry:
         seq = msg.connect_resp.sequence;
         if (seq != c->seq && seq != c->seq - 1) {
             resql_err(c,
-                      "Client does not exist on the server anymore.(" PRIu64
-                      "," PRIu64 ")",
+                      "Client does not exist on the server anymore.(%" PRIu64
+                      ",%" PRIu64 ")",
                       seq, c->seq);
             c->seq = seq;
             return RESQL_FATAL;

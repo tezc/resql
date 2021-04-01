@@ -417,7 +417,7 @@ static void conf_to_buf(struct sc_buf *buf, enum conf_index i, void *v)
         sc_buf_put_text(buf, "%s \n", *((bool *) v) == true ? "true" : "false");
         break;
     case CONF_INTEGER:
-        sc_buf_put_text(buf, PRIu64" \n", *(uint64_t *) v);
+        sc_buf_put_text(buf, "%"PRIu64" \n", *(uint64_t *) v);
         break;
     case CONF_STRING:
         sc_buf_put_text(buf, "%s \n", (char *) v);

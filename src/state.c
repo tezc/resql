@@ -501,7 +501,7 @@ void state_open(struct state *st, bool in_memory)
         metric_snapshot(true, 1000, (size_t) file_size_at(st->ss_path));
     }
 
-    sc_log_info("Opened snapshot at index ["PRIu64"] \n", st->index);
+    sc_log_info("Opened snapshot at index [%"PRIu64"] \n", st->index);
 }
 
 void state_close(struct state *st)
@@ -672,7 +672,7 @@ void state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
     state_write_infos(st, &st->aux);
     state_write_vars(st, &st->aux);
 
-    char *str = sc_str_create_fmt("Term["PRIu64"] : ", st->meta.term);
+    char *str = sc_str_create_fmt("Term[%"PRIu64"] : ", st->meta.term);
 
     sc_array_foreach (st->meta.nodes, node) {
         sc_str_append_fmt(&str, "[%s:%s:%s] ", node.name,
