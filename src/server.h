@@ -68,7 +68,7 @@ enum server_fd_type
 struct server_job
 {
     enum server_job_type type;
-    void* data;
+    void *data;
 };
 
 struct server_endpoint
@@ -103,7 +103,7 @@ struct server
     bool stop_requested;
     bool cluster_up;
 
-    char* passwd;
+    char *passwd;
 
     // Cluster management
     char *meta_path;

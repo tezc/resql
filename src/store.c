@@ -18,17 +18,18 @@
  */
 
 
+#include "store.h"
+
 #include "entry.h"
 #include "page.h"
-#include "store.h"
 #include "rs.h"
 
 #include "sc/sc_array.h"
 #include "sc/sc_log.h"
 #include "sc/sc_str.h"
 
-#include <limits.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #define STORE_MAX_ENTRY_SIZE (512 * 1024 * 1024)
 #define DEF_PAGE_FILE_0      "page.0.resql"
@@ -77,11 +78,13 @@ static void store_read(struct store *s)
         store_swap(s);
     }
 
-    sc_log_info("Log page [%s] from (%"PRIu64",%" PRIu64"] \n", s->pages[0]->path,
-                s->pages[0]->prev_index, page_last_index(s->pages[0]));
+    sc_log_info("Log page [%s] from (%" PRIu64 ",%" PRIu64 "] \n",
+                s->pages[0]->path, s->pages[0]->prev_index,
+                page_last_index(s->pages[0]));
 
-    sc_log_info("Log page [%s] from (%"PRIu64",%" PRIu64"] \n", s->pages[1]->path,
-                s->pages[1]->prev_index, page_last_index(s->pages[1]));
+    sc_log_info("Log page [%s] from (%" PRIu64 ",%" PRIu64 "] \n",
+                s->pages[1]->path, s->pages[1]->prev_index,
+                page_last_index(s->pages[1]));
 
     c = sc_array_size(s->pages[1]->entries);
     s->curr = (c > 0) ? s->pages[1] : s->pages[0];

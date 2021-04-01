@@ -63,7 +63,7 @@ bool meta_remove(struct meta *meta, const char *name);
 bool meta_exists(struct meta *m, const char *name);
 void meta_remove_prev(struct meta *m);
 void meta_rollback(struct meta *m, uint64_t index);
-void meta_replace(struct meta *m, void* data, uint32_t len);
+void meta_replace(struct meta *m, void *data, uint32_t len);
 
 void meta_set_connected(struct meta *m, const char *name);
 void meta_set_disconnected(struct meta *m, const char *name);

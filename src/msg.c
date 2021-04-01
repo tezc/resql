@@ -551,7 +551,7 @@ static void msg_print_connect_req(struct msg *msg, struct sc_buf *buf)
     struct msg_connect_req *m = &msg->connect_req;
 
     sc_buf_put_text(buf, "| %-15s | %s \n", "Protocol", m->protocol);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Flags", m->flags);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Flags", m->flags);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Cluster name", m->cluster_name);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Name", m->name);
 }
@@ -561,8 +561,8 @@ static void msg_print_connect_resp(struct msg *msg, struct sc_buf *buf)
     struct msg_connect_resp *m = &msg->connect_resp;
 
     sc_buf_put_text(buf, "| %-15s | %s   \n", "Rc", msg_rc_str[m->rc]);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Sequence", m->sequence);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Sequence", m->sequence);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Nodes", m->nodes);
 }
 
@@ -571,7 +571,7 @@ static void msg_print_disconnect_req(struct msg *msg, struct sc_buf *buf)
     struct msg_disconnect_req *m = &msg->disconnect_req;
 
     sc_buf_put_text(buf, "| %-15s | %s   \n", "Rc ", msg_rc_str[m->rc]);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Flags ", m->flags);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Flags ", m->flags);
 }
 
 static void msg_print_disconnect_resp(struct msg *msg, struct sc_buf *buf)
@@ -579,7 +579,7 @@ static void msg_print_disconnect_resp(struct msg *msg, struct sc_buf *buf)
     struct msg_disconnect_resp *m = &msg->disconnect_resp;
 
     sc_buf_put_text(buf, "| %-15s | %s  \n", "Rc", msg_rc_str[m->rc]);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Flags", m->flags);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Flags", m->flags);
 }
 
 static void msg_print_client_req(struct msg *msg, struct sc_buf *buf)
@@ -588,39 +588,39 @@ static void msg_print_client_req(struct msg *msg, struct sc_buf *buf)
 
     sc_buf_put_text(buf, "| %-15s | %s \n", "Readonly",
                     m->readonly ? "true" : "false");
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Sequence", m->seq);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Length", m->len);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Sequence", m->seq);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Length", m->len);
 }
 
 static void msg_print_client_resp(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_client_resp *m = &msg->client_resp;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Length", m->len);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Length", m->len);
 }
 
 static void msg_print_append_req(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_append_req *m = &msg->append_req;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Prev Log Index",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Prev Log Index",
                     m->prev_log_index);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Prev Log Term",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Prev Log Term",
                     m->prev_log_term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Leader Commit",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Leader Commit",
                     m->leader_commit);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Round", m->round);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Data len", m->len);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Round", m->round);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Data len", m->len);
 }
 
 static void msg_print_append_resp(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_append_resp *m = &msg->append_resp;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Index", m->index);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Round", m->round);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Index", m->index);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Round", m->round);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Success",
                     (m->success) ? "true" : "false");
 }
@@ -629,10 +629,10 @@ static void msg_print_prevote_req(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_prevote_req *m = &msg->prevote_req;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Last Log Index",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Last Log Index",
                     m->last_log_index);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Last Log Term",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Last Log Term",
                     m->last_log_term);
 }
 
@@ -640,8 +640,8 @@ static void msg_print_prevote_resp(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_prevote_resp *m = &msg->prevote_resp;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Index", m->index);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Index", m->index);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Granted",
                     m->granted ? "true" : "false");
 }
@@ -650,10 +650,10 @@ static void msg_print_reqvote_req(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_reqvote_req *m = &msg->reqvote_req;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Last Log Index",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Last Log Index",
                     m->last_log_index);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Last Log Term",
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Last Log Term",
                     m->last_log_term);
 }
 
@@ -661,8 +661,8 @@ static void msg_print_reqvote_resp(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_reqvote_resp *m = &msg->reqvote_resp;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Index", m->index);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Index", m->index);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Granted",
                     m->granted ? "true" : "false");
 }
@@ -671,18 +671,18 @@ static void msg_print_snapshot_req(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_snapshot_req *m = &msg->snapshot_req;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "SS term", m->ss_term);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "SS index", m->ss_index);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Offset", m->offset);
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Data len", m->len);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "SS term", m->ss_term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "SS index", m->ss_index);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Offset", m->offset);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Data len", m->len);
 }
 
 static void msg_print_snapshot_resp(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_snapshot_resp *m = &msg->snapshot_resp;
 
-    sc_buf_put_text(buf, "| %-15s | %"PRIu64" \n", "Term", m->term);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
     sc_buf_put_text(buf, "| %-15s | %s \n", "Success",
                     m->success ? "true" : "false");
     sc_buf_put_text(buf, "| %-15s | %s \n", "Done", m->done ? "true" : "false");
@@ -691,7 +691,7 @@ static void msg_print_snapshot_resp(struct msg *msg, struct sc_buf *buf)
 static void msg_print_info_req(struct msg *msg, struct sc_buf *buf)
 {
     struct msg_info_req *m = &msg->info_req;
-    sc_buf_put_text(buf, "| %-15s | %"PRIu32" \n", "Data len", m->len);
+    sc_buf_put_text(buf, "| %-15s | %" PRIu32 " \n", "Data len", m->len);
 }
 
 static void msg_print_shutdown_req(struct msg *msg, struct sc_buf *buf)
@@ -706,7 +706,7 @@ void msg_print(struct msg *msg, struct sc_buf *buf)
 
     sc_buf_put_text(buf, "\n");
     sc_buf_put_text(buf, "%s \n", "------------------------------------");
-    sc_buf_put_text(buf, "| %s (%"PRIu32" bytes) \n", msg_name, msg->len);
+    sc_buf_put_text(buf, "| %s (%" PRIu32 " bytes) \n", msg_name, msg->len);
     sc_buf_put_text(buf, "%s \n", "------------------------------------");
 
     switch (msg->type) {

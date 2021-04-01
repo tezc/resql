@@ -52,7 +52,6 @@ struct metric
 };
 
 
-
 void metric_init(struct metric *m, const char *dir);
 void metric_term(struct metric *m);
 int metric_encode(struct metric *m, struct sc_buf *buf);

@@ -19,6 +19,7 @@
 
 
 #include "cmd.h"
+
 #include "sc/sc_time.h"
 
 void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256])
@@ -122,7 +123,7 @@ struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *buf)
     return time;
 }
 
-void cmd_encode_log(struct sc_buf *buf, const char* level, const char* log)
+void cmd_encode_log(struct sc_buf *buf, const char *level, const char *log)
 {
     sc_buf_put_str(buf, level);
     sc_buf_put_str(buf, log);

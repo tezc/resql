@@ -25,9 +25,9 @@
 
 #include <stdint.h>
 
-#define MSG_CONNECT_TYPE      0x01
-#define MSG_RC_LEN            1u
-#define MSG_MAX_SIZE          (2 * 1000 * 1000 * 1000)
+#define MSG_CONNECT_TYPE 0x01
+#define MSG_RC_LEN       1u
+#define MSG_MAX_SIZE     (2 * 1000 * 1000 * 1000)
 
 #define MSG_FIXED_HEADER_SIZE 8
 

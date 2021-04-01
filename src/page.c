@@ -18,10 +18,11 @@
  */
 
 
+#include "page.h"
+
 #include "entry.h"
 #include "file.h"
 #include "metric.h"
-#include "page.h"
 #include "rs.h"
 
 #include "sc/sc.h"
@@ -81,7 +82,8 @@ out:
     sc_buf_set_wpos(&p->buf, read_pos);
 }
 
-int page_init(struct page *p, const char *path, int64_t len, uint64_t prev_index)
+int page_init(struct page *p, const char *path, int64_t len,
+              uint64_t prev_index)
 {
     int rc;
     int64_t file_len;
@@ -157,7 +159,7 @@ int page_expand(struct page *p)
     uint64_t last_index = page_last_index(p);
     uint64_t entry_count = page_entry_count(p);
     size_t cap = (p->map.len * 2);
-    char* path = sc_str_create(p->path);
+    char *path = sc_str_create(p->path);
 
     rc = page_term(p);
     if (rc != 0) {
@@ -169,10 +171,8 @@ int page_expand(struct page *p)
         rs_abort("page expand failed. \n");
     }
 
-    if (prev_index != p->prev_index ||
-        last_index != page_last_index(p) ||
-        entry_count != page_entry_count(p) ||
-        p->map.len < cap) {
+    if (prev_index != p->prev_index || last_index != page_last_index(p) ||
+        entry_count != page_entry_count(p) || p->map.len < cap) {
         rs_abort("Corrupt file. ");
     }
 
@@ -198,7 +198,7 @@ void page_clear(struct page *p, uint64_t prev_index)
     sc_array_clear(p->entries);
 
     memset(p->map.ptr, 0, PAGE_HEADER_LEN);
-    p->buf = sc_buf_wrap(p->map.ptr, (uint32_t)  p->map.len, SC_BUF_REF);
+    p->buf = sc_buf_wrap(p->map.ptr, (uint32_t) p->map.len, SC_BUF_REF);
     sc_buf_set_32_at(&p->buf, PAGE_VERSION_OFFSET, PAGE_VERSION);
     sc_buf_set_64_at(&p->buf, PAGE_PREV_INDEX_OFFSET, prev_index);
     crc = sc_crc32(0, p->buf.mem, PAGE_HEADER_LEN - 4);
@@ -250,8 +250,7 @@ int page_fsync(struct page *p, uint64_t index)
     uint64_t ts;
     uint32_t pos, last;
 
-    if (index <= p->prev_index ||
-        index > page_last_index(p) ||
+    if (index <= p->prev_index || index > page_last_index(p) ||
         p->flush_index >= index) {
         return RS_OK;
     }
@@ -362,7 +361,7 @@ void page_remove_after(struct page *p, uint64_t index)
         return;
     }
 
-    pos = (uint32_t) (entry - p->map.ptr);
+    pos = (uint32_t)(entry - p->map.ptr);
     sc_buf_set_wpos(&p->buf, pos);
     sc_buf_set_32(&p->buf, PAGE_END_MARK);
 

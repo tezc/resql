@@ -39,7 +39,8 @@ struct page
     unsigned char **entries;
 };
 
-int page_init(struct page *p, const char *path, int64_t len, uint64_t prev_index);
+int page_init(struct page *p, const char *path, int64_t len,
+              uint64_t prev_index);
 int page_term(struct page *p);
 int page_expand(struct page *p);
 bool page_isempty(struct page *p);

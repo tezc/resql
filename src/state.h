@@ -97,6 +97,7 @@ void state_initial_snapshot(struct state *st);
 int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
                          uint32_t len, struct sc_buf *resp);
 
-struct session *state_apply(struct state *st, uint64_t index, unsigned char *entry);
+struct session *state_apply(struct state *st, uint64_t index,
+                            unsigned char *entry);
 
 #endif

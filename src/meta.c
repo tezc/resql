@@ -18,6 +18,7 @@
  */
 
 #include "meta.h"
+
 #include "rs.h"
 
 #include "sc/sc_array.h"
@@ -469,7 +470,7 @@ void meta_print(struct meta *m, struct sc_buf *buf)
 {
     sc_buf_put_text(buf, "\n| -------------------------------\n");
     sc_buf_put_text(buf, "| Cluster : %s \n", m->name);
-    sc_buf_put_text(buf, "| Term    : %"PRIu64" \n", (unsigned long) m->term);
+    sc_buf_put_text(buf, "| Term    : %" PRIu64 " \n", m->term);
 
     for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
         sc_buf_put_text(buf, "| Node    : %s, Role : %s \n", m->nodes[i].name,

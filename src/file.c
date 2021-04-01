@@ -19,6 +19,7 @@
 
 
 #include "file.h"
+
 #include "rs.h"
 
 #include "sc/sc_log.h"
@@ -27,9 +28,9 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <limits.h>
 
 struct file *file_create()
 {

@@ -102,7 +102,7 @@ struct cmd_client_disconnect cmd_decode_client_disconnect(struct sc_buf *buf);
 void cmd_encode_timestamp(struct sc_buf *buf);
 struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *buf);
 
-void cmd_encode_log(struct sc_buf *buf, const char* level, const char* log);
+void cmd_encode_log(struct sc_buf *buf, const char *level, const char *log);
 struct cmd_log cmd_decode_log(struct sc_buf *buf);
 
 #endif

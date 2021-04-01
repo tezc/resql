@@ -844,7 +844,7 @@ static void server_on_election_timeout(struct server *s)
         return;
     }
 
-    sc_log_info("Starting election for term[%" PRIu64 "\n", s->meta.term + 1);
+    sc_log_info("Starting election for term[%" PRIu64 "]\n", s->meta.term + 1);
 
     s->role = SERVER_ROLE_CANDIDATE;
     s->prevote_count = 1;
@@ -1172,7 +1172,7 @@ retry:
             store_expand(&s->store);
             goto retry;
 
-            //rs_abort("Failed to create entry \n");
+            // rs_abort("Failed to create entry \n");
         }
         index++;
     }
@@ -1553,7 +1553,8 @@ static void server_on_term_start(struct server *s, struct meta *meta)
         return;
     }
 
-    sc_log_info("Term[%" PRIu64 "], leader[%s] \n", meta->term, s->leader->name);
+    sc_log_info("Term[%" PRIu64 "], leader[%s] \n", meta->term,
+                s->leader->name);
     s->cluster_up = true;
 }
 
