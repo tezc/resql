@@ -394,7 +394,7 @@ static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
     int size;
 
     size = sc_sock_pipe_read(&s->efd, &c, sizeof(c));
-    assert(size == 1);
+    rs_assert(size == 1);
 
     s->stop_requested = true;
 }
@@ -962,6 +962,7 @@ int server_on_client_req(struct server *s, struct client *c, struct msg *msg)
         break;
     case MSG_DISCONNECT_REQ:
         server_on_client_disconnect(s, c, MSG_OK);
+        break;
     default:
         return RS_ERROR;
     }

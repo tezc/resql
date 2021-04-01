@@ -33,10 +33,10 @@ static void connectreq_test()
     msg_create_connect_req(&buf, 0, "test", "node");
     msg_parse(&buf, &msg);
 
-    assert(strcmp(msg.connect_req.cluster_name, "test") == 0);
-    assert(strcmp(msg.connect_req.name, "node") == 0);
-    assert(strcmp(msg.connect_req.protocol, "resql") == 0);
-    assert(msg.connect_req.flags == 0);
+    rs_assert(strcmp(msg.connect_req.cluster_name, "test") == 0);
+    rs_assert(strcmp(msg.connect_req.name, "node") == 0);
+    rs_assert(strcmp(msg.connect_req.protocol, "resql") == 0);
+    rs_assert(msg.connect_req.flags == 0);
 
     msg_print(&msg, &buf2);
 
@@ -56,10 +56,10 @@ static void connectresp_test()
     msg_create_connect_resp(&buf, 0, 100, 100, "node");
     msg_parse(&buf, &msg);
 
-    assert(msg.connect_resp.rc == 0);
-    assert(msg.connect_resp.sequence == 100);
-    assert(msg.connect_resp.term == 100);
-    assert(strcmp(msg.connect_resp.nodes, "node") == 0);
+    rs_assert(msg.connect_resp.rc == 0);
+    rs_assert(msg.connect_resp.sequence == 100);
+    rs_assert(msg.connect_resp.term == 100);
+    rs_assert(strcmp(msg.connect_resp.nodes, "node") == 0);
 
     msg_print(&msg, &buf2);
 
@@ -79,8 +79,8 @@ static void disconnectreq_test()
     msg_create_disconnect_req(&buf, 11, 12);
     msg_parse(&buf, &msg);
 
-    assert(msg.disconnect_req.rc == 11);
-    assert(msg.disconnect_req.flags == 12);
+    rs_assert(msg.disconnect_req.rc == 11);
+    rs_assert(msg.disconnect_req.flags == 12);
 
     msg_print(&msg, &buf2);
 
@@ -100,8 +100,8 @@ static void disconnectresp_test()
     msg_create_disconnect_resp(&buf, 11, 12);
     msg_parse(&buf, &msg);
 
-    assert(msg.disconnect_resp.rc == 11);
-    assert(msg.disconnect_resp.flags == 12);
+    rs_assert(msg.disconnect_resp.rc == 11);
+    rs_assert(msg.disconnect_resp.flags == 12);
 
     msg_print(&msg, &buf2);
 
@@ -121,9 +121,9 @@ static void clientreq_test()
     msg_create_client_req(&buf, false, 13, "test", 5);
     msg_parse(&buf, &msg);
 
-    assert(msg.client_req.readonly == false);
-    assert(msg.client_req.seq == 13);
-    assert(strcmp((char*) msg.client_req.buf, "test") == 0);
+    rs_assert(msg.client_req.readonly == false);
+    rs_assert(msg.client_req.seq == 13);
+    rs_assert(strcmp((char*) msg.client_req.buf, "test") == 0);
 
     msg_print(&msg, &buf2);
 
@@ -146,9 +146,9 @@ static void clientresp_test()
     msg_finalize_client_resp(&buf);
     msg_parse(&buf, &msg);
 
-    assert(msg.client_resp.len == 9);
+    rs_assert(msg.client_resp.len == 9);
     tmp = sc_buf_wrap(msg.client_resp.buf, msg.client_resp.len, SC_BUF_READ);
-    assert(strcmp(sc_buf_get_str(&tmp), "test") == 0);
+    rs_assert(strcmp(sc_buf_get_str(&tmp), "test") == 0);
 
     msg_print(&msg, &buf2);
 
@@ -168,12 +168,12 @@ static void appendreq_test()
     msg_create_append_req(&buf, 1, 2, 3, 4, 5, "test", 5);
     msg_parse(&buf, &msg);
 
-    assert(msg.append_req.term == 1);
-    assert(msg.append_req.prev_log_index == 2);
-    assert(msg.append_req.prev_log_term == 3);
-    assert(msg.append_req.leader_commit == 4);
-    assert(msg.append_req.round == 5);
-    assert(strcmp((char*) msg.append_req.buf, "test") == 0);
+    rs_assert(msg.append_req.term == 1);
+    rs_assert(msg.append_req.prev_log_index == 2);
+    rs_assert(msg.append_req.prev_log_term == 3);
+    rs_assert(msg.append_req.leader_commit == 4);
+    rs_assert(msg.append_req.round == 5);
+    rs_assert(strcmp((char*) msg.append_req.buf, "test") == 0);
 
     msg_print(&msg, &buf2);
 
@@ -193,10 +193,10 @@ static void appendresp_test()
     msg_create_append_resp(&buf, 1, 2, 3, true);
     msg_parse(&buf, &msg);
 
-    assert(msg.append_resp.term == 1);
-    assert(msg.append_resp.index == 2);
-    assert(msg.append_resp.round == 3);
-    assert(msg.append_resp.success == true);
+    rs_assert(msg.append_resp.term == 1);
+    rs_assert(msg.append_resp.index == 2);
+    rs_assert(msg.append_resp.round == 3);
+    rs_assert(msg.append_resp.success == true);
 
     msg_print(&msg, &buf2);
 
@@ -216,9 +216,9 @@ static void prevotereq_test()
     msg_create_prevote_req(&buf, 1, 2, 3);
     msg_parse(&buf, &msg);
 
-    assert(msg.prevote_req.term == 1);
-    assert(msg.prevote_req.last_log_index == 2);
-    assert(msg.prevote_req.last_log_term == 3);
+    rs_assert(msg.prevote_req.term == 1);
+    rs_assert(msg.prevote_req.last_log_index == 2);
+    rs_assert(msg.prevote_req.last_log_term == 3);
 
     msg_print(&msg, &buf2);
 
@@ -238,9 +238,9 @@ static void prevoteresp_test()
     msg_create_prevote_resp(&buf, 1, 2, true);
     msg_parse(&buf, &msg);
 
-    assert(msg.prevote_resp.term == 1);
-    assert(msg.prevote_resp.index == 2);
-    assert(msg.prevote_resp.granted == true);
+    rs_assert(msg.prevote_resp.term == 1);
+    rs_assert(msg.prevote_resp.index == 2);
+    rs_assert(msg.prevote_resp.granted == true);
 
     msg_print(&msg, &buf2);
 
@@ -260,9 +260,9 @@ static void reqvotereq_test()
     msg_create_reqvote_req(&buf, 1, 2, 3);
     msg_parse(&buf, &msg);
 
-    assert(msg.reqvote_req.term == 1);
-    assert(msg.reqvote_req.last_log_index == 2);
-    assert(msg.reqvote_req.last_log_term == 3);
+    rs_assert(msg.reqvote_req.term == 1);
+    rs_assert(msg.reqvote_req.last_log_index == 2);
+    rs_assert(msg.reqvote_req.last_log_term == 3);
 
     msg_print(&msg, &buf2);
 
@@ -282,9 +282,9 @@ static void reqvoteresp_test()
     msg_create_reqvote_resp(&buf, 1, 2, true);
     msg_parse(&buf, &msg);
 
-    assert(msg.reqvote_resp.term == 1);
-    assert(msg.reqvote_resp.index == 2);
-    assert(msg.reqvote_resp.granted == true);
+    rs_assert(msg.reqvote_resp.term == 1);
+    rs_assert(msg.reqvote_resp.index == 2);
+    rs_assert(msg.reqvote_resp.granted == true);
 
     msg_print(&msg, &buf2);
 
@@ -304,12 +304,12 @@ static void snapshotreq_test()
     msg_create_snapshot_req(&buf, 1, 2, 3, 4, true, "test", 5);
     msg_parse(&buf, &msg);
 
-    assert(msg.snapshot_req.term == 1);
-    assert(msg.snapshot_req.ss_term == 2);
-    assert(msg.snapshot_req.ss_index == 3);
-    assert(msg.snapshot_req.offset == 4);
-    assert(msg.snapshot_req.done == true);
-    assert(strcmp((char*) msg.snapshot_req.buf, "test") == 0);
+    rs_assert(msg.snapshot_req.term == 1);
+    rs_assert(msg.snapshot_req.ss_term == 2);
+    rs_assert(msg.snapshot_req.ss_index == 3);
+    rs_assert(msg.snapshot_req.offset == 4);
+    rs_assert(msg.snapshot_req.done == true);
+    rs_assert(strcmp((char*) msg.snapshot_req.buf, "test") == 0);
 
     msg_print(&msg, &buf2);
 
@@ -329,9 +329,9 @@ static void snapshotresp_test()
     msg_create_snapshot_resp(&buf, 1, true, false);
     msg_parse(&buf, &msg);
 
-    assert(msg.snapshot_resp.term == 1);
-    assert(msg.snapshot_resp.success == true);
-    assert(msg.snapshot_resp.done == false);
+    rs_assert(msg.snapshot_resp.term == 1);
+    rs_assert(msg.snapshot_resp.success == true);
+    rs_assert(msg.snapshot_resp.done == false);
 
     msg_print(&msg, &buf2);
 
@@ -351,7 +351,7 @@ static void inforeq_test()
     msg_create_info_req(&buf, "test", 5);
     msg_parse(&buf, &msg);
 
-    assert(strcmp((char*)msg.info_req.buf, "test") == 0);
+    rs_assert(strcmp((char*)msg.info_req.buf, "test") == 0);
 
     msg_print(&msg, &buf2);
 
@@ -371,7 +371,7 @@ static void shutdownreq_test()
     msg_create_shutdown_req(&buf, false);
     msg_parse(&buf, &msg);
 
-    assert(msg.shutdown_req.now == false);
+    rs_assert(msg.shutdown_req.now == false);
 
     msg_print(&msg, &buf2);
 

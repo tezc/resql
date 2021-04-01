@@ -292,11 +292,11 @@ void page_create_entry(struct page *p, uint64_t term, uint64_t seq,
 
 void page_put_entry(struct page *p, unsigned char *entry)
 {
-    assert(entry_len(entry) <= page_quota(p));
+    rs_assert(entry_len(entry) <= page_quota(p));
 
     uint32_t crc_calc = sc_crc32(0, entry + ENTRY_CRC_LEN,
                                  entry_len(entry) - ENTRY_CRC_LEN);
-    assert(entry_crc(entry) == crc_calc);
+    rs_assert(entry_crc(entry) == crc_calc);
 
     sc_array_add(p->entries, sc_buf_wbuf(&p->buf));
     sc_buf_put_raw(&p->buf, entry, entry_len(entry));

@@ -404,7 +404,7 @@ void meta_set_leader(struct meta *m, const char *name)
         }
     }
 
-    assert(found);
+    rs_assert(found);
     meta_update(m);
 }
 

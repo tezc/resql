@@ -101,7 +101,13 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
         }
 
         if (argc == 2) {
-            state->max_page = sqlite3_value_int64(argv[1]) / 4096;
+            int64_t val = sqlite3_value_int64(argv[1]);
+            if (val < 0) {
+                sqlite3_result_error(ctx, "Page size cannot be negative", -1);
+                return;
+            }
+
+            state->max_page = val / 4096;
         }
 
         sqlite3_result_int64(ctx, state->max_page * 4096);
@@ -133,7 +139,7 @@ int state_currenttime(sqlite3_vfs *vfs, sqlite3_int64 *val)
     return SQLITE_OK;
 }
 
-int state_max_page(uint32_t max, uint32_t curr)
+int state_max_page(unsigned int max, unsigned int curr)
 {
     (void) max;
 
@@ -199,7 +205,7 @@ void state_init(struct state *st, struct state_cb cb, const char *path,
     st->path = sc_str_create_fmt("%s/%s", path, STATE_FILE);
     st->ss_path = sc_str_create_fmt("%s/%s", path, STATE_SS_FILE);
     st->ss_tmp_path = sc_str_create_fmt("%s/%s", path, STATE_SS_TMP_FILE);
-    st->max_page = UINT64_MAX;
+    st->max_page = UINT_MAX;
 
     sc_buf_init(&st->tmp, 1024);
     meta_init(&st->meta, name);
@@ -241,8 +247,10 @@ int state_authorizer(void *user, int action, const char *arg0, const char *arg1,
             strncmp("resp", arg1, strlen("resp")) == 0) {
             return SQLITE_IGNORE;
         }
+        // fall through
     case SQLITE_ALTER_TABLE:
         arg0 = arg1;
+        // fall through
     case SQLITE_CREATE_TABLE:
     case SQLITE_DELETE:
     case SQLITE_DROP_TABLE:
@@ -279,6 +287,7 @@ int state_check_err(struct state *st, int rc)
         if (st->readonly || st->full) {
             break;
         }
+        // fall through
     default:
         rs_abort("sqlite : rc = (%d)(%s). \n", rc, sqlite3_errstr(rc));
     }

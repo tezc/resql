@@ -64,24 +64,36 @@
     #endif
 #endif
 
+#ifdef RS_ENABLE_ASSERT
+    #include <stdio.h>
+    #define rs_assert(a)                                                       \
+        if (!(a)) {                                                            \
+            fprintf(stderr, "[%s:%d] Assert : %s \n", __FILE__, __LINE__, #a); \
+            fflush(stderr);                                                    \
+            abort();                                                           \
+        }
+#else
+    #define rs_assert(a) (void) (a)
+#endif
+
 // clang-format off
 enum rs_rc
 {
-    RS_OK         = 0,
-    RS_ERROR      = -1,
-    RS_DONE       = -2,
-    RS_NOOP       = -3,
-    RS_RETRY      = -4,
-    RS_NONBLOCK   = -5,
-    RS_ENOENT     = -6,
-    RS_EMPTY      = -7,
-    RS_INVALID    = -8,
-    RS_PARTIAL    = -9,
-    RS_EXISTS     = -10,
-    RS_TIMEOUT    = -11,
+    RS_OK = 0,
+    RS_ERROR = -1,
+    RS_DONE = -2,
+    RS_NOOP = -3,
+    RS_RETRY = -4,
+    RS_NONBLOCK = -5,
+    RS_ENOENT = -6,
+    RS_EMPTY = -7,
+    RS_INVALID = -8,
+    RS_PARTIAL = -9,
+    RS_EXISTS = -10,
+    RS_TIMEOUT = -11,
     RS_INPROGRESS = -12,
-    RS_NOTFOUND   = -13,
-    RS_FULL       = -14
+    RS_NOTFOUND = -13,
+    RS_FULL = -14
 };
 
 // clang-format on

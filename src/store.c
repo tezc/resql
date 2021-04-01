@@ -179,15 +179,15 @@ retry:
 
 int store_expand(struct store *s)
 {
-    assert(s->curr == s->pages[1]);
+    rs_assert(s->curr == s->pages[1]);
     page_expand(s->pages[1]);
     return RS_OK;
 }
 
 int store_put_entry(struct store *s, uint64_t index, unsigned char *entry)
 {
-    assert(index == s->last_index + 1);
-    assert(s->last_term <= entry_term(entry));
+    rs_assert(index == s->last_index + 1);
+    rs_assert(s->last_term <= entry_term(entry));
 
     uint32_t size = entry_len(entry);
 

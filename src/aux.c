@@ -33,9 +33,8 @@ int sqlite3_completion_init(sqlite3 *db, char **pzErrMsg,
 void aux_random(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
     (void) argv;
-    (void) argc;
 
-    assert(argc == 0);
+    rs_assert(argc == 0);
     int64_t val;
 
     state_randomness(NULL, sizeof(val), (char *) &val);
@@ -47,7 +46,7 @@ void aux_randomblob(sqlite3_context *ctx, int argc, sqlite3_value **argv)
     sqlite3_int64 n;
     char *p;
 
-    assert(argc == 1);
+    rs_assert(argc == 1);
 
     n = sqlite3_value_int64(argv[0]);
     if (n < 1) {

@@ -1,6 +1,5 @@
 #include "resql.h"
 
-#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,28 +45,28 @@ static void test_reset()
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_INTEGER);
-    assert(strcmp(col[0].name, "id") == 0);
-    assert(col[0].intval == -1000);
+    rs_assert(col[0].type == RESQL_INTEGER);
+    rs_assert(strcmp(col[0].name, "id") == 0);
+    rs_assert(col[0].intval == -1000);
 
-    assert(col[1].type == RESQL_TEXT);
-    assert(strcmp(col[1].name, "name") == 0);
-    assert(col[1].len == strlen("jack"));
-    assert(strcmp(col[1].text, "jack") == 0);
+    rs_assert(col[1].type == RESQL_TEXT);
+    rs_assert(strcmp(col[1].name, "name") == 0);
+    rs_assert(col[1].len == strlen("jack"));
+    rs_assert(strcmp(col[1].text, "jack") == 0);
 
-    assert(col[2].type == RESQL_FLOAT);
-    assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 4.11);
+    rs_assert(col[2].type == RESQL_FLOAT);
+    rs_assert(strcmp(col[2].name, "points") == 0);
+    rs_assert(col[2].floatval == 4.11);
 
-    assert(col[3].type == RESQL_BLOB);
-    assert(strcmp(col[3].name, "data") == 0);
-    assert(col[3].len == 5);
-    assert(strcmp(col[3].blob, "test") == 0);
+    rs_assert(col[3].type == RESQL_BLOB);
+    rs_assert(strcmp(col[3].name, "data") == 0);
+    rs_assert(col[3].len == 5);
+    rs_assert(strcmp(col[3].blob, "test") == 0);
 }
 
 static void test_last_insert_id()
@@ -84,8 +83,8 @@ static void test_last_insert_id()
 
         rc = resql_exec(c, false, &rs);
         assert_client(rc == RESQL_OK);
-        assert(resql_changes(rs) == 1);
-        assert(resql_last_row_id(rs) == i + 1);
+        rs_assert(resql_changes(rs) == 1);
+        rs_assert(resql_last_row_id(rs) == i + 1);
     }
 
     for (int i = 10; i < 20; i++) {
@@ -97,8 +96,8 @@ static void test_last_insert_id()
 
         rc = resql_exec(c, false, &rs);
         assert_client(rc == RESQL_OK);
-        assert(resql_changes(rs) == 1);
-        assert(resql_last_row_id(rs) == i + 1);
+        rs_assert(resql_changes(rs) == 1);
+        rs_assert(resql_last_row_id(rs) == i + 1);
     }
 }
 
@@ -121,28 +120,28 @@ static void test_single_index()
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_INTEGER);
-    assert(strcmp(col[0].name, "id") == 0);
-    assert(col[0].intval == -1);
+    rs_assert(col[0].type == RESQL_INTEGER);
+    rs_assert(strcmp(col[0].name, "id") == 0);
+    rs_assert(col[0].intval == -1);
 
-    assert(col[1].type == RESQL_TEXT);
-    assert(strcmp(col[1].name, "name") == 0);
-    assert(col[1].len == strlen("jane"));
-    assert(strcmp(col[1].text, "jane") == 0);
+    rs_assert(col[1].type == RESQL_TEXT);
+    rs_assert(strcmp(col[1].name, "name") == 0);
+    rs_assert(col[1].len == strlen("jane"));
+    rs_assert(strcmp(col[1].text, "jane") == 0);
 
-    assert(col[2].type == RESQL_FLOAT);
-    assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    rs_assert(col[2].type == RESQL_FLOAT);
+    rs_assert(strcmp(col[2].name, "points") == 0);
+    rs_assert(col[2].floatval == 3.11);
 
-    assert(col[3].type == RESQL_BLOB);
-    assert(strcmp(col[3].name, "data") == 0);
-    assert(col[3].len == 5);
-    assert(strcmp(col[3].blob, "blob") == 0);
+    rs_assert(col[3].type == RESQL_BLOB);
+    rs_assert(strcmp(col[3].name, "data") == 0);
+    rs_assert(col[3].len == 5);
+    rs_assert(strcmp(col[3].blob, "blob") == 0);
 }
 
 static void test_single_param()
@@ -164,28 +163,28 @@ static void test_single_param()
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_INTEGER);
-    assert(strcmp(col[0].name, "id") == 0);
-    assert(col[0].intval == -1);
+    rs_assert(col[0].type == RESQL_INTEGER);
+    rs_assert(strcmp(col[0].name, "id") == 0);
+    rs_assert(col[0].intval == -1);
 
-    assert(col[1].type == RESQL_TEXT);
-    assert(strcmp(col[1].name, "name") == 0);
-    assert(col[1].len == strlen("jane"));
-    assert(strcmp(col[1].text, "jane") == 0);
+    rs_assert(col[1].type == RESQL_TEXT);
+    rs_assert(strcmp(col[1].name, "name") == 0);
+    rs_assert(col[1].len == strlen("jane"));
+    rs_assert(strcmp(col[1].text, "jane") == 0);
 
-    assert(col[2].type == RESQL_FLOAT);
-    assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    rs_assert(col[2].type == RESQL_FLOAT);
+    rs_assert(strcmp(col[2].name, "points") == 0);
+    rs_assert(col[2].floatval == 3.11);
 
-    assert(col[3].type == RESQL_BLOB);
-    assert(strcmp(col[3].name, "data") == 0);
-    assert(col[3].len == 5);
-    assert(strcmp(col[3].blob, "blob") == 0);
+    rs_assert(col[3].type == RESQL_BLOB);
+    rs_assert(strcmp(col[3].name, "data") == 0);
+    rs_assert(col[3].len == 5);
+    rs_assert(strcmp(col[3].blob, "blob") == 0);
 }
 
 static void test_prepared_index()
@@ -211,28 +210,28 @@ static void test_prepared_index()
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_INTEGER);
-    assert(strcmp(col[0].name, "id") == 0);
-    assert(col[0].intval == -1);
+    rs_assert(col[0].type == RESQL_INTEGER);
+    rs_assert(strcmp(col[0].name, "id") == 0);
+    rs_assert(col[0].intval == -1);
 
-    assert(col[1].type == RESQL_TEXT);
-    assert(strcmp(col[1].name, "name") == 0);
-    assert(col[1].len == strlen("jane"));
-    assert(strcmp(col[1].text, "jane") == 0);
+    rs_assert(col[1].type == RESQL_TEXT);
+    rs_assert(strcmp(col[1].name, "name") == 0);
+    rs_assert(col[1].len == strlen("jane"));
+    rs_assert(strcmp(col[1].text, "jane") == 0);
 
-    assert(col[2].type == RESQL_FLOAT);
-    assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    rs_assert(col[2].type == RESQL_FLOAT);
+    rs_assert(strcmp(col[2].name, "points") == 0);
+    rs_assert(col[2].floatval == 3.11);
 
-    assert(col[3].type == RESQL_BLOB);
-    assert(strcmp(col[3].name, "data") == 0);
-    assert(col[3].len == 5);
-    assert(strcmp(col[3].blob, "blob") == 0);
+    rs_assert(col[3].type == RESQL_BLOB);
+    rs_assert(strcmp(col[3].name, "data") == 0);
+    rs_assert(col[3].len == 5);
+    rs_assert(strcmp(col[3].blob, "blob") == 0);
 
     rc = resql_del_prepared(c, &stmt);
     assert_client(rc == RESQL_OK);
@@ -257,34 +256,34 @@ static void test_prepared_param()
 
     rc = resql_exec(c, false, &rs);
     assert_client(rc == RESQL_OK);
-    assert(resql_changes(rs) == 1);
+    rs_assert(resql_changes(rs) == 1);
 
     resql_put_sql(c, "SELECT * FROM ctest;");
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_INTEGER);
-    assert(strcmp(col[0].name, "id") == 0);
-    assert(col[0].intval == -1);
+    rs_assert(col[0].type == RESQL_INTEGER);
+    rs_assert(strcmp(col[0].name, "id") == 0);
+    rs_assert(col[0].intval == -1);
 
-    assert(col[1].type == RESQL_TEXT);
-    assert(strcmp(col[1].name, "name") == 0);
-    assert(col[1].len == strlen("jane"));
-    assert(strcmp(col[1].text, "jane") == 0);
+    rs_assert(col[1].type == RESQL_TEXT);
+    rs_assert(strcmp(col[1].name, "name") == 0);
+    rs_assert(col[1].len == strlen("jane"));
+    rs_assert(strcmp(col[1].text, "jane") == 0);
 
-    assert(col[2].type == RESQL_FLOAT);
-    assert(strcmp(col[2].name, "points") == 0);
-    assert(col[2].floatval == 3.11);
+    rs_assert(col[2].type == RESQL_FLOAT);
+    rs_assert(strcmp(col[2].name, "points") == 0);
+    rs_assert(col[2].floatval == 3.11);
 
-    assert(col[3].type == RESQL_BLOB);
-    assert(strcmp(col[3].name, "data") == 0);
-    assert(col[3].len == 5);
-    assert(strcmp(col[3].blob, "blob") == 0);
+    rs_assert(col[3].type == RESQL_BLOB);
+    rs_assert(strcmp(col[3].name, "data") == 0);
+    rs_assert(col[3].len == 5);
+    rs_assert(strcmp(col[3].blob, "blob") == 0);
 
     rc = resql_del_prepared(c, &stmt);
     assert_client(rc == RESQL_OK);
@@ -313,64 +312,64 @@ static void test_prepared_param_many()
     assert_client(rc == RESQL_OK);
 
     for (int i = 0; i < 9999; i++) {
-        assert(resql_changes(rs) == 1);
-        assert(resql_next(rs) == true);
+        rs_assert(resql_changes(rs) == 1);
+        rs_assert(resql_next(rs) == true);
     }
 
     resql_put_sql(c, "SELECT * FROM ctest;");
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 10000);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 10000);
+    rs_assert(resql_column_count(rs) == 4);
 
     for (int i = 0; i < 10000; i++) {
         col = resql_row(rs);
 
-        assert(col[0].type == RESQL_INTEGER);
-        assert(strcmp(col[0].name, "id") == 0);
-        assert(col[0].intval == i);
+        rs_assert(col[0].type == RESQL_INTEGER);
+        rs_assert(strcmp(col[0].name, "id") == 0);
+        rs_assert(col[0].intval == i);
 
-        assert(col[1].type == RESQL_TEXT);
-        assert(strcmp(col[1].name, "name") == 0);
-        assert(col[1].len == strlen("jane"));
-        assert(strcmp(col[1].text, "jane") == 0);
+        rs_assert(col[1].type == RESQL_TEXT);
+        rs_assert(strcmp(col[1].name, "name") == 0);
+        rs_assert(col[1].len == strlen("jane"));
+        rs_assert(strcmp(col[1].text, "jane") == 0);
 
-        assert(col[2].type == RESQL_FLOAT);
-        assert(strcmp(col[2].name, "points") == 0);
-        assert(col[2].floatval == 3.11);
+        rs_assert(col[2].type == RESQL_FLOAT);
+        rs_assert(strcmp(col[2].name, "points") == 0);
+        rs_assert(col[2].floatval == 3.11);
 
-        assert(col[3].type == RESQL_BLOB);
-        assert(strcmp(col[3].name, "data") == 0);
-        assert(col[3].len == 5);
-        assert(strcmp(col[3].blob, "blob") == 0);
+        rs_assert(col[3].type == RESQL_BLOB);
+        rs_assert(strcmp(col[3].name, "data") == 0);
+        rs_assert(col[3].len == 5);
+        rs_assert(strcmp(col[3].blob, "blob") == 0);
     }
 
     resql_reset_rows(rs);
 
-    assert(resql_row_count(rs) == 10000);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 10000);
+    rs_assert(resql_column_count(rs) == 4);
 
     for (int i = 0; i < 10000; i++) {
         col = resql_row(rs);
 
-        assert(col[0].type == RESQL_INTEGER);
-        assert(strcmp(col[0].name, "id") == 0);
-        assert(col[0].intval == i);
+        rs_assert(col[0].type == RESQL_INTEGER);
+        rs_assert(strcmp(col[0].name, "id") == 0);
+        rs_assert(col[0].intval == i);
 
-        assert(col[1].type == RESQL_TEXT);
-        assert(strcmp(col[1].name, "name") == 0);
-        assert(col[1].len == strlen("jane"));
-        assert(strcmp(col[1].text, "jane") == 0);
+        rs_assert(col[1].type == RESQL_TEXT);
+        rs_assert(strcmp(col[1].name, "name") == 0);
+        rs_assert(col[1].len == strlen("jane"));
+        rs_assert(strcmp(col[1].text, "jane") == 0);
 
-        assert(col[2].type == RESQL_FLOAT);
-        assert(strcmp(col[2].name, "points") == 0);
-        assert(col[2].floatval == 3.11);
+        rs_assert(col[2].type == RESQL_FLOAT);
+        rs_assert(strcmp(col[2].name, "points") == 0);
+        rs_assert(col[2].floatval == 3.11);
 
-        assert(col[3].type == RESQL_BLOB);
-        assert(strcmp(col[3].name, "data") == 0);
-        assert(col[3].len == 5);
-        assert(strcmp(col[3].blob, "blob") == 0);
+        rs_assert(col[3].type == RESQL_BLOB);
+        rs_assert(strcmp(col[3].name, "data") == 0);
+        rs_assert(col[3].len == 5);
+        rs_assert(strcmp(col[3].blob, "blob") == 0);
     }
 
     rc = resql_del_prepared(c, &stmt);
@@ -391,7 +390,7 @@ static void test_fail()
     resql_bind_index_text(c, 0, "");
     rc = resql_exec(c, false, &rs);
     assert_client(rc != RESQL_OK);
-    assert(*resql_errstr(c) != '\0');
+    rs_assert(*resql_errstr(c) != '\0');
 
     resql_bind_index_float(c, 0, 3.1);
     rc = resql_exec(c, false, &rs);
@@ -437,15 +436,15 @@ static void test_fail()
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_NULL);
-    assert(col[1].type == RESQL_NULL);
-    assert(col[2].type == RESQL_NULL);
-    assert(col[3].type == RESQL_NULL);
+    rs_assert(col[0].type == RESQL_NULL);
+    rs_assert(col[1].type == RESQL_NULL);
+    rs_assert(col[2].type == RESQL_NULL);
+    rs_assert(col[3].type == RESQL_NULL);
 
     resql_put_sql(c, "DELETE FROM ctest;");
     rc = resql_exec(c, false, &rs);
@@ -463,15 +462,15 @@ static void test_fail()
     rc = resql_exec(c, true, &rs);
     assert_client(rc == RESQL_OK);
 
-    assert(resql_row_count(rs) == 1);
-    assert(resql_column_count(rs) == 4);
+    rs_assert(resql_row_count(rs) == 1);
+    rs_assert(resql_column_count(rs) == 4);
 
     col = resql_row(rs);
 
-    assert(col[0].type == RESQL_NULL);
-    assert(col[1].type == RESQL_NULL);
-    assert(col[2].type == RESQL_NULL);
-    assert(col[3].type == RESQL_NULL);
+    rs_assert(col[0].type == RESQL_NULL);
+    rs_assert(col[1].type == RESQL_NULL);
+    rs_assert(col[2].type == RESQL_NULL);
+    rs_assert(col[3].type == RESQL_NULL);
 
     resql_put_sql(c, "INSERT INTO ctest VALUES(?, ?, ?, ?);");
     rc = resql_prepare(
@@ -500,82 +499,82 @@ static void test_connect()
                                              .cluster_name = "cluster",
                                              .timeout_millis = 2000,
                                              .urls = "tcp://1271.0.0.1:7600"});
-    assert(rc != RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc != RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                                              .cluster_name = "cluster2",
                                              .timeout_millis = 2000,
                                              .urls = "tcp://127.0.0.1:7600"});
-    assert(rc != RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc != RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .cluster_name = "cluster2",
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:769900"});
-    assert(rc != RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc != RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
-    assert(rc == RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
-    assert(rc == RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .cluster_name = "cluster2",
                               .timeout_millis = 1,
                               .urls = "tcp://127.0.0.1:7600"});
-    assert(rc != RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc != RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.urls = "tcp://127.0.0.1:7600"});
-    assert(rc == RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){0});
-    assert(rc == RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
-    assert(rc == RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){.client_name = "conn-client",
                               .timeout_millis = 2000,
                               .cluster_name = "cluster"});
-    assert(rc == RESQL_OK);
-    assert(resql_shutdown(client) == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
+    rs_assert(resql_shutdown(client) == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
                               .cluster_name = "cluster",
                               .timeout_millis = 2000,
                               .urls = "tcp://127.0.0.1:7600"});
-    assert(rc == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
 
     rc = resql_shutdown(client);
-    assert(rc == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
 
     rc = resql_create(&client,
                       &(struct resql_config){
@@ -588,10 +587,10 @@ static void test_connect()
         printf("Failed %s \n", resql_errstr(c));
     }
 
-    assert(rc == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
 
     rc = resql_shutdown(client);
-    assert(rc == RESQL_OK);
+    rs_assert(rc == RESQL_OK);
 }
 
 static void example1()

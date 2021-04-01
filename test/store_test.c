@@ -16,9 +16,10 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "test_util.h"
-
 #include "store.h"
+
+#include "file.h"
+#include "test_util.h"
 
 #include <assert.h>
 #include <string.h>
@@ -40,7 +41,7 @@ void store_open_test()
     struct store store2;
     store_init(&store2, "/tmp/store", 0, 0);
 
-    assert(store2.last_index == 10000);
+    rs_assert(store2.last_index == 10000);
     store_term(&store2);
 }
 
@@ -61,7 +62,7 @@ void store_test2()
     struct store store2;
     store_init(&store2, "/tmp/store", 0, 0);
 
-    assert(store2.last_index == 400000);
+    rs_assert(store2.last_index == 400000);
     store_term(&store2);
 }
 
@@ -73,7 +74,7 @@ static void store_expand_test()
     const int size = 32 * 1024 * 1024;
     store_init(&store, "/tmp/store", 0, 0);
 
-    char* p = calloc(1, size);
+    char *p = calloc(1, size);
 
     for (int i = 0; i < 2; i++) {
         store_create_entry(&store, i, i, i, i, p, size - 313);
@@ -86,7 +87,7 @@ static void store_expand_test()
     struct store store2;
     store_init(&store2, "/tmp/store", 0, 0);
 
-    assert(store2.last_index == 2);
+    rs_assert(store2.last_index == 2);
     store_term(&store2);
 }
 

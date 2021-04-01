@@ -17,57 +17,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "server.h"
-#include "rs.h"
 #include "test_util.h"
-
-#include "resql.h"
 
 #include <unistd.h>
 
-
-struct server *create_node_0()
-{
-    char *options[] = {"", "-e"};
-
-    struct conf conf;
-
-    conf_init(&conf);
-    conf_read_config(&conf, false, sizeof(options) / sizeof(char *), options);
-
-    sc_str_set(&conf.node.log_level, "DEBUG");
-    sc_str_set(&conf.node.name, "node0");
-    sc_str_set(&conf.node.bind_url,
-               "tcp://node0@127.0.0.1:7600 unix:///tmp/var");
-    sc_str_set(&conf.node.ad_url, "tcp://node0@127.0.0.1:7600");
-    sc_str_set(&conf.cluster.nodes, "tcp://node0@127.0.0.1:7600");
-    sc_str_set(&conf.node.dir, "/tmp/node0");
-    conf.node.in_memory = true;
-
-    struct server *server = server_create(&conf);
-
-    int rc = server_start(server, true);
-    if (rc != RS_OK) {
-        abort();
-    }
-
-    return server;
-}
-
 static void single()
 {
-    struct server *s1 = create_node_0();
-
-    if (!s1) {
-        rs_abort("");
-    }
-
+    test_server_create(0, 1);
     pause();
-
-    int rc = server_stop(s1);
-    if (rc != RS_OK) {
-        abort();
-    }
 }
 
 

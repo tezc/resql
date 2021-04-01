@@ -297,7 +297,7 @@ if (${HAVE_BACKTRACE})
     define_flag(C_FLAGS_COMMON HAVE_BACKTRACE)
 endif ()
 
-enable_warning_if_supported(-Wduplicated-cond)
+#[[enable_warning_if_supported(-Wduplicated-cond)
 enable_warning_if_supported(-Wduplicated-branches)
 enable_warning_if_supported(-Wlogical-op)
 enable_warning_if_supported(-Wrestrict)
@@ -310,7 +310,7 @@ enable_warning_if_supported(-Wno-unused-but-set-variable)
 enable_warning_if_supported(-Wno-unused-result)
 enable_warning_if_supported(-Wno-sign-compare)
 enable_warning_if_supported(-Wno-error=stringop-overflow=)
-enable_warning_if_supported(-Wno-stringop-overflow)
+enable_warning_if_supported(-Wno-stringop-overflow)]]
 
 
 #option(MARCH_NATIVE "Use march=native" "ON")
@@ -320,7 +320,7 @@ enable_warning_if_supported(-Wno-stringop-overflow)
 #    MESSAGE("Build without march=native")
 #endif ()
 
-set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wall -Werror -pedantic -Wno-error=unused-variable -Wno-error=unused-function")
+set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wall -Werror -pedantic -Wextra")
 set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")

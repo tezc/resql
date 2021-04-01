@@ -171,6 +171,9 @@ void train_multi()
 
 int main(int argc, char **argv)
 {
+    (void) argc;
+    (void) argv;
+
     int rc;
     int ops = 0;
     resql *c;
