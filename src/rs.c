@@ -17,8 +17,9 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "file.h"
 #include "rs.h"
+
+#include "file.h"
 
 #include "sc/sc.h"
 #include "sc/sc_log.h"
@@ -26,6 +27,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
