@@ -54,6 +54,7 @@ bool file_exists_at(const char *path);
 int file_remove_path(const char *path);
 int file_remove_if_exists(const char *path);
 int file_mkdir(const char *path);
+int file_rmdir(const char *path);
 int file_clear_dir(const char *path, const char *pattern);
 int file_copy(const char *dst, const char *src);
 void file_random(void *buf, size_t size);

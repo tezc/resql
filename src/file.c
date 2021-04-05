@@ -31,6 +31,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <ftw.h>
 
 struct file *file_create()
 {
@@ -203,6 +204,20 @@ int file_mkdir(const char *path)
     }
 
     return RS_OK;
+}
+
+static int file_rm(const char *path, const struct stat *s, int t, struct FTW *b)
+{
+    (void) s;
+    (void) t;
+    (void) b;
+
+    return remove(path);
+}
+
+int file_rmdir(const char* path)
+{
+    return nftw(path, file_rm, 64, FTW_DEPTH | FTW_PHYS);
 }
 
 int file_clear_dir(const char *path, const char *pattern)

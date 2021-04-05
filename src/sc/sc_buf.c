@@ -28,7 +28,7 @@
 #include <stdio.h>
 
 #ifndef SC_BUF_SIZE_MAX
-#define SC_BUF_SIZE_MAX UINT32_MAX
+    #define SC_BUF_SIZE_MAX UINT32_MAX
 #endif
 
 #define sc_buf_min(a, b) ((a) > (b) ? (b) : (a))
@@ -54,12 +54,12 @@ bool sc_buf_init(struct sc_buf *buf, uint32_t cap)
 struct sc_buf sc_buf_wrap(void *data, uint32_t len, int flags)
 {
     struct sc_buf buf = {.mem = data,
-            .cap = len,
-            .limit = flags & SC_BUF_REF ? len : SC_BUF_SIZE_MAX,
-            .wpos = flags & SC_BUF_DATA ? len : 0,
-            .rpos = 0,
-            .ref = (bool) (flags & SC_BUF_REF),
-            .error = 0};
+                         .cap = len,
+                         .limit = flags & SC_BUF_REF ? len : SC_BUF_SIZE_MAX,
+                         .wpos = flags & SC_BUF_DATA ? len : 0,
+                         .rpos = 0,
+                         .ref = (bool) (flags & SC_BUF_REF),
+                         .error = 0};
 
     return buf;
 }
@@ -93,30 +93,28 @@ bool sc_buf_reserve(struct sc_buf *buf, uint32_t len)
 
     if (buf->wpos + len > buf->cap) {
         if (buf->ref) {
-            return false;
+            goto error;
         }
 
-        sc_buf_compact(buf);
-
-        if (buf->wpos + len > buf->cap) {
-            size = ((buf->cap + len + 4095) / 4096) * 4096;
-            if (size > buf->limit || buf->cap >= SC_BUF_SIZE_MAX - 4096) {
-                buf->error |= SC_BUF_OOM;
-                return false;
-            }
-
-            tmp = sc_buf_realloc(buf->mem, size);
-            if (tmp == NULL) {
-                buf->error |= SC_BUF_OOM;
-                return false;
-            }
-
-            buf->cap = size;
-            buf->mem = tmp;
+        size = ((buf->cap + len + 4095) / 4096) * 4096;
+        if (size > buf->limit || buf->cap >= SC_BUF_SIZE_MAX - 4096) {
+            goto error;
         }
+
+        tmp = sc_buf_realloc(buf->mem, size);
+        if (tmp == NULL) {
+            goto error;
+        }
+
+        buf->cap = size;
+        buf->mem = tmp;
     }
 
     return true;
+
+error:
+    buf->error |= SC_BUF_OOM;
+    return false;
 }
 
 bool sc_buf_shrink(struct sc_buf *buf, uint32_t len)
@@ -182,13 +180,19 @@ uint32_t sc_buf_rpos(struct sc_buf *buf)
 
 void sc_buf_set_rpos(struct sc_buf *buf, uint32_t pos)
 {
-    assert(buf->wpos >= pos);
+    if (pos > buf->wpos) {
+        buf->error |= SC_BUF_CORRUPT;
+    }
+
     buf->rpos = pos;
 }
 
 void sc_buf_set_wpos(struct sc_buf *buf, uint32_t pos)
 {
-    assert(pos <= buf->cap);
+    if (pos > buf->cap) {
+        buf->error |= SC_BUF_CORRUPT;
+    }
+
     buf->wpos = pos;
 }
 

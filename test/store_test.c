@@ -21,16 +21,13 @@
 #include "file.h"
 #include "test_util.h"
 
-#include <assert.h>
 #include <string.h>
 
 void store_open_test()
 {
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
     struct store store;
 
-    store_init(&store, "/tmp/store", 0, 0);
+    store_init(&store, test_tmp_dir, 0, 0);
 
     for (int i = 0; i < 10000; i++) {
         store_create_entry(&store, i, i, i, i, "test", strlen("test") + 1);
@@ -39,7 +36,7 @@ void store_open_test()
     store_term(&store);
 
     struct store store2;
-    store_init(&store2, "/tmp/store", 0, 0);
+    store_init(&store2, test_tmp_dir, 0, 0);
 
     rs_assert(store2.last_index == 10000);
     store_term(&store2);
@@ -47,11 +44,9 @@ void store_open_test()
 
 void store_test2()
 {
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
     struct store store;
 
-    store_init(&store, "/tmp/store", 0, 0);
+    store_init(&store, test_tmp_dir, 0, 0);
 
     for (int i = 0; i < 400000; i++) {
         store_create_entry(&store, i, i, i, i, "test", strlen("test") + 1);
@@ -60,7 +55,7 @@ void store_test2()
     store_term(&store);
 
     struct store store2;
-    store_init(&store2, "/tmp/store", 0, 0);
+    store_init(&store2, test_tmp_dir, 0, 0);
 
     rs_assert(store2.last_index == 400000);
     store_term(&store2);
@@ -68,11 +63,9 @@ void store_test2()
 
 static void store_expand_test()
 {
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
     struct store store;
     const int size = 32 * 1024 * 1024;
-    store_init(&store, "/tmp/store", 0, 0);
+    store_init(&store, test_tmp_dir, 0, 0);
 
     char *p = calloc(1, size);
 
@@ -85,7 +78,7 @@ static void store_expand_test()
     store_term(&store);
 
     struct store store2;
-    store_init(&store2, "/tmp/store", 0, 0);
+    store_init(&store2, test_tmp_dir, 0, 0);
 
     rs_assert(store2.last_index == 2);
     store_term(&store2);

@@ -1213,6 +1213,7 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
     struct session *sess;
     struct sc_buf req = sc_buf_wrap(buf, len, SC_BUF_READ);
 
+    sc_buf_clear(resp);
     msg_create_client_resp_header(resp);
     head = sc_buf_wpos(resp);
 

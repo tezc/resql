@@ -19,6 +19,7 @@ include(CheckCSourceRuns)
 include(CheckIncludeFiles)
 include(CheckIPOSupported)
 include(CTest)
+include(TestBigEndian)
 
 # -------------------- Includes end -----------------------------#
 
@@ -300,16 +301,26 @@ set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")
 
-if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-    define_flag(C_FLAGS_COMMON DEF_ARCH='"64"')
-    MESSAGE("64 bit architecture")
-    enable_c_flag_if_avail(-msse4.2 C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
-    if (${HAVE_CRC32_HARDWARE})
-        define_flag(C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
-    endif ()
+# detect x86
+enable_c_flag_if_avail(-msse4.2 C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
+if (${HAVE_CRC32_HARDWARE})
+    message(STATUS "CPU have -msse4.2, defined HAVE_CRC32C")
+    define_flag(C_FLAGS_COMMON HAVE_CRC32C)
+endif ()
+
+# detect aarch64
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
+    message(STATUS "CPU = aarch64, defined HAVE_CRC32C, -march=armv8.1-a")
+    define_flag(C_FLAGS_COMMON -march=armv8.1-a)
+    define_flag(C_FLAGS_COMMON HAVE_CRC32C)
+endif()
+
+# detect software version endianness
+test_big_endian(HAVE_BIG_ENDIAN)
+if (${HAVE_BIG_ENDIAN})
+    define_flag(C_FLAGS_COMMON HAVE_BIG_ENDIAN)
 else ()
-    define_flag(C_FLAGS_COMMON DEF_ARCH='"32"')
-    MESSAGE("32 bit architecture")
+    message(STATUS "System is LITTLE ENDIAN")
 endif ()
 
 set(C_FLAGS_COMMON

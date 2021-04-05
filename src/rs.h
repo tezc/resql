@@ -66,14 +66,28 @@
 
 #ifdef RS_ENABLE_ASSERT
     #include <stdio.h>
-    #define rs_assert(a)                                                       \
-        if (!(a)) {                                                            \
-            fprintf(stderr, "[%s:%d] Assert : %s \n", __FILE__, __LINE__, #a); \
+    #include <time.h>
+
+
+    #define rs_assert(cond)                                                    \
+        if (!(cond)) {                                                         \
+            time_t _time;                                                      \
+            char _buf[32] = "localtime failed";                                \
+            struct tm *_tm, _tmp;                                              \
+                                                                               \
+            _time = time(NULL);                                                \
+            _tm = localtime_r(&_time, &_tmp);                                  \
+            if (_tm) {                                                         \
+                strftime(_buf, sizeof(_buf), "%Y-%m-%d %H:%M:%S", _tm);        \
+            }                                                                  \
+                                                                               \
+            fprintf(stderr, "[%s][%s:%d] Assert : %s\n", _buf, __FILE__,       \
+                    __LINE__, #cond);                                          \
             fflush(stderr);                                                    \
             abort();                                                           \
         }
 #else
-    #define rs_assert(a) (void) (a)
+    #define rs_assert(cond) (void) (cond)
 #endif
 
 // clang-format off

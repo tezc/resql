@@ -24,15 +24,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ENTRY_CRC_LEN      4
-#define ENTRY_CRC_OFFSET   0
-#define ENTRY_LEN_OFFSET   4
-#define ENTRY_TERM_OFFSET  8
-#define ENTRY_SEQ_OFFSET   16
-#define ENTRY_CID_OFFSET   24
-#define ENTRY_FLAGS_OFFSET 32
-#define ENTRY_DATA_OFFSET  36
-#define ENTRY_HEADER_SIZE  36
+#define ENTRY_CRC_LEN     4
+#define ENTRY_HEADER_SIZE 36
 
 struct sc_buf;
 
@@ -42,16 +35,16 @@ void entry_encode(struct sc_buf *buf, uint64_t term, uint64_t seq, uint64_t cid,
 int entry_decode(struct sc_buf *buf);
 
 uint32_t entry_encoded_len(uint32_t len);
-uint32_t entry_crc(unsigned char *entry);
-uint32_t entry_len(unsigned char *entry);
-uint64_t entry_term(unsigned char *entry);
-uint64_t entry_seq(unsigned char *entry);
+uint32_t entry_crc(unsigned char *e);
+uint32_t entry_len(unsigned char *e);
+uint64_t entry_term(unsigned char *e);
+uint64_t entry_seq(unsigned char *e);
 
-uint64_t entry_cid(unsigned char *entry);
-uint32_t entry_flags(unsigned char *entry);
+uint64_t entry_cid(unsigned char *e);
+uint32_t entry_flags(unsigned char *e);
 
-void *entry_data(unsigned char *entry);
-uint32_t entry_data_len(unsigned char *entry);
+void *entry_data(unsigned char *e);
+uint32_t entry_data_len(unsigned char *e);
 
 #define entry_foreach(buf, len, entry)                                         \
     for ((entry) = ((unsigned char *) (buf));                                  \
