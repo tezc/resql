@@ -17,14 +17,82 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "test_util.h"
+
+#include "file.h"
 #include "resql.h"
 #include "server.h"
-#include "test_util.h"
 
 #include "sc/sc_log.h"
 #include "sc/sc_str.h"
 
+#include <errno.h>
+
 int init;
+static int count;
+static struct server *cluster[9];
+
+// clang-format off
+
+#define node0 "tcp://node0@127.0.0.1:7600"
+#define node1 node0 " tcp://node1@127.0.0.1:7601"
+#define node2 node1 " tcp://node2@127.0.0.1:7602"
+#define node3 node2 " tcp://node3@127.0.0.1:7603"
+#define node4 node3 " tcp://node4@127.0.0.1:7604"
+#define node5 node4 " tcp://node5@127.0.0.1:7605"
+#define node6 node5 " tcp://node6@127.0.0.1:7606"
+#define node7 node6 " tcp://node7@127.0.0.1:7607"
+#define node8 node7 " tcp://node8@127.0.0.1:7608"
+
+static const char *nodes[] = {
+        node0,
+        node1,
+        node2,
+        node3,
+        node4,
+        node5,
+        node6,
+        node7,
+        node8,
+};
+
+static const char *names[] = {
+        "node0",
+        "node1",
+        "node2",
+        "node3",
+        "node4",
+        "node5",
+        "node6",
+        "node7",
+        "node8",
+};
+
+static const char *urls[] = {
+        "tcp://node0@127.0.0.1:7600",
+        "tcp://node1@127.0.0.1:7601",
+        "tcp://node2@127.0.0.1:7602",
+        "tcp://node3@127.0.0.1:7603",
+        "tcp://node4@127.0.0.1:7604",
+        "tcp://node5@127.0.0.1:7605",
+        "tcp://node6@127.0.0.1:7606",
+        "tcp://node7@127.0.0.1:7607",
+        "tcp://node8@127.0.0.1:7608",
+};
+
+static const char *dirs[] = {
+        "/tmp/node0",
+        "/tmp/node1",
+        "/tmp/node2",
+        "/tmp/node3",
+        "/tmp/node4",
+        "/tmp/node5",
+        "/tmp/node6",
+        "/tmp/node7",
+        "/tmp/node8",
+};
+
+// clang-format on
 
 void init_all()
 {
@@ -38,9 +106,29 @@ void init_all()
     }
 }
 
+void cleanup()
+{
+    int rc;
+
+    for (int i = 0; i < 9; i++) {
+        rc = file_rmdir(dirs[i]);
+        rs_assert(!(rc != 0 && errno != ENOENT));
+
+        rc = file_mkdir(dirs[i]);
+        rs_assert(rc == 0);
+    }
+
+    rc = file_rmdir("/tmp/resql_test");
+    rs_assert(!(rc != 0 && errno != ENOENT));
+
+    rc = file_mkdir("/tmp/resql_test");
+    rs_assert(rc == 0);
+}
+
 void test_util_run(void (*test_fn)(void), const char *fn_name)
 {
     init_all();
+    cleanup();
 
     sc_log_info("[ Running ] %s \n", fn_name);
     test_fn();
@@ -48,41 +136,6 @@ void test_util_run(void (*test_fn)(void), const char *fn_name)
     test_server_destroy_all();
     sc_log_info("[ Passed  ] %s  \n", fn_name);
 }
-
-static struct server *cluster[9];
-static int count;
-
-static const char *names[] = {
-        "node0", "node1", "node2", "node3", "node4",
-        "node5", "node6", "node7", "node8",
-};
-
-static const char *urls[] = {
-        "tcp://node0@127.0.0.1:7600", "tcp://node1@127.0.0.1:7601",
-        "tcp://node2@127.0.0.1:7602", "tcp://node3@127.0.0.1:7603",
-        "tcp://node4@127.0.0.1:7604", "tcp://node5@127.0.0.1:7605",
-        "tcp://node6@127.0.0.1:7606", "tcp://node7@127.0.0.1:7607",
-        "tcp://node8@127.0.0.1:7608",
-};
-
-#define node0 "tcp://node0@127.0.0.1:7600"
-#define node1 node0 " tcp://node1@127.0.0.1:7601"
-#define node2 node1 " tcp://node2@127.0.0.1:7602"
-#define node3 node2 " tcp://node3@127.0.0.1:7603"
-#define node4 node3 " tcp://node4@127.0.0.1:7604"
-#define node5 node4 " tcp://node5@127.0.0.1:7605"
-#define node6 node5 " tcp://node6@127.0.0.1:7606"
-#define node7 node6 " tcp://node7@127.0.0.1:7607"
-#define node8 node7 " tcp://node8@127.0.0.1:7608"
-
-static const char *nodes[] = {
-        node0, node1, node2, node3, node4, node5, node6, node7, node8,
-};
-
-static const char *dirs[] = {
-        "/tmp/node0", "/tmp/node1", "/tmp/node2", "/tmp/node3", "/tmp/node4",
-        "/tmp/node5", "/tmp/node6", "/tmp/node7", "/tmp/node8",
-};
 
 struct server *test_server_start(int id, int cluster_size)
 {
@@ -207,7 +260,7 @@ void test_destroy_leader()
 {
     int rc, n;
     char *endp;
-    const char* head;
+    const char *head;
     resql *c;
     resql_result *rs;
 
@@ -217,7 +270,7 @@ void test_destroy_leader()
     client_assert(c, rc == RESQL_OK);
 
     head = resql_row(rs)[0].text + strlen("node");
-    endp = (char*) head + 1;
+    endp = (char *) head + 1;
     n = (int) strtoul(head, &endp, 10);
 
     test_server_destroy(n);
@@ -242,7 +295,7 @@ resql *test_client_create()
         }
     }
 
-    struct resql_config conf = {.urls = url, .timeout_millis = 60000};
+    struct resql_config conf = {.urls = url, .timeout_millis = 600000};
 
     rc = resql_create(&c, &conf);
     if (rc != RESQL_OK) {

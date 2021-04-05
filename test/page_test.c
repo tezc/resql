@@ -17,43 +17,29 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "test_util.h"
+#include "page.h"
 
 #include "entry.h"
 #include "file.h"
-#include "page.h"
 #include "rs.h"
+#include "test_util.h"
 
-#include <assert.h>
 #include <string.h>
-
-
-void* x()
-{
-    return NULL;
-}
-
-void a()
-{
-
-}
 
 static void page_open_test(void)
 {
     int rc;
+    size_t page_size;
     struct page page;
 
-    file_mkdir("/tmp/store");
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
-    rc = page_init(&page, "/tmp/store/page.resql", -1, 5000);
+    rc = page_init(&page, test_tmp_page0, -1, 5000);
     rs_assert(rc == RS_OK);
 
-    size_t page_size = page.map.len;
+    page_size = page.map.len;
     rs_assert(page_fsync(&page, page_last_index(&page)) == RS_OK);
     rs_assert(page_term(&page) == RS_OK);
 
-    rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
+    rc = page_init(&page, test_tmp_page0, -1, 0);
     rs_assert(rc == RS_OK);
     rs_assert(page.map.len == page_size);
     rs_assert(page.prev_index == 5000);
@@ -62,18 +48,14 @@ static void page_open_test(void)
 
 static void page_reopen_test(void)
 {
-    file_mkdir("/tmp/store");
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
     int rc;
     const int prev_index = 5000;
-    struct page page;
-
-    rc = page_init(&page, "/tmp/store/page.resql", -1, prev_index);
-    rs_assert(rc == RS_OK);
-
     char *data = "data";
     unsigned char *entry;
+    struct page page;
+
+    rc = page_init(&page, test_tmp_page0, -1, prev_index);
+    rs_assert(rc == RS_OK);
 
     for (int i = 0; i < 1000; i++) {
         page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -85,7 +67,7 @@ static void page_reopen_test(void)
 
     rs_assert(page_term(&page) == RS_OK);
 
-    rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
+    rc = page_init(&page, test_tmp_page0, -1, 0);
     rs_assert(rc == RS_OK);
 
     for (uint64_t i = 0; i < 1000; i++) {
@@ -103,18 +85,14 @@ static void page_reopen_test(void)
 
 static void page_expand_test(void)
 {
-    file_mkdir("/tmp/store");
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
     int rc;
     const int prev_index = 5000;
-    struct page page;
-
-    rc = page_init(&page, "/tmp/store/page.resql", -1, prev_index);
-    rs_assert(rc == RS_OK);
-
     char *data = "data";
     unsigned char *entry;
+    struct page page;
+
+    rc = page_init(&page, test_tmp_page0, -1, prev_index);
+    rs_assert(rc == RS_OK);
 
     for (int i = 0; i < 1000; i++) {
         page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -141,18 +119,14 @@ static void page_expand_test(void)
 
 static void page_remove_after_test(void)
 {
-    file_mkdir("/tmp/store");
-    file_clear_dir("/tmp/store", RS_STORE_EXTENSION);
-
     int rc;
     const int prev_index = 5000;
-    struct page page;
-
-    rc = page_init(&page, "/tmp/store/page.resql", -1, prev_index);
-    rs_assert(rc == RS_OK);
-
     char *data = "data";
     unsigned char *entry;
+    struct page page;
+
+    rc = page_init(&page, test_tmp_page0, -1, prev_index);
+    rs_assert(rc == RS_OK);
 
     for (int i = 0; i < 1000; i++) {
         page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -160,10 +134,9 @@ static void page_remove_after_test(void)
 
     page_remove_after(&page, prev_index + 501);
 
-
     rs_assert(page_term(&page) == RS_OK);
 
-    rc = page_init(&page, "/tmp/store/page.resql", -1, 0);
+    rc = page_init(&page, test_tmp_page0, -1, 0);
     rs_assert(rc == RS_OK);
     rs_assert(page_entry_count(&page) == 501);
 

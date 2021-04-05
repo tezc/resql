@@ -130,6 +130,7 @@ resql_test(client_test.c)
 resql_test(c_client_test.c)
 resql_test(cluster_test.c)
 resql_test(config_test.c)
+resql_test(entry_test.c)
 resql_test(leader_test.c)
 resql_test(meta_test.c)
 resql_test(msg_test.c)
@@ -144,6 +145,17 @@ resql_test(store_test.c)
 add_custom_target(check ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
         ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --verbose
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+SET(MEMORYCHECK_COMMAND_OPTIONS
+        "-q --log-fd=2 --trace-children=yes --track-origins=yes       \
+           --leak-check=full --show-leak-kinds=all \
+           --error-exitcode=255")
+
+add_custom_target(valgrind ${CMAKE_COMMAND}
+        -E env CTEST_OUTPUT_ON_FAILURE=1
+        ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
+        --overwrite MemoryCheckCommandOptions=${MEMORYCHECK_COMMAND_OPTIONS}
+        --verbose -T memcheck WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_custom_target(coverage)
 add_custom_command(

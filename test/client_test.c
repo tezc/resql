@@ -160,7 +160,7 @@ static void client_error()
             c,
             "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
     rc = resql_exec(c, false, &rs);
-    rs_assert(rc == RESQL_OK);
+    client_assert(c, rc == RESQL_OK);
 
     resql_put_sql(c, "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);");
     resql_bind_param_int(c, ":key1", 1);
@@ -256,7 +256,7 @@ static void client_many()
             c,
             "CREATE TABLE test (a INTEGER PRIMARY KEY, b TEXT, c FLOAT, d BLOB);");
     rc = resql_exec(c, false, &rs);
-    rs_assert(rc == RESQL_OK);
+    client_assert(c, rc == RESQL_OK);
 
     for (int i = 0; i < 1000; i++) {
         resql_put_sql(c,
