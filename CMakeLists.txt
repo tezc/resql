@@ -301,6 +301,14 @@ set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")
 
+if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+    define_flag(C_FLAGS_COMMON DEF_ARCH='"64"')
+    MESSAGE("64 bit architecture")
+else ()
+    define_flag(C_FLAGS_COMMON DEF_ARCH='"32"')
+    MESSAGE("32 bit architecture")
+endif ()
+
 # detect x86
 enable_c_flag_if_avail(-msse4.2 C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
 if (${HAVE_CRC32_HARDWARE})
