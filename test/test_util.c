@@ -295,7 +295,7 @@ resql *test_client_create()
         }
     }
 
-    struct resql_config conf = {.urls = url, .timeout_millis = 60000};
+    struct resql_config conf = {.urls = url, .timeout_millis = 600000};
 
     rc = resql_create(&c, &conf);
     if (rc != RESQL_OK) {

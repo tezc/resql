@@ -146,6 +146,17 @@ add_custom_target(check ${CMAKE_COMMAND} -E env CTEST_OUTPUT_ON_FAILURE=1
         ${CMAKE_CTEST_COMMAND} -C $<CONFIG> --verbose
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
+SET(MEMORYCHECK_COMMAND_OPTIONS
+        "-q --log-fd=2 --trace-children=yes --track-origins=yes       \
+           --leak-check=full --show-leak-kinds=all \
+           --error-exitcode=255")
+
+add_custom_target(valgrind ${CMAKE_COMMAND}
+        -E env CTEST_OUTPUT_ON_FAILURE=1
+        ${CMAKE_CTEST_COMMAND} -C $<CONFIG>
+        --overwrite MemoryCheckCommandOptions=${MEMORYCHECK_COMMAND_OPTIONS}
+        --verbose -T memcheck WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
 add_custom_target(coverage)
 add_custom_command(
         TARGET coverage

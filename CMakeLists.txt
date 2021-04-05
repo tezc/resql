@@ -311,7 +311,7 @@ endif ()
 
 # detect x86
 enable_c_flag_if_avail(-msse4.2 C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
-if (${HAVE_CRC32_HARDWARE})
+if (${HAVE_CRC32_HARDWARE} AND "${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
     message(STATUS "CPU have -msse4.2, defined HAVE_CRC32C")
     define_flag(C_FLAGS_COMMON HAVE_CRC32C)
 endif ()

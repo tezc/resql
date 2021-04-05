@@ -39,6 +39,8 @@ void encode_test()
             sc_buf_compact(&buf);
         }
     }
+
+    sc_buf_term(&buf);
 }
 
 int main()
