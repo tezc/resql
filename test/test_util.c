@@ -31,6 +31,7 @@
 #include "sc/sc_log.h"
 #include "sc/sc_str.h"
 
+#include <conf.h>
 #include <errno.h>
 
 int init;
@@ -169,6 +170,7 @@ struct server *test_server_start(int id, int cluster_size)
 	sc_str_set(&conf.node.ad_url, urls[id]);
 	sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
 	sc_str_set(&conf.node.dir, dirs[id]);
+	conf.advanced.fsync = false;
 
 	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
@@ -251,6 +253,7 @@ struct server *test_server_create(int id, int cluster_size)
 	sc_str_set(&conf.node.ad_url, urls[id]);
 	sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
 	sc_str_set(&conf.node.dir, dirs[id]);
+	conf.advanced.fsync = false;
 
 	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 

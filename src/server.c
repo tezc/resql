@@ -1150,7 +1150,7 @@ void server_on_append_req(struct server *s, struct node *node, struct msg *msg)
 		    store_prev_term_of(&s->store, req->prev_log_index)) {
 
 		msg_create_append_resp(&node->conn.out, s->meta.term,
-				       req->prev_log_index, req->round, false);
+				       s->store.last_index, req->round, false);
 
 		rc = conn_flush(&node->conn);
 		if (rc != RS_OK) {
@@ -1231,13 +1231,19 @@ void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 	struct msg_append_resp *resp = &msg->append_resp;
 
 	node->msg_inflight--;
-	node_update_indexes(node, resp->round, resp->index);
+	if (resp->success) {
+		node_update_indexes(node, resp->round, resp->index);
+	}
 
 	if (!resp->success) {
 		if (resp->term > s->meta.term) {
 			server_update_meta(s, resp->term, NULL);
 			server_become_follower(s, NULL);
 		}
+
+		node->match = resp->index;
+		node->next = node->match + 1;
+		node->round = 0;
 	}
 }
 
