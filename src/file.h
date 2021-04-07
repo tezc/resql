@@ -29,10 +29,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-struct file
-{
-    char *path;
-    FILE *fp;
+struct file {
+	char *path;
+	FILE *fp;
 };
 
 struct file *file_create();

@@ -30,43 +30,43 @@
 
 struct info *info_create(const char *name)
 {
-    struct info *info;
+	struct info *n;
 
-    info = rs_calloc(1, sizeof(*info));
+	n = rs_calloc(1, sizeof(*n));
 
-    info->name = sc_str_create(name);
-    sc_buf_init(&info->stats, 1024);
+	n->name = sc_str_create(name);
+	sc_buf_init(&n->stats, 1024);
 
-    return info;
+	return n;
 }
 
-void info_destroy(struct info *info)
+void info_destroy(struct info *n)
 {
-    sc_str_destroy(info->name);
-    sc_str_destroy(info->urls);
-    sc_str_destroy(info->connected);
-    sc_str_destroy(info->role);
-    sc_buf_term(&info->stats);
-    rs_free(info);
+	sc_str_destroy(n->name);
+	sc_str_destroy(n->urls);
+	sc_str_destroy(n->connected);
+	sc_str_destroy(n->role);
+	sc_buf_term(&n->stats);
+	rs_free(n);
 }
 
-void info_set_connected(struct info *info, bool connected)
+void info_set_connected(struct info *n, bool connected)
 {
-    sc_str_set(&info->connected, connected ? "true" : "false");
+	sc_str_set(&n->connected, connected ? "true" : "false");
 }
 
-void info_set_role(struct info *info, const char *role)
+void info_set_role(struct info *n, const char *role)
 {
-    sc_str_set(&info->role, role);
+	sc_str_set(&n->role, role);
 }
 
-void info_set_urls(struct info *info, const char *urls)
+void info_set_urls(struct info *n, const char *urls)
 {
-    sc_str_set(&info->urls, urls);
+	sc_str_set(&n->urls, urls);
 }
 
-void info_set_stats(struct info *info, struct sc_buf *stats)
+void info_set_stats(struct info *n, struct sc_buf *stats)
 {
-    sc_buf_clear(&info->stats);
-    sc_buf_put_raw(&info->stats, sc_buf_rbuf(stats), sc_buf_size(stats));
+	sc_buf_clear(&n->stats);
+	sc_buf_put_raw(&n->stats, sc_buf_rbuf(stats), sc_buf_size(stats));
 }

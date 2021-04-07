@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_NODE_H
 #define RESQL_NODE_H
 
@@ -32,35 +31,34 @@
 #include "sc/sc_list.h"
 #include "sc/sc_map.h"
 
-struct node
-{
-    struct server *server;
-    struct sc_sock_poll *loop;
-    struct sc_timer *timer;
-    struct conn conn;
+struct node {
+	struct server *server;
+	struct sc_sock_poll *loop;
+	struct sc_timer *timer;
+	struct conn conn;
 
-    struct sc_list list;
-    struct sc_uri **uris;
-    uint64_t conn_timer;
-    uint64_t interval;
-    char *name;
+	struct sc_list list;
+	struct sc_uri **uris;
+	uint64_t conn_timer;
+	uint64_t interval;
+	char *name;
 
-    uint64_t next;
-    uint64_t match;
-    uint64_t round;
+	uint64_t next;
+	uint64_t match;
+	uint64_t round;
 
-    uint64_t ss_pos;
-    uint64_t ss_index;
-    uint64_t msg_inflight;
+	uint64_t ss_pos;
+	uint64_t ss_index;
+	uint64_t msg_inflight;
 
-    int id;
-    bool known;
-    bool voted;
-    enum meta_role role;
+	int id;
+	bool known;
+	bool voted;
+	enum meta_role role;
 
-    uint64_t in_timestamp;
-    uint64_t out_timestamp;
-    struct sc_buf info;
+	uint64_t in_timestamp;
+	uint64_t out_timestamp;
+	struct sc_buf info;
 };
 
 struct node *node_create(const char *name, struct server *server, bool connect);
@@ -68,7 +66,7 @@ void node_destroy(struct node *n);
 
 void node_disconnect(struct node *n);
 void node_update_indexes(struct node *n, uint64_t round, uint64_t match);
-void node_clear_indexes(struct node *n);
+void node_clear_indexes(struct node *n, uint64_t match);
 void node_add_uris(struct node *n, struct sc_uri **uris);
 int node_try_connect(struct node *n);
 void node_set_conn(struct node *n, struct conn *conn);

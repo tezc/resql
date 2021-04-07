@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #include "session.h"
 
 #include "rs.h"
@@ -33,130 +32,130 @@
 #include <time.h>
 
 struct session *session_create(struct state *state, const char *name,
-                               uint64_t id)
+			       uint64_t id)
 {
-    struct session *s;
+	struct session *s;
 
-    s = rs_calloc(1, sizeof(*s));
+	s = rs_calloc(1, sizeof(*s));
 
-    s->state = state;
-    s->name = sc_str_create(name);
-    s->local = sc_str_create("");
-    s->remote = sc_str_create("");
-    s->id = id;
-    s->seq = 0;
-    s->connect_time = 0;
+	s->state = state;
+	s->name = sc_str_create(name);
+	s->local = sc_str_create("");
+	s->remote = sc_str_create("");
+	s->id = id;
+	s->seq = 0;
+	s->connect_time = 0;
 
-    sc_map_init_64v(&s->stmts, 0, 0);
-    sc_buf_init(&s->resp, 64);
-    sc_list_init(&s->list);
+	sc_map_init_64v(&s->stmts, 0, 0);
+	sc_buf_init(&s->resp, 64);
+	sc_list_init(&s->list);
 
-    return s;
+	return s;
 }
 
 void session_destroy(struct session *s)
 {
-    sqlite3_stmt *stmt;
+	sqlite3_stmt *stmt;
 
-    sc_list_del(NULL, &s->list);
-    sc_buf_term(&s->resp);
-    sc_str_destroy(s->name);
-    sc_str_destroy(s->local);
-    sc_str_destroy(s->remote);
-    sc_str_destroy(s->connect_time);
+	sc_list_del(NULL, &s->list);
+	sc_buf_term(&s->resp);
+	sc_str_destroy(s->name);
+	sc_str_destroy(s->local);
+	sc_str_destroy(s->remote);
+	sc_str_destroy(s->connect_time);
 
-    sc_map_foreach_value (&s->stmts, stmt) {
-        sqlite3_finalize(stmt);
-    }
-    sc_map_term_64v(&s->stmts);
+	sc_map_foreach_value (&s->stmts, stmt) {
+		sqlite3_finalize(stmt);
+	}
+	sc_map_term_64v(&s->stmts);
 
-    rs_free(s);
+	rs_free(s);
 }
 
 void session_connected(struct session *s, const char *local, const char *remote,
-                       uint64_t ts)
+		       uint64_t ts)
 {
-    char tmp[32] = {0};
-    struct tm tm, *p;
-    time_t t = (time_t) ts / 1000;
+	char tmp[32] = {0};
+	struct tm tm, *p;
+	time_t t = (time_t) ts / 1000;
 
-    s->disconnect_time = 0;
-    sc_list_del(NULL, &s->list);
-    sc_str_set(&s->local, local);
-    sc_str_set(&s->remote, remote);
+	s->disconnect_time = 0;
+	sc_list_del(NULL, &s->list);
+	sc_str_set(&s->local, local);
+	sc_str_set(&s->remote, remote);
 
-    p = localtime_r(&t, &tm);
-    if (!p) {
-        strcpy(tmp, "localtime_r failed");
-    }
+	p = localtime_r(&t, &tm);
+	if (!p) {
+		strcpy(tmp, "localtime_r failed");
+	}
 
-    strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", p);
-    sc_str_set(&s->connect_time, tmp);
+	strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", p);
+	sc_str_set(&s->connect_time, tmp);
 }
 
 void session_disconnected(struct session *s, uint64_t timestamp)
 {
-    s->disconnect_time = timestamp;
-    sc_str_set(&s->local, "");
-    sc_str_set(&s->remote, "");
+	s->disconnect_time = timestamp;
+	sc_str_set(&s->local, "");
+	sc_str_set(&s->remote, "");
 }
 
 uint64_t session_create_stmt(struct session *s, uint64_t id, const char *sql,
-                             int len, const char **err)
+			     int len, const char **err)
 {
-    int rc;
-    uint64_t prev_id;
-    sqlite3_stmt *prev, *stmt;
+	int rc;
+	uint64_t prev_id;
+	sqlite3_stmt *prev, *stmt;
 
-    *err = NULL;
+	*err = NULL;
 
-    sc_map_foreach (&s->stmts, prev_id, prev) {
-        const char *prev_sql = sqlite3_sql(prev);
-        if (strcmp(prev_sql, sql) == 0) {
-            return (uint64_t) prev_id;
-        }
-    }
+	sc_map_foreach (&s->stmts, prev_id, prev) {
+		const char *prev_sql = sqlite3_sql(prev);
+		if (strcmp(prev_sql, sql) == 0) {
+			return (uint64_t) prev_id;
+		}
+	}
 
-    rc = sqlite3_prepare_v3(s->state->aux.db, sql, len,
-                            SQLITE_PREPARE_PERSISTENT, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-        goto error;
-    }
+	rc = sqlite3_prepare_v3(s->state->aux.db, sql, len,
+				SQLITE_PREPARE_PERSISTENT, &stmt, NULL);
+	if (rc != SQLITE_OK) {
+		goto error;
+	}
 
-    sc_map_put_64v(&s->stmts, id, stmt);
+	sc_map_put_64v(&s->stmts, id, stmt);
 
-    return id;
+	return id;
 
 error:
-    *err = sqlite3_errmsg(s->state->aux.db);
-    return 0;
+	*err = sqlite3_errmsg(s->state->aux.db);
+	return 0;
 }
 
 int session_del_stmt(struct session *s, uint64_t id)
 {
-    bool found;
-    int rc;
-    sqlite3_stmt *stmt;
+	bool found;
+	int rc;
+	sqlite3_stmt *stmt;
 
-    found = sc_map_del_64v(&s->stmts, id, (void **) &stmt);
-    if (!found) {
-        return RS_ERROR;
-    }
+	found = sc_map_del_64v(&s->stmts, id, (void **) &stmt);
+	if (!found) {
+		return RS_ERROR;
+	}
 
-    rc = sqlite3_finalize(stmt);
-    if (rc != SQLITE_OK) {
-        rs_abort("%s \n", sqlite3_errmsg(s->state->aux.db));
-    }
+	rc = sqlite3_finalize(stmt);
+	if (rc != SQLITE_OK) {
+		rs_abort("%s \n", sqlite3_errmsg(s->state->aux.db));
+	}
 
-    return RS_OK;
+	return RS_OK;
 }
 
 void *session_get_stmt(struct session *s, uint64_t id)
 {
-    bool found;
-    void *stmt;
+	bool found;
+	void *stmt;
 
-    found = sc_map_get_64v(&s->stmts, id, &stmt);
+	found = sc_map_get_64v(&s->stmts, id, &stmt);
 
-    return found ? stmt : NULL;
+	return found ? stmt : NULL;
 }

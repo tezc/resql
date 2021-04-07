@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_STATE_H
 #define RESQL_STATE_H
 
@@ -34,58 +33,55 @@
 #include "sc/sc_list.h"
 #include "sc/sc_map.h"
 
-
-struct state_cb
-{
-    void *arg;
-    const char *(*add_node)(void *arg, const char *node);
-    const char *(*remove_node)(void *arg, const char *node);
-    const char *(*shutdown)(void *arg, const char *node);
+struct state_cb {
+	void *arg;
+	const char *(*add_node)(void *arg, const char *node);
+	const char *(*remove_node)(void *arg, const char *node);
+	const char *(*shutdown)(void *arg, const char *node);
 };
 
-struct state
-{
-    struct state_cb cb;
-    char *path;
-    char *ss_path;
-    char *ss_tmp_path;
-    char *last_err;
+struct state {
+	struct state_cb cb;
+	char *path;
+	char *ss_path;
+	char *ss_tmp_path;
+	char *last_err;
 
-    bool closed;
+	bool closed;
 
-    // operation flags
-    bool client;
-    bool readonly;
-    bool full;
-    int64_t max_page;
+	// operation flags
+	bool client;
+	bool readonly;
+	bool full;
+	int64_t max_page;
 
-    struct aux aux;
-    struct meta meta;
-    uint64_t term;
-    uint64_t index;
+	struct aux aux;
+	struct meta meta;
+	uint64_t term;
+	uint64_t index;
 
-    // time
-    uint64_t timestamp;
-    uint64_t monotonic;
-    uint64_t realtime;
+	// time
+	uint64_t timestamp;
+	uint64_t monotonic;
+	uint64_t realtime;
 
-    struct sc_list disconnects;
+	struct sc_list disconnects;
 
-    struct sc_map_sv nodes;
-    struct sc_map_sv names;
-    struct sc_map_64v ids;
-    struct sc_buf tmp;
+	struct sc_map_sv nodes;
+	struct sc_map_sv names;
+	struct sc_map_64v ids;
+	struct sc_buf tmp;
 
-    struct sc_rand rrand;
-    struct sc_rand wrand;
-    char err[128];
+	struct sc_rand rrand;
+	struct sc_rand wrand;
+	char err[128];
 };
 
 int state_global_init();
 int state_global_shutdown();
 
 void state_init(struct state *st, struct state_cb cb, const char *path,
-                const char *name);
+		const char *name);
 void state_term(struct state *st);
 
 void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv);
@@ -100,9 +96,9 @@ void state_close(struct state *st);
 
 void state_initial_snapshot(struct state *st);
 int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
-                         uint32_t len, struct sc_buf *resp);
+			 uint32_t len, struct sc_buf *resp);
 
 struct session *state_apply(struct state *st, uint64_t index,
-                            unsigned char *entry);
+			    unsigned char *entry);
 
 #endif

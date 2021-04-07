@@ -34,65 +34,67 @@
 
 static void snapshot_simple()
 {
-    int rc, x;
-    char tmp[32];
-    resql *c;
-    struct resql_column *row;
-    struct resql_result *rs = NULL;
+	int rc, x;
+	char tmp[32];
+	resql *c;
+	struct resql_column *row;
+	struct resql_result *rs = NULL;
 
-    test_server_create(0, 3);
-    test_server_create(1, 3);
-    c = test_client_create();
+	test_server_create(0, 3);
+	test_server_create(1, 3);
+	c = test_client_create();
 
-    resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
+	resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
 
-    rc = resql_exec(c, false, &rs);
-    client_assert(c, rc == RESQL_OK);
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    for (int i = 0; i < 1000; i++) {
-        for (int j = 0; j < 1000; j++) {
-            snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
+	for (int i = 0; i < 1000; i++) {
+		for (int j = 0; j < 1000; j++) {
+			snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
 
-            resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
-            resql_bind_param_text(c, ":key", tmp);
-        }
+			resql_put_sql(
+				c,
+				"INSERT INTO snapshot VALUES(:key, 'value')");
+			resql_bind_param_text(c, ":key", tmp);
+		}
 
-        rc = resql_exec(c, false, &rs);
-        client_assert(c, rc == RESQL_OK);
-    }
+		rc = resql_exec(c, false, &rs);
+		client_assert(c, rc == RESQL_OK);
+	}
 
-    test_server_destroy_all();
-    test_server_start(0, 3);
-    test_server_start(1, 3);
-    test_server_start(2, 3);
+	test_server_destroy_all();
+	test_server_start(0, 3);
+	test_server_start(1, 3);
+	test_server_start(2, 3);
 
-    resql_put_sql(c, "Select count(*) from snapshot;");
-    rc = resql_exec(c, false, &rs);
-    client_assert(c, rc == RESQL_OK);
+	resql_put_sql(c, "Select count(*) from snapshot;");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    rs_assert(resql_row_count(rs) == 1);
-    rs_assert(resql_row(rs)[0].intval == 1000000);
+	rs_assert(resql_row_count(rs) == 1);
+	rs_assert(resql_row(rs)[0].intval == 1000000);
 
-    resql_put_sql(c, "Select * from snapshot;");
-    rc = resql_exec(c, false, &rs);
-    client_assert(c, rc == RESQL_OK);
+	resql_put_sql(c, "Select * from snapshot LIMIT 100;");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    x = 0;
-    rs_assert(resql_row_count(rs) == 1000000);
+	x = 0;
+	rs_assert(resql_row_count(rs) == 100);
 
-    while ((row = resql_row(rs)) != NULL) {
-        snprintf(tmp, sizeof(tmp), "%d", x++);
+	while ((row = resql_row(rs)) != NULL) {
+		snprintf(tmp, sizeof(tmp), "%d", x++);
 
-        rs_assert(row[0].type == RESQL_TEXT);
-        rs_assert(strcmp(tmp, row[0].text) == 0);
-    }
+		rs_assert(row[0].type == RESQL_TEXT);
+		rs_assert(strcmp(tmp, row[0].text) == 0);
+	}
 
-    rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == false);
 }
 
 int main(void)
 {
-    test_execute(snapshot_simple);
+	test_execute(snapshot_simple);
 
-    return 0;
+	return 0;
 }

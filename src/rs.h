@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_RS_H
 #define RESQL_RS_H
 
@@ -35,64 +34,64 @@
 #define RS_VERSION "0.0.17-latest"
 
 #ifndef RESQL_FILE_NAME
-    #define RESQL_FILE_NAME "unknown file name"
+#define RESQL_FILE_NAME "unknown file name"
 #endif
 
 #ifdef RS_COMPILER_GIT_BRANCH
-    #define RS_GIT_BRANCH RS_COMPILER_GIT_BRANCH
+#define RS_GIT_BRANCH RS_COMPILER_GIT_BRANCH
 #else
-    #define RS_GIT_BRANCH "UNKNOWN"
+#define RS_GIT_BRANCH "UNKNOWN"
 #endif
 
 #ifdef RS_COMPILER_GIT_COMMIT
-    #define RS_GIT_COMMIT RS_COMPILER_GIT_COMMIT
+#define RS_GIT_COMMIT RS_COMPILER_GIT_COMMIT
 #else
-    #define RS_GIT_COMMIT "UNKNOWN"
+#define RS_GIT_COMMIT "UNKNOWN"
 #endif
 
 #define RS_STORE_EXTENSION ".resql"
 
 #define rs_entry(ptr, type, elem)                                              \
-    ((type *) ((char *) (ptr) -offsetof(type, elem)))
+	((type *) ((char *) (ptr) -offsetof(type, elem)))
 
 #ifndef thread_local
-    #if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
-        #define thread_local _Thread_local
-    #elif defined _WIN32 && (defined _MSC_VER || defined __ICL ||              \
-                             defined __DMC__ || defined __BORLANDC__)
-        #define thread_local __declspec(thread)
-    /* note that ICC (linux) and Clang are covered by __GNUC__ */
-    #elif defined __GNUC__ || defined __SUNPRO_C || defined __xlC__
-        #define thread_local __thread
-    #else
-        #error "Cannot define thread_local"
-    #endif
+#if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
+#define thread_local _Thread_local
+#elif defined _WIN32 && (defined _MSC_VER || defined __ICL ||                  \
+			 defined __DMC__ || defined __BORLANDC__)
+#define thread_local __declspec(thread)
+/* note that ICC (linux) and Clang are covered by __GNUC__ */
+#elif defined __GNUC__ || defined __SUNPRO_C || defined __xlC__
+#define thread_local __thread
+#else
+#error "Cannot define thread_local"
+#endif
 #endif
 
 #ifdef RS_ENABLE_ASSERT
-    #include <stdio.h>
-    #include <time.h>
+#include <stdio.h>
+#include <time.h>
 
-
-    #define rs_assert(cond)                                                    \
-        if (!(cond)) {                                                         \
-            time_t _time;                                                      \
-            char _buf[32] = "localtime failed";                                \
-            struct tm *_tm, _tmp;                                              \
+#define rs_assert(cond)                                                        \
+	if (!(cond)) {                                                         \
+		time_t _time;                                                  \
+		char _buf[32] = "localtime failed";                            \
+		struct tm *_tm, _tmp;                                          \
                                                                                \
-            _time = time(NULL);                                                \
-            _tm = localtime_r(&_time, &_tmp);                                  \
-            if (_tm) {                                                         \
-                strftime(_buf, sizeof(_buf), "%Y-%m-%d %H:%M:%S", _tm);        \
-            }                                                                  \
+		_time = time(NULL);                                            \
+		_tm = localtime_r(&_time, &_tmp);                              \
+		if (_tm) {                                                     \
+			strftime(_buf, sizeof(_buf), "%Y-%m-%d %H:%M:%S",      \
+				 _tm);                                         \
+		}                                                              \
                                                                                \
-            fprintf(stderr, "[%s][%s:%d] Assert : %s\n", _buf, __FILE__,       \
-                    __LINE__, #cond);                                          \
-            fflush(stderr);                                                    \
-            abort();                                                           \
-        }
+		fprintf(stderr, "[%s][%s:%d] Assert : %s\n", _buf, __FILE__,   \
+			__LINE__, #cond);                                      \
+		fflush(stderr);                                                \
+		abort();                                                       \
+	}
 #else
-    #define rs_assert(cond) (void) (cond)
+#define rs_assert(cond) (void) (cond)
 #endif
 
 // clang-format off
@@ -120,13 +119,13 @@ enum rs_rc
 #define rs_exp(fmt, ...) fmt, __VA_ARGS__
 
 #define rs_abort(...)                                                          \
-    (rs_on_abort(RESQL_FILE_NAME, __func__, __LINE__, rs_exp(__VA_ARGS__, "")))
+	(rs_on_abort(RESQL_FILE_NAME, __func__, __LINE__,                      \
+		     rs_exp(__VA_ARGS__, "")))
 
 _Noreturn void rs_on_abort(const char *file, const char *func, int line,
-                           const char *fmt, ...);
+			   const char *fmt, ...);
 
 _Noreturn void rs_exit(const char *fmt, ...);
-
 
 int rs_snprintf(char *buf, size_t max_len, const char *fmt, ...);
 int rs_vsnprintf(char *buf, size_t max_len, const char *fmt, va_list list);
@@ -144,6 +143,5 @@ void rs_free(void *p);
 
 void rs_rand_init();
 unsigned int rs_rand();
-
 
 #endif

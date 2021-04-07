@@ -22,26 +22,25 @@
  * SOFTWARE.
  */
 
-
 #include "conf.h"
 #include "server.h"
 
 int main(int argc, char *argv[])
 {
-    int rc;
-    struct conf config;
-    struct server *server;
+	int rc;
+	struct conf config;
+	struct server *server;
 
-    server_global_init();
+	server_global_init();
 
-    conf_init(&config);
-    conf_read_config(&config, true, argc, argv);
+	conf_init(&config);
+	conf_read_config(&config, true, argc, argv);
 
-    server = server_create(&config);
-    rc = server_start(server, false);
-    server_destroy(server);
+	server = server_create(&config);
+	rc = server_start(server, false);
 
-    server_global_shutdown();
+	server_destroy(server);
+	server_global_shutdown();
 
-    return rc;
+	return rc;
 }

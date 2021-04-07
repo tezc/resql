@@ -4,25 +4,25 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 add_executable(resql-cli
         resql_cli.c
-        ${CMAKE_SOURCE_DIR}/cresql/resql.h
-        ${CMAKE_SOURCE_DIR}/cresql/resql.c
-        ${CMAKE_SOURCE_DIR}/lib/linenoise/linenoise.h
-        ${CMAKE_SOURCE_DIR}/lib/linenoise/linenoise.c
-        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.h
-        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.c
+        ../../cresql/resql.h
+        ../../cresql/resql.c
+        ../../lib/linenoise/linenoise.h
+        ../../lib/linenoise/linenoise.c
+        ../../lib/sc/sc_option.h
+        ../../lib/sc/sc_option.c
         )
 
-target_include_directories(resql-cli PRIVATE ${CMAKE_SOURCE_DIR}/cresql)
-target_include_directories(resql-cli PRIVATE ${CMAKE_SOURCE_DIR}/lib/linenoise)
-target_include_directories(resql-cli PRIVATE ${CMAKE_SOURCE_DIR}/lib/sc)
+target_include_directories(resql-cli PRIVATE ../../cresql)
+target_include_directories(resql-cli PRIVATE ../../lib/linenoise)
+target_include_directories(resql-cli PRIVATE ../../lib/sc)
 set_source_files_properties(
-        ${CMAKE_SOURCE_DIR}/lib/linenoise/linenoise.h
-        ${CMAKE_SOURCE_DIR}/lib/linenoise/linenoise.c
+        ../../lib/linenoise/linenoise.h
+        ../../lib/linenoise/linenoise.c
         PROPERTIES
         COMPILE_FLAGS "-w"
 )
 
-install(TARGETS resql-cli RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+install(TARGETS resql-cli RUNTIME DESTINATION ../../bin)
 
 
 

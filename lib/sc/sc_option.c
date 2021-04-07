@@ -21,41 +21,58 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef SC_OPTION_H
-#define SC_OPTION_H
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
+#include "sc_option.h"
 
-#define SC_OPTION_VERSION "1.0.0"
+#include <string.h>
 
-struct sc_option_item
+char sc_option_at(struct sc_option *opt, int index, char **value)
 {
-    const char letter;
-    const char *name;
-};
+	char id = '?';
+	size_t len;
+	char *pos;
+	const char *curr, *name;
 
-struct sc_option
-{
-    struct sc_option_item *options;
-    int count;
-    char **argv;
-};
+	pos = opt->argv[index];
+	*value = NULL;
 
-/**
- *
- * @param opt    Already initialized sc_opt struct
- * @param index  Index for argv
- * @param value  [out] Value for the option if exists. It should be after '='
- *               sign. E.g : -key=value or -k=value. If value does not exists
- *               (*value) will point to '\0' character. It won't be NULL itself.
- *
- *               To check if option has value associated : if (*value != '\0')
- *
- * @return       Letter for the option. If option is not known, '?' will be
- *               returned.
- */
-char sc_option_at(struct sc_option *opt, int index, char **value);
+	if (*pos != '-') {
+		return id;
+	}
 
-#endif
+	pos++; // Skip first '-'
+	if (*pos != '-') {
+		for (int i = 0; i < opt->count; i++) {
+			if (*pos == opt->options[i].letter &&
+			    strchr("= \0", *(pos + 1)) != NULL) {
+				id = *pos;
+				pos++; // skip letter
+				*value = pos + (*pos != '=' ? 0 : 1);
+				break;
+			}
+		}
+	} else {
+		while (*pos && *pos != '=') {
+			pos++;
+		}
+
+		for (int i = 0; i < opt->count; i++) {
+			curr = opt->argv[index] + 2; // Skip '--'
+			name = opt->options[i].name;
+			len = (pos - curr);
+
+			if (name == NULL) {
+				continue;
+			}
+
+			if (len == strlen(name) &&
+			    memcmp(name, curr, len) == 0) {
+				id = opt->options[i].letter;
+				*value = pos + (*pos != '=' ? 0 : 1);
+				break;
+			}
+		}
+	}
+
+	return id;
+}

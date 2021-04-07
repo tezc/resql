@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_SESSION_H
 #define RESQL_SESSION_H
 
@@ -32,35 +31,32 @@
 
 #include <stdint.h>
 
+struct session {
+	struct state *state;
+	struct sc_list list;
+	char *name;
+	char *local;
+	char *remote;
+	char *connect_time;
+	uint64_t id;
+	uint64_t seq;
+	uint64_t disconnect_time;
 
-struct session
-{
-    struct state *state;
-    struct sc_list list;
-    char *name;
-    char *local;
-    char *remote;
-    char *connect_time;
-    uint64_t id;
-    uint64_t seq;
-    uint64_t disconnect_time;
-
-    struct sc_buf resp;
-    struct sc_map_64v stmts;
+	struct sc_buf resp;
+	struct sc_map_64v stmts;
 };
 
 struct session *session_create(struct state *st, const char *name, uint64_t id);
 void session_destroy(struct session *s);
 
 void session_connected(struct session *s, const char *local, const char *remote,
-                       uint64_t ts);
+		       uint64_t ts);
 void session_disconnected(struct session *s, uint64_t timestamp);
 
 uint64_t session_create_stmt(struct session *s, uint64_t id, const char *sql,
-                             int len, const char **err);
+			     int len, const char **err);
 
 void *session_get_stmt(struct session *s, uint64_t id);
 int session_del_stmt(struct session *s, uint64_t id);
-
 
 #endif

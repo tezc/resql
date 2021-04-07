@@ -33,23 +33,21 @@ struct sc_buf;
 struct info;
 struct session;
 
+struct aux {
+	sqlite3 *db;
 
-struct aux
-{
-    sqlite3 *db;
-
-    sqlite3_stmt *begin;
-    sqlite3_stmt *commit;
-    sqlite3_stmt *rollback;
-    sqlite3_stmt *add_info;
-    sqlite3_stmt *rm_info;
-    sqlite3_stmt *add_session;
-    sqlite3_stmt *rm_session;
-    sqlite3_stmt *add_stmt;
-    sqlite3_stmt *rm_stmt;
-    sqlite3_stmt *rm_all_stmts;
-    sqlite3_stmt *add_log;
-    sqlite3_stmt *rotate_log;
+	sqlite3_stmt *begin;
+	sqlite3_stmt *commit;
+	sqlite3_stmt *rollback;
+	sqlite3_stmt *add_info;
+	sqlite3_stmt *rm_info;
+	sqlite3_stmt *add_session;
+	sqlite3_stmt *rm_session;
+	sqlite3_stmt *add_stmt;
+	sqlite3_stmt *rm_stmt;
+	sqlite3_stmt *rm_all_stmts;
+	sqlite3_stmt *add_log;
+	sqlite3_stmt *rotate_log;
 };
 
 int aux_init(struct aux *aux, const char *path, int mode);
@@ -62,18 +60,18 @@ int aux_clear_info(struct aux *aux);
 int aux_write_info(struct aux *aux, struct info *info);
 int aux_read_info(struct aux *aux, struct info *info, sqlite3_stmt *stmt);
 int aux_add_log(struct aux *aux, uint64_t id, const char *level,
-                const char *log);
+		const char *log);
 
 int aux_write_session(struct aux *aux, struct session *s);
 int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
-                     sqlite3_stmt *stmt_tb);
+		     sqlite3_stmt *stmt_tb);
 int aux_del_session(struct aux *aux, struct session *s);
 int aux_clear_sessions(struct aux *aux);
 int aux_write_kv(struct aux *aux, const char *key, struct sc_buf *buf);
 int aux_read_kv(struct aux *aux, const char *key, struct sc_buf *buf);
 
 int aux_add_stmt(struct aux *aux, const char *client, uint64_t cid, uint64_t id,
-                 const char *sql);
+		 const char *sql);
 int aux_rm_stmt(struct aux *aux, uint64_t id);
 
 #endif

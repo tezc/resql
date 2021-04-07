@@ -33,29 +33,27 @@
 
 struct sc_buf;
 
-struct metric
-{
-    uint64_t total_memory;
-    struct utsname utsname;
-    int64_t pid;
-    uint64_t start_time;
-    char start[64];
-    uint64_t bytes_recv;
-    uint64_t bytes_sent;
+struct metric {
+	uint64_t total_memory;
+	struct utsname utsname;
+	int64_t pid;
+	uint64_t start_time;
+	char start[64];
+	uint64_t bytes_recv;
+	uint64_t bytes_sent;
 
-    uint64_t fsync_total;
-    uint64_t fsync_count;
-    uint64_t fsync_max;
+	uint64_t fsync_total;
+	uint64_t fsync_count;
+	uint64_t fsync_max;
 
-    uint64_t ss_total;
-    uint64_t ss_count;
-    uint64_t ss_max;
-    size_t ss_size;
-    bool ss_success;
+	uint64_t ss_total;
+	uint64_t ss_count;
+	uint64_t ss_max;
+	size_t ss_size;
+	bool ss_success;
 
-    char dir[PATH_MAX];
+	char dir[PATH_MAX];
 };
-
 
 void metric_init(struct metric *m, const char *dir);
 void metric_term(struct metric *m);

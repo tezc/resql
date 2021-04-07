@@ -11,6 +11,7 @@ add_executable(resql
         cmd.c
         conf.h
         conf.c
+        config.h
         conn.h
         conn.c
         info.h
@@ -45,7 +46,6 @@ add_executable(resql
         ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
         ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
         ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
-        ${CMAKE_SOURCE_DIR}/lib/sc/config.h
         ${CMAKE_SOURCE_DIR}/lib/sc/sc.h
         ${CMAKE_SOURCE_DIR}/lib/sc/sc.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.h
@@ -86,6 +86,7 @@ add_executable(resql
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_uri.c)
 
 target_include_directories(resql PUBLIC ${CMAKE_SOURCE_DIR}/lib)
+target_include_directories(resql PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 set(PGO_DIR "${CMAKE_SOURCE_DIR}/bin/pgo")
 set(GCC_PGO_GEN "-fprofile-generate=${PGO_DIR}")
@@ -108,8 +109,8 @@ if (${PGO} MATCHES "generate")
         link_libraries(gcov)
     endif ()
 
-    add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/c-client/resql.c)
-    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR}/c-client)
+    add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/cresql/resql.c)
+    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR}/cresql)
     install(TARGETS resql-trainer RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 elseif (${PGO} MATCHES "use")
     MESSAGE("Profile will be used.")

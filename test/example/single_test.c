@@ -28,15 +28,13 @@
 
 static void single()
 {
-    test_server_create(0, 1);
-    pause();
+	test_server_create(0, 1);
+	pause();
 }
-
-
 
 int main(void)
 {
-    test_execute(single);
+	test_execute(single);
 
-    return 0;
+	return 0;
 }

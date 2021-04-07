@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_STORE_H
 #define RESQL_STORE_H
 
@@ -31,23 +30,22 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct store
-{
-    char *path;
+struct store {
+	char *path;
 
-    uint64_t ss_index;
-    uint64_t ss_term;
-    bool ss_inprogress;
+	uint64_t ss_index;
+	uint64_t ss_term;
+	bool ss_inprogress;
 
-    struct page *pages[2];
-    struct page *curr;
+	struct page *pages[2];
+	struct page *curr;
 
-    uint64_t last_term;
-    uint64_t last_index;
+	uint64_t last_term;
+	uint64_t last_index;
 };
 
 int store_init(struct store *s, const char *path, uint64_t ss_term,
-               uint64_t ss_index);
+	       uint64_t ss_index);
 int store_term(struct store *s);
 
 void store_flush(struct store *s);
@@ -58,7 +56,7 @@ struct page *store_ss_page(struct store *s);
 int store_expand(struct store *s);
 
 int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
-                       uint64_t cid, uint32_t flags, void *data, uint32_t len);
+		       uint64_t cid, uint32_t flags, void *data, uint32_t len);
 
 int store_put_entry(struct store *store, uint64_t index, unsigned char *entry);
 
@@ -66,7 +64,7 @@ unsigned char *store_get_entry(struct store *s, uint64_t index);
 uint64_t store_prev_term_of(struct store *s, uint64_t index);
 
 void store_entries(struct store *s, uint64_t index, uint32_t limit,
-                   unsigned char **entries, uint32_t *size, uint32_t *count);
+		   unsigned char **entries, uint32_t *size, uint32_t *count);
 
 void store_remove_after(struct store *s, uint64_t index);
 

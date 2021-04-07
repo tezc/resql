@@ -22,33 +22,29 @@
  * SOFTWARE.
  */
 
-#include "server.h"
-#include "rs.h"
-#include "test_util.h"
-
 #include "resql.h"
+#include "rs.h"
+#include "server.h"
+#include "test_util.h"
 
 #include <unistd.h>
 
-
 static void multi()
 {
-    test_server_create(0, 3);
-    test_server_create(1, 3);
-    //test_server_create(2, 3);
+	test_server_create(0, 3);
+	test_server_create(1, 3);
+	// test_server_create(2, 3);
 
-    sleep(3);
+	sleep(3);
 
-    test_server_create(2, 3);
+	test_server_create(2, 3);
 
-    pause();
+	pause();
 }
-
-
 
 int main(void)
 {
-    test_execute(multi);
+	test_execute(multi);
 
-    return 0;
+	return 0;
 }

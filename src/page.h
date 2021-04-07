@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_PAGE_H
 #define RESQL_PAGE_H
 
@@ -31,21 +30,20 @@
 
 #include <stdint.h>
 
-struct page
-{
-    char *path;
-    struct sc_mmap map;
+struct page {
+	char *path;
+	struct sc_mmap map;
 
-    uint64_t prev_index;
-    uint32_t flush_pos;
-    uint64_t flush_index;
+	uint64_t prev_index;
+	uint32_t flush_pos;
+	uint64_t flush_index;
 
-    struct sc_buf buf;
-    unsigned char **entries;
+	struct sc_buf buf;
+	unsigned char **entries;
 };
 
 int page_init(struct page *p, const char *path, int64_t len,
-              uint64_t prev_index);
+	      uint64_t prev_index);
 int page_term(struct page *p);
 int page_expand(struct page *p);
 bool page_isempty(struct page *p);
@@ -61,7 +59,7 @@ uint64_t page_last_term(struct page *p);
 unsigned char *page_last_entry(struct page *p);
 
 void page_create_entry(struct page *p, uint64_t term, uint64_t seq,
-                       uint64_t cid, uint32_t flags, void *data, uint32_t len);
+		       uint64_t cid, uint32_t flags, void *data, uint32_t len);
 
 void page_put_entry(struct page *p, unsigned char *entry);
 
@@ -69,6 +67,6 @@ unsigned char *page_entry_at(struct page *p, uint64_t index);
 void page_remove_after(struct page *p, uint64_t index);
 
 void page_get_entries(struct page *p, uint64_t index, uint32_t limit,
-                      unsigned char **entries, uint32_t *size, uint32_t *count);
+		      unsigned char **entries, uint32_t *size, uint32_t *count);
 
 #endif

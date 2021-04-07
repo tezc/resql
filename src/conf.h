@@ -22,49 +22,41 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_CONF_H
 #define RESQL_CONF_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-struct conf
-{
-    struct
-    {
-        char *name;
-        char *bind_url;
-        char *ad_url;
-        char *source_addr;
-        char *source_port;
-        char *log_level;
-        char *log_dest;
-        char *dir;
-        bool in_memory;
-    } node;
+struct conf {
+	struct {
+		char *name;
+		char *bind_url;
+		char *ad_url;
+		char *source_addr;
+		char *source_port;
+		char *log_level;
+		char *log_dest;
+		char *dir;
+		bool in_memory;
+	} node;
 
-    struct
-    {
-        char *name;
-        char *nodes;
-    } cluster;
+	struct {
+		char *name;
+		char *nodes;
+	} cluster;
 
-    struct
-    {
-        bool fsync;
-        uint64_t heartbeat;
-    } advanced;
+	struct {
+		bool fsync;
+		uint64_t heartbeat;
+	} advanced;
 
-    struct
-    {
-        bool systemd;
-        bool empty;
-        bool wipe;
-        char *config_file;
-    } cmdline;
+	struct {
+		bool systemd;
+		char *config_file;
+	} cmdline;
 
-    char err[128];
+	char err[128];
 };
 
 void conf_init(struct conf *c);
@@ -72,6 +64,5 @@ void conf_term(struct conf *c);
 
 void conf_read_config(struct conf *c, bool read_file, int argc, char **argv);
 void conf_print(struct conf *c);
-
 
 #endif

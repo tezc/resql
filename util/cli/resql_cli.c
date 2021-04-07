@@ -290,7 +290,7 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
 				p[i] = MAX(p[i], row[i].len);
 				break;
 			case RESQL_BLOB:
-				snprintf(tmp, 128, "%" PRIu32 " bytes",
+				snprintf(tmp, 128, "%" PRIi32 " bytes",
 					 row[i].len);
 				p[i] = MAX(p[i], (int) strlen(tmp));
 				break;
@@ -345,7 +345,7 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
 					break;
 				case RESQL_BLOB:
 					snprintf(tmp, sizeof(tmp),
-						 "%" PRIu32 " bytes",
+						 "%" PRIi32 " bytes",
 						 row[i].len);
 					printf("| %-*s ", p[i], tmp);
 					break;

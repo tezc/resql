@@ -23,7 +23,6 @@
  */
 
 #include "entry.h"
-
 #include "test_util.h"
 
 #include "sc/sc_buf.h"
@@ -32,23 +31,23 @@
 
 void encode_test()
 {
-    struct sc_buf buf;
+	struct sc_buf buf;
 
-    sc_buf_init(&buf, 1024);
+	sc_buf_init(&buf, 1024);
 
-    for (uint64_t i = 100000000000; i < 100000000000 + 100000; i++) {
-        entry_encode(&buf, 0, 1, 2, 3, "test", 5);
-        assert(entry_decode(&buf) == RS_OK);
+	for (uint64_t i = 100000000000; i < 100000000000 + 100000; i++) {
+		entry_encode(&buf, 0, 1, 2, 3, "test", 5);
+		assert(entry_decode(&buf) == RS_OK);
 
-        if (i % 4096 == 0) {
-            sc_buf_compact(&buf);
-        }
-    }
+		if (i % 4096 == 0) {
+			sc_buf_compact(&buf);
+		}
+	}
 
-    sc_buf_term(&buf);
+	sc_buf_term(&buf);
 }
 
 int main()
 {
-    test_execute(encode_test);
+	test_execute(encode_test);
 }

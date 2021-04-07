@@ -37,35 +37,32 @@ struct sc_uri;
 
 enum conn_state
 {
-    CONN_DISCONNECTED,
-    CONN_TCP_ATTEMPT,
-    CONN_CONNECTED,
+	CONN_DISCONNECTED,
+	CONN_TCP_ATTEMPT,
+	CONN_CONNECTED,
 };
 
-struct conn
-{
-    struct sc_list list;
-    enum conn_state state;
-    struct sc_sock sock;
-    struct sc_buf out;
-    struct sc_buf in;
-    struct msg msg;
-    struct sc_sock_poll *poll;
-    struct sc_timer *timer;
-    uint64_t timer_id;
+struct conn {
+	struct sc_list list;
+	enum conn_state state;
+	struct sc_sock sock;
+	struct sc_buf out;
+	struct sc_buf in;
+	struct msg msg;
+	struct sc_sock_poll *poll;
+	struct sc_timer *timer;
+	uint64_t timer_id;
 
-    char local[64];
-    char remote[64];
+	char local[64];
+	char remote[64];
 };
 
-
-struct conn *conn_create(struct sc_sock_poll *loop, struct sc_timer *timer,
-                         struct sc_sock *sock);
-void conn_destroy(struct conn *conn);
+struct conn *conn_create(struct sc_sock_poll *p, struct sc_timer *t,
+			 struct sc_sock *s);
+void conn_destroy(struct conn *c);
 
 void conn_move(struct conn *c, struct conn *src);
-void conn_init(struct conn *c, struct sc_sock_poll *poll,
-               struct sc_timer *timer);
+void conn_init(struct conn *c, struct sc_sock_poll *p, struct sc_timer *t);
 void conn_term(struct conn *c);
 
 void conn_schedule(struct conn *c, uint32_t type, uint32_t timeout);

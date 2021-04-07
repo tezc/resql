@@ -38,46 +38,44 @@
 struct server;
 struct page;
 
-struct snapshot
-{
-    struct server *server;
-    struct sc_mmap map;
-    char *path;
-    char *tmp_path;
+struct snapshot {
+	struct server *server;
+	struct sc_mmap map;
+	char *path;
+	char *tmp_path;
 
-    // Current index and size
-    uint64_t index;
-    uint64_t term;
+	// Current index and size
+	uint64_t index;
+	uint64_t term;
 
-    // Latest snapshot
-    uint64_t time;
-    size_t size;
-    uint64_t latest_index;
-    uint64_t latest_term;
+	// Latest snapshot
+	uint64_t time;
+	size_t size;
+	uint64_t latest_index;
+	uint64_t latest_term;
 
-    // Recv
-    uint64_t recv_index;
-    uint64_t recv_term;
-    char *tmp_recv_path;
-    struct file *tmp;
+	// Recv
+	uint64_t recv_index;
+	uint64_t recv_term;
+	char *tmp_recv_path;
+	struct file *tmp;
 
-    struct sc_thread thread;
-    struct sc_sock_pipe efd;
-    struct sc_cond cond;
+	struct sc_thread thread;
+	struct sc_sock_pipe efd;
+	struct sc_cond cond;
 };
 
 void snapshot_init(struct snapshot *ss, struct server *server);
 void snapshot_term(struct snapshot *ss);
 
 void snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
-                   uint64_t index);
+		   uint64_t index);
 
 void snapshot_replace(struct snapshot *ss);
 
 void snapshot_take(struct snapshot *ss, struct page *page);
 int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
-                  uint64_t offset, void *data, uint64_t len);
+		  uint64_t offset, void *data, uint64_t len);
 void snapshot_clear(struct snapshot *ss);
-
 
 #endif

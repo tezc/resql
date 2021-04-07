@@ -31,30 +31,28 @@
 
 enum meta_role
 {
-    META_LEADER,
-    META_FOLLOWER,
+	META_LEADER,
+	META_FOLLOWER,
 };
 
 extern const char *meta_role_str[];
 
-struct meta_node
-{
-    char *name;
-    bool connected;
-    enum meta_role role;
-    struct sc_uri **uris;
+struct meta_node {
+	char *name;
+	bool connected;
+	enum meta_role role;
+	struct sc_uri **uris;
 };
 
-struct meta
-{
-    char *name;
-    char *uris;
-    uint64_t term;
-    uint64_t index;
-    uint32_t voter;
-    struct meta_node *nodes;
+struct meta {
+	char *name;
+	char *uris;
+	uint64_t term;
+	uint64_t index;
+	uint32_t voter;
+	struct meta_node *nodes;
 
-    struct meta *prev;
+	struct meta *prev;
 };
 
 void meta_init(struct meta *m, const char *cluster_name);

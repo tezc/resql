@@ -22,29 +22,25 @@
  * SOFTWARE.
  */
 
+#include "session.h"
 #include "test_util.h"
 
-#include "session.h"
-
 #include <assert.h>
-#include <string.h>
 #include <rs.h>
+#include <string.h>
 
 static void session_tests(void)
 {
-
 }
 
 static void session_stmt_tests(void)
 {
-
 }
-
 
 int main(void)
 {
-    test_execute(session_tests);
-    test_execute(session_stmt_tests);
+	test_execute(session_tests);
+	test_execute(session_stmt_tests);
 
-    return 0;
+	return 0;
 }

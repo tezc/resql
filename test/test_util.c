@@ -101,197 +101,220 @@ static const char *dirs[] = {
 
 void init_all()
 {
-    if (!init) {
-        setvbuf(stdout, NULL, _IONBF, 0);
-        setvbuf(stderr, NULL, _IONBF, 0);
+	if (!init) {
+		setvbuf(stdout, NULL, _IONBF, 0);
+		setvbuf(stderr, NULL, _IONBF, 0);
 
-        sc_log_set_thread_name("test");
-        server_global_init();
-        init = 1;
-    }
+		sc_log_set_thread_name("test");
+		server_global_init();
+		init = 1;
+	}
+}
+
+void cleanup_one(int id)
+{
+	int rc;
+
+	rc = file_rmdir(dirs[id]);
+	rs_assert(!(rc != 0 && errno != ENOENT));
+
+	rc = file_mkdir(dirs[id]);
+	rs_assert(rc == 0);
 }
 
 void cleanup()
 {
-    int rc;
+	int rc;
 
-    for (int i = 0; i < 9; i++) {
-        rc = file_rmdir(dirs[i]);
-        rs_assert(!(rc != 0 && errno != ENOENT));
+	for (int i = 0; i < 9; i++) {
+		cleanup_one(i);
+	}
 
-        rc = file_mkdir(dirs[i]);
-        rs_assert(rc == 0);
-    }
+	rc = file_rmdir("/tmp/resql_test");
+	rs_assert(!(rc != 0 && errno != ENOENT));
 
-    rc = file_rmdir("/tmp/resql_test");
-    rs_assert(!(rc != 0 && errno != ENOENT));
-
-    rc = file_mkdir("/tmp/resql_test");
-    rs_assert(rc == 0);
+	rc = file_mkdir("/tmp/resql_test");
+	rs_assert(rc == 0);
 }
 
 void test_util_run(void (*test_fn)(void), const char *fn_name)
 {
-    init_all();
-    cleanup();
+	init_all();
+	cleanup();
 
-    sc_log_info("[ Running ] %s \n", fn_name);
-    test_fn();
-    test_client_destroy_all();
-    test_server_destroy_all();
-    sc_log_info("[ Passed  ] %s  \n", fn_name);
+	sc_log_info("[ Running ] %s \n", fn_name);
+	test_fn();
+	test_client_destroy_all();
+	test_server_destroy_all();
+	sc_log_info("[ Passed  ] %s  \n", fn_name);
 }
 
 struct server *test_server_start(int id, int cluster_size)
 {
-    char *opt[] = {""};
+	char *opt[] = {""};
 
-    int rc;
-    struct conf conf;
-    struct server *s;
+	int rc;
+	struct conf conf;
+	struct server *s;
 
-    assert(id >= 0 && id < 9);
-    assert(cluster[id] == NULL);
-    assert(cluster_size > 0 && cluster_size <= 9);
+	assert(id >= 0 && id < 9);
+	assert(cluster[id] == NULL);
+	assert(cluster_size > 0 && cluster_size <= 9);
 
-    conf_init(&conf);
+	conf_init(&conf);
 
-    sc_str_set(&conf.node.log_level, "DEBUG");
-    sc_str_set(&conf.node.name, names[id]);
-    sc_str_set(&conf.node.bind_url, urls[id]);
-    sc_str_set(&conf.node.ad_url, urls[id]);
-    sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
-    sc_str_set(&conf.node.dir, dirs[id]);
+	sc_str_set(&conf.node.log_level, "DEBUG");
+	sc_str_set(&conf.node.name, names[id]);
+	sc_str_set(&conf.node.bind_url, urls[id]);
+	sc_str_set(&conf.node.ad_url, urls[id]);
+	sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
+	sc_str_set(&conf.node.dir, dirs[id]);
 
-    conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
+	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
-    s = server_create(&conf);
+	s = server_create(&conf);
 
-    rc = server_start(s, true);
-    if (rc != RS_OK) {
-        abort();
-    }
+	rc = server_start(s, true);
+	if (rc != RS_OK) {
+		abort();
+	}
 
-    cluster[id] = s;
-    count++;
+	cluster[id] = s;
+	count++;
 
-    return s;
+	return s;
 }
 
 struct server *test_server_create_conf(struct conf *conf, int id)
 {
-    int rc;
-    struct server *s;
+	int rc;
+	struct server *s;
 
-    s = server_create(conf);
+	s = server_create(conf);
 
-    rc = server_start(s, true);
-    if (rc != RS_OK) {
-        abort();
-    }
+	rc = server_start(s, true);
+	if (rc != RS_OK) {
+		abort();
+	}
 
-    cluster[id] = s;
-    count++;
+	cluster[id] = s;
+	count++;
 
-    return s;
+	return s;
 }
 
 struct server *test_server_create_auto(int cluster_size)
 {
-    int i;
+	int i;
 
-    for (i = 0; i < 9; i++) {
-        if (cluster[i] == NULL) {
-            break;
-        }
-    }
+	for (i = 0; i < 9; i++) {
+		if (cluster[i] == NULL) {
+			break;
+		}
+	}
 
-    return test_server_create(i, cluster_size);
+	return test_server_create(i, cluster_size);
+}
+
+struct server *test_server_start_auto(int cluster_size)
+{
+	int i;
+
+	for (i = 0; i < 9; i++) {
+		if (cluster[i] == NULL) {
+			break;
+		}
+	}
+
+	return test_server_start(i, cluster_size);
 }
 
 struct server *test_server_create(int id, int cluster_size)
 {
-    char *opt[] = {"", "-e"};
+	char *opt[] = {""};
 
-    int rc;
-    struct conf conf;
-    struct server *s;
+	int rc;
+	struct conf conf;
+	struct server *s;
 
-    assert(id >= 0 && id < 9);
-    assert(cluster[id] == NULL);
-    assert(cluster_size > 0 && cluster_size <= 9);
+	assert(id >= 0 && id < 9);
+	assert(cluster[id] == NULL);
+	assert(cluster_size > 0 && cluster_size <= 9);
 
-    conf_init(&conf);
+	cleanup_one(id);
 
-    sc_str_set(&conf.node.log_level, "DEBUG");
-    sc_str_set(&conf.node.name, names[id]);
-    sc_str_set(&conf.node.bind_url, urls[id]);
-    sc_str_set(&conf.node.ad_url, urls[id]);
-    sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
-    sc_str_set(&conf.node.dir, dirs[id]);
+	conf_init(&conf);
 
-    conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
+	sc_str_set(&conf.node.log_level, "DEBUG");
+	sc_str_set(&conf.node.name, names[id]);
+	sc_str_set(&conf.node.bind_url, urls[id]);
+	sc_str_set(&conf.node.ad_url, urls[id]);
+	sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
+	sc_str_set(&conf.node.dir, dirs[id]);
 
-    s = server_create(&conf);
+	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
-    rc = server_start(s, true);
-    if (rc != RS_OK) {
-        abort();
-    }
+	s = server_create(&conf);
 
-    cluster[id] = s;
-    count++;
+	rc = server_start(s, true);
+	if (rc != RS_OK) {
+		abort();
+	}
 
-    return s;
+	cluster[id] = s;
+	count++;
+
+	return s;
 }
 
 void test_server_destroy(int id)
 {
-    int rc;
+	int rc;
 
-    rs_assert(id >= 0 && id < 9);
-    rs_assert(cluster[id] != NULL);
+	rs_assert(id >= 0 && id < 9);
+	rs_assert(cluster[id] != NULL);
 
-    rc = server_stop(cluster[id]);
-    rs_assert(rc == RS_OK);
+	rc = server_stop(cluster[id]);
+	rs_assert(rc == RS_OK);
 
-    cluster[id] = NULL;
-    count--;
+	cluster[id] = NULL;
+	count--;
 }
 
 void test_server_destroy_all()
 {
-    int rc;
+	int rc;
 
-    for (int i = 0; i < 9; i++) {
-        if (cluster[i] != NULL) {
-            rc = server_stop(cluster[i]);
-            rs_assert(rc == RS_OK);
-            cluster[i] = NULL;
-        }
-    }
+	for (int i = 0; i < 9; i++) {
+		if (cluster[i] != NULL) {
+			rc = server_stop(cluster[i]);
+			rs_assert(rc == RS_OK);
+			cluster[i] = NULL;
+		}
+	}
 
-    count = 0;
+	count = 0;
+	cleanup();
 }
 
 void test_destroy_leader()
 {
-    int rc, n;
-    char *endp;
-    const char *head;
-    resql *c;
-    resql_result *rs;
+	int rc, n;
+	char *endp;
+	const char *head;
+	resql *c;
+	resql_result *rs;
 
-    c = test_client_create();
-    resql_put_sql(c, "SELECT name FROM resql_info WHERE role = 'leader';");
-    rc = resql_exec(c, true, &rs);
-    client_assert(c, rc == RESQL_OK);
+	c = test_client_create();
+	resql_put_sql(c, "SELECT name FROM resql_info WHERE role = 'leader';");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    head = resql_row(rs)[0].text + strlen("node");
-    endp = (char *) head + 1;
-    n = (int) strtoul(head, &endp, 10);
+	head = resql_row(rs)[0].text + strlen("node");
+	endp = (char *) head + 1;
+	n = (int) strtoul(head, &endp, 10);
 
-    test_server_destroy(n);
+	test_server_destroy(n);
 }
 
 resql *clients[256];
@@ -299,81 +322,81 @@ int client_count;
 
 resql *test_client_create()
 {
-    rs_assert(client_count < 256);
+	rs_assert(client_count < 256);
 
-    int rc;
-    bool found;
-    const char *url = urls[0];
-    resql *c;
+	int rc;
+	bool found;
+	const char *url = urls[0];
+	resql *c;
 
-    for (int i = 0; i < 9; i++) {
-        if (cluster[i] != NULL) {
-            url = urls[i];
-            break;
-        }
-    }
+	for (int i = 0; i < 9; i++) {
+		if (cluster[i] != NULL) {
+			url = urls[i];
+			break;
+		}
+	}
 
-    struct resql_config conf = {.urls = url, .timeout_millis = 600000};
+	struct resql_config conf = {.urls = url, .timeout_millis = 600000};
 
-    rc = resql_create(&c, &conf);
-    if (rc != RESQL_OK) {
-        printf("Failed rs : %d \n", rc);
-        abort();
-    }
+	rc = resql_create(&c, &conf);
+	if (rc != RESQL_OK) {
+		printf("Failed rs : %d \n", rc);
+		abort();
+	}
 
-    found = false;
-    for (int i = 0; i < 256; i++) {
-        if (clients[i] == NULL) {
-            clients[i] = c;
-            found = true;
-            break;
-        }
-    }
+	found = false;
+	for (int i = 0; i < 256; i++) {
+		if (clients[i] == NULL) {
+			clients[i] = c;
+			found = true;
+			break;
+		}
+	}
 
-    rs_assert(found);
-    client_count++;
+	rs_assert(found);
+	client_count++;
 
-    return c;
+	return c;
 }
 
 void test_client_destroy(resql *c)
 {
-    bool found;
-    int rc;
+	bool found;
+	int rc;
 
-    rc = resql_shutdown(c);
-    if (rc != RESQL_OK) {
-        printf("Failed rs : %d \n", rc);
-        abort();
-    }
+	rc = resql_shutdown(c);
+	if (rc != RESQL_OK) {
+		printf("Failed rs : %d \n", rc);
+		abort();
+	}
 
-    found = false;
-    for (int i = 0; i < 256; i++) {
-        if (clients[i] == c) {
-            clients[i] = NULL;
-            found = true;
-            break;
-        }
-    }
+	found = false;
+	for (int i = 0; i < 256; i++) {
+		if (clients[i] == c) {
+			clients[i] = NULL;
+			found = true;
+			break;
+		}
+	}
 
-    rs_assert(found);
-    client_count--;
+	rs_assert(found);
+	client_count--;
 }
 
 void test_client_destroy_all()
 {
-    int rc;
+	int rc;
 
-    for (int i = 0; i < 256; i++) {
-        if (clients[i] != NULL) {
-            rc = resql_shutdown(clients[i]);
-            if (rc != RESQL_OK) {
-                printf("Failed rs : %d \n", rc);
-                abort();
-            }
-            clients[i] = NULL;
-        }
-    }
+	for (int i = 0; i < 256; i++) {
+		if (clients[i] != NULL) {
+			rc = resql_shutdown(clients[i]);
+			if (rc != RESQL_OK) {
+				printf("Failed rs : %d \n", rc);
+				abort();
+			}
+			clients[i] = NULL;
+		}
+	}
 
-    client_count = 0;
+	client_count = 0;
 }

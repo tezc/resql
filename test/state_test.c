@@ -28,13 +28,13 @@
 
 void state_simple()
 {
-    test_server_create(0, 1);
-    test_client_create();
+	test_server_create(0, 1);
+	test_client_create();
 }
 
 int main(void)
 {
-    test_execute(state_simple);
+	test_execute(state_simple);
 
-    return 0;
+	return 0;
 }

@@ -22,22 +22,21 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_ENTRY_H
 #define RESQL_ENTRY_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-#define ENTRY_CRC_LEN     4
+#define ENTRY_CRC_LEN	  4
 #define ENTRY_HEADER_SIZE 36
 
 struct sc_buf;
 
-void entry_encode(struct sc_buf *buf, uint64_t term, uint64_t seq, uint64_t cid,
-                  uint32_t flags, void *data, uint32_t len);
+void entry_encode(struct sc_buf *b, uint64_t term, uint64_t seq, uint64_t cid,
+		  uint32_t flags, void *data, uint32_t len);
 
-int entry_decode(struct sc_buf *buf);
+int entry_decode(struct sc_buf *b);
 
 uint32_t entry_encoded_len(uint32_t len);
 uint32_t entry_crc(unsigned char *e);
@@ -52,8 +51,8 @@ void *entry_data(unsigned char *e);
 uint32_t entry_data_len(unsigned char *e);
 
 #define entry_foreach(buf, len, entry)                                         \
-    for ((entry) = ((unsigned char *) (buf));                                  \
-         (entry) < ((unsigned char *) (buf)) + (len);                          \
-         (entry) += entry_len(entry))
+	for ((entry) = ((unsigned char *) (buf));                              \
+	     (entry) < ((unsigned char *) (buf)) + (len);                      \
+	     (entry) += entry_len(entry))
 
 #endif

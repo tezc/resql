@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-
 #ifndef RESQL_CLIENT_H
 #define RESQL_CLIENT_H
 
@@ -33,22 +32,21 @@
 #include "sc/sc_sock.h"
 #include "sc/sc_str.h"
 
-struct client
-{
-    struct conn conn;
-    struct sc_list list;
+struct client {
+	struct conn conn;
+	struct sc_list list;
 
-    char *name;
-    uint64_t ts;
-    uint64_t id;
-    uint64_t seq;
+	char *name;
+	uint64_t ts;
+	uint64_t id;
+	uint64_t seq;
 
-    struct msg msg;
-    uint64_t commit_index;
-    uint64_t round_index;
-    struct sc_list read;
-    bool msg_wait;
-    bool terminated;
+	struct msg msg;
+	uint64_t commit_index;
+	uint64_t round_index;
+	struct sc_list read;
+	bool msg_wait;
+	bool terminated;
 };
 
 struct client *client_create(struct conn *conn, const char *name);

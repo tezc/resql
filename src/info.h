@@ -26,23 +26,21 @@
 
 #include "sc/sc_buf.h"
 
-struct info
-{
-    char *name;
-    char *urls;
-    char *connected;
-    char *role;
+struct info {
+	char *name;
+	char *urls;
+	char *connected;
+	char *role;
 
-    struct sc_buf stats;
+	struct sc_buf stats;
 };
 
 struct info *info_create(const char *name);
-void info_destroy(struct info *info);
+void info_destroy(struct info *n);
 
-void info_set_connected(struct info *info, bool connected);
-void info_set_role(struct info *info, const char *role);
-void info_set_urls(struct info *info, const char *urls);
-void info_set_stats(struct info *info, struct sc_buf *buf);
-
+void info_set_connected(struct info *n, bool connected);
+void info_set_role(struct info *n, const char *role);
+void info_set_urls(struct info *n, const char *urls);
+void info_set_stats(struct info *n, struct sc_buf *buf);
 
 #endif
