@@ -43,7 +43,7 @@ set_source_files_properties(
         COMPILE_FLAGS "-w"
 )
 
-install(TARGETS resql-benchmark RUNTIME DESTINATION ../../bin)
+install(TARGETS resql-benchmark RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 
 
 

@@ -22,7 +22,7 @@ set_source_files_properties(
         COMPILE_FLAGS "-w"
 )
 
-install(TARGETS resql-cli RUNTIME DESTINATION ../../bin)
+install(TARGETS resql-cli RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 
 
 

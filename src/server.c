@@ -262,7 +262,7 @@ void server_write_meta(struct server *s)
 	rc = rename(s->meta_tmp_path, s->meta_path);
 	if (rc != 0) {
 		rs_exit("rename : %s to %s failed \n", s->meta_tmp_path,
-			 s->meta_path);
+			s->meta_path);
 	}
 }
 
@@ -357,15 +357,12 @@ static void server_listen(struct server *s, const char *addr)
 	sc_log_info("Listening at : %s \n", uri->str);
 }
 
-static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd,
-				    uint32_t event)
+static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
 	struct sc_sock *endpoint = rs_entry(fd, struct sc_sock, fdt);
 	struct sc_sock in;
 	struct conn *conn;
-
-	(void) event;
 
 	rc = sc_sock_accept(endpoint, &in);
 	if (rc != SC_SOCK_OK) {
@@ -378,11 +375,8 @@ static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd,
 	sc_list_add_tail(&s->pending_conns, &conn->list);
 }
 
-static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
+static void server_on_task(struct server *s)
 {
-	(void) ev;
-	(void) fd;
-
 	char c;
 	int size;
 
@@ -392,10 +386,8 @@ static void server_on_task(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 	s->stop_requested = true;
 }
 
-static void server_on_signal(struct server *s, struct sc_sock_fd *fd)
+static void server_on_signal(struct server *s)
 {
-	(void) fd;
-
 	uint64_t val;
 
 	sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
@@ -553,40 +545,39 @@ static void server_on_node_disconnect(struct server *s, struct node *node)
 	}
 }
 
-static void server_on_client_disconnect(struct server *s, struct client *client,
+static void server_on_client_disconnect(struct server *s, struct client *c,
 					enum msg_rc rc)
 {
 	if (s->role == SERVER_ROLE_LEADER) {
 		sc_buf_clear(&s->tmp);
-		cmd_encode_client_disconnect(&s->tmp, client->name,
-					     rc == MSG_OK);
+		cmd_encode_client_disconnect(&s->tmp, c->name, rc == MSG_OK);
 		server_create_entry(s, true, 0, 0, CMD_CLIENT_DISCONNECT,
 				    &s->tmp);
 	}
 
-	client->terminated = true;
-	sc_log_debug("Client %s disconnected. \n", client->name);
-	sc_map_del_64v(&s->vclients, client->id, NULL);
-	sc_map_del_sv(&s->clients, client->name, NULL);
-	sc_array_add(s->term_clients, client);
+	c->terminated = true;
+	sc_log_debug("Client %s disconnected. \n", c->name);
+	sc_map_del_64v(&s->vclients, c->id, NULL);
+	sc_map_del_sv(&s->clients, c->name, NULL);
+	sc_array_add(s->term_clients, c);
 }
 
 static void server_finalize_client_connection(struct server *s,
-					      struct client *client)
+					      struct client *c)
 {
 	int rc;
 
-	conn_allow_read(&client->conn);
+	conn_allow_read(&c->conn);
 
-	msg_create_connect_resp(&client->conn.out, MSG_OK, client->seq,
-				s->meta.term, s->meta.uris);
-	rc = conn_flush(&client->conn);
+	msg_create_connect_resp(&c->conn.out, MSG_OK, c->seq, s->meta.term,
+				s->meta.uris);
+	rc = conn_flush(&c->conn);
 	if (rc != RS_OK) {
-		server_on_client_disconnect(s, client, MSG_ERR);
+		server_on_client_disconnect(s, c, MSG_ERR);
 		return;
 	}
 
-	sc_map_put_64v(&s->vclients, client->id, client);
+	sc_map_put_64v(&s->vclients, c->id, c);
 }
 
 static void server_on_client_connect_req(struct server *s, struct conn *in,
@@ -670,11 +661,8 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
 	}
 }
 
-static void server_on_connect_resp(struct server *s, struct sc_sock_fd *fd,
-				   uint32_t event)
+static void server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 {
-	(void) event;
-
 	int rc;
 	struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
 	struct conn *conn = rs_entry(sock, struct conn, sock);
@@ -706,11 +694,8 @@ disconnect:
 	server_on_node_disconnect(s, node);
 }
 
-static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd,
-				    uint32_t event)
+static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 {
-	(void) event;
-
 	int rc;
 	struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
 	struct conn *conn = rs_entry(sock, struct conn, sock);
@@ -1090,8 +1075,8 @@ static void server_on_prevote_resp(struct server *s, struct node *node,
 	server_check_prevote_count(s);
 }
 
-static void server_on_applied_entry(struct server *s, uint64_t index,
-				    unsigned char *entry, struct session *sess);
+static void server_on_applied_entry(struct server *s, unsigned char *entry,
+				    struct session *sess);
 
 void server_on_append_req(struct server *s, struct node *node, struct msg *msg)
 {
@@ -1203,7 +1188,7 @@ retry:
 		for (uint64_t i = s->commit + 1; i <= commit; i++) {
 			entry = store_get_entry(&s->store, i);
 			session = state_apply(&s->state, i, entry);
-			server_on_applied_entry(s, i, entry, session);
+			server_on_applied_entry(s, entry, session);
 		}
 
 		s->commit = commit;
@@ -1569,15 +1554,14 @@ static void server_on_client_connect_applied(struct server *s,
 					     struct session *sess)
 {
 	bool found;
-	struct client *client;
+	struct client *c;
 
 	if (s->role == SERVER_ROLE_LEADER) {
-		found = sc_map_get_sv(&s->clients, sess->name,
-				      (void **) &client);
+		found = sc_map_get_sv(&s->clients, sess->name, (void **) &c);
 		if (found) {
-			client->id = sess->id;
-			client->seq = sess->seq;
-			server_finalize_client_connection(s, client);
+			c->id = sess->id;
+			c->seq = sess->seq;
+			server_finalize_client_connection(s, c);
 		}
 	}
 }
@@ -1587,30 +1571,28 @@ static void server_on_applied_client_req(struct server *s, uint64_t cid,
 {
 	int rc;
 	bool found;
-	struct client *client;
+	struct client *c;
 
 	if (s->role != SERVER_ROLE_LEADER) {
 		return;
 	}
 
-	found = sc_map_get_64v(&s->vclients, cid, (void **) &client);
+	found = sc_map_get_64v(&s->vclients, cid, (void **) &c);
 	if (found) {
-		client_processed(client);
-		sc_buf_put_raw(&client->conn.out, resp, len);
+		client_processed(c);
+		sc_buf_put_raw(&c->conn.out, resp, len);
 
-		rc = conn_flush(&client->conn);
+		rc = conn_flush(&c->conn);
 		if (rc != RS_OK) {
-			server_on_client_disconnect(s, client, MSG_ERR);
+			server_on_client_disconnect(s, c, MSG_ERR);
 			return;
 		}
 	}
 }
 
-static void server_on_applied_entry(struct server *s, uint64_t index,
-				    unsigned char *entry, struct session *sess)
+static void server_on_applied_entry(struct server *s, unsigned char *entry,
+				    struct session *sess)
 {
-	(void) index;
-
 	enum cmd_id c = (enum cmd_id) entry_flags(entry);
 
 	switch (c) {
@@ -1673,7 +1655,7 @@ static void server_check_commit(struct server *s)
 		for (uint64_t i = s->commit + 1; i <= match; i++) {
 			entry = store_get_entry(&s->store, i);
 			session = state_apply(&s->state, i, entry);
-			server_on_applied_entry(s, i, entry, session);
+			server_on_applied_entry(s, entry, session);
 		}
 
 		s->commit = match;
@@ -1776,7 +1758,7 @@ static void server_job_shutdown(struct server *s, struct server_job *job)
 {
 	struct sc_list *l;
 	struct node *node;
-	char *name = job->data;
+	const char *name = job->data;
 
 	if (*name == '*') {
 		sc_list_foreach (&s->connected_nodes, l) {
@@ -1934,11 +1916,8 @@ flush:
 	server_handle_jobs(s);
 }
 
-static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd,
-				  uint32_t event)
+static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd)
 {
-	(void) event;
-
 	int rc;
 	uint32_t type;
 	enum msg_rc resp_code = MSG_OK;
@@ -2034,22 +2013,22 @@ static void *server_run(void *arg)
 				server_on_client_recv(s, fd, ev);
 				break;
 			case SERVER_FD_INCOMING_CONN:
-				server_on_incoming_conn(s, fd, ev);
+				server_on_incoming_conn(s, fd);
 				break;
 			case SERVER_FD_OUTGOING_CONN:
-				server_on_outgoing_conn(s, fd, ev);
+				server_on_outgoing_conn(s, fd);
 				break;
 			case SERVER_FD_WAIT_FIRST_REQ:
-				server_on_connect_req(s, fd, ev);
+				server_on_connect_req(s, fd);
 				break;
 			case SERVER_FD_WAIT_FIRST_RESP:
-				server_on_connect_resp(s, fd, ev);
+				server_on_connect_resp(s, fd);
 				break;
 			case SERVER_FD_TASK:
-				server_on_task(s, fd, ev);
+				server_on_task(s);
 				break;
 			case SERVER_FD_SIGNAL:
-				server_on_signal(s, fd);
+				server_on_signal(s);
 				break;
 			default:
 				rs_abort("Unexpected fd type : %d \n",

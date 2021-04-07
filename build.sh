@@ -52,6 +52,7 @@ trap 'trap - TERM; cleanup SIGTERM; kill -TERM $$' TERM
 echo "$cwd"
 cd bin
 rm -rf resql resql-cli resql-benchmark build pgo
+rm -rf *.resql
 mkdir build pgo
 cd build
 cmake ../.. -DPGO=generate
@@ -59,7 +60,7 @@ make -j 1 && make install
 echo "First step has been completed successfully."
 cd ..
 
-./resql -e --node-bind-url=tcp://127.0.0.1:9717 &
+./resql --node-bind-url=tcp://127.0.0.1:9717 &
 server_pid=$!
 echo "Server has been started successfully."
 
