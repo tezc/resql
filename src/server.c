@@ -26,6 +26,7 @@
 
 #include "client.h"
 #include "cmd.h"
+#include "conf.h"
 #include "entry.h"
 #include "file.h"
 #include "node.h"
@@ -369,6 +370,7 @@ static const char *server_msg(struct server *s, struct msg *msg)
 	sc_buf_put_text(&s->tmp, "Current role[%s] ", server_role_str[s->role]);
 	sc_buf_put_text(&s->tmp, "Term [%" PRIu64 "] ", s->meta.term);
 	msg_print(msg, &s->tmp);
+
 	return (const char *) s->tmp.mem;
 }
 
@@ -562,6 +564,7 @@ static void server_write_term_start_cmd(struct server *s)
 static void server_on_node_disconnect(struct server *s, struct node *node)
 {
 	sc_log_info("Node is not connected : %s \n", node->name);
+
 	node_disconnect(node);
 
 	if (s->leader == node) {
@@ -678,6 +681,7 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
 
 	node_set_conn(n, pending);
 	rs_free(pending);
+
 	msg_create_connect_resp(&n->conn.out, MSG_OK, 0, s->meta.term,
 				s->meta.uris);
 	rc = conn_flush(&n->conn);
@@ -1893,9 +1897,8 @@ static void server_flush(struct server *s)
 			continue;
 		}
 
-		if ((n->next > s->store.last_index &&
-		     s->round == s->round_prev) ||
-		    n->msg_inflight > 0) {
+		if (n->msg_inflight > 0 || (n->next > s->store.last_index &&
+					    s->round == s->round_prev)) {
 			goto flush;
 		}
 

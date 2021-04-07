@@ -65,7 +65,7 @@ void write_test()
 	client_assert(c, rc == RESQL_OK);
 	printf("Client executed after cluster restart \n");
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 100; i++) {
 		snprintf(tmp, sizeof(tmp), "%d", i);
 
 		resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
@@ -73,9 +73,10 @@ void write_test()
 
 		rc = resql_exec(c, false, &rs);
 		client_assert(c, rc == RESQL_OK);
+		printf("Client executed after cluster restart :%s \n", tmp);
 	}
 
-	for (int i = 1000; i < 2000; i++) {
+	for (int i = 100; i < 200; i++) {
 		snprintf(tmp, sizeof(tmp), "%d", i);
 
 		resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
@@ -83,6 +84,7 @@ void write_test()
 
 		rc = resql_exec(c, false, &rs);
 		client_assert(c, rc == RESQL_OK);
+		printf("Client executed after cluster restart :%s \n", tmp);
 	}
 
 	printf("Client will execute select after cluster restart \n");
@@ -92,7 +94,7 @@ void write_test()
 	client_assert(c, rc == RESQL_OK);
 
 	count = resql_row_count(rs);
-	rs_assert(count == 2000);
+	rs_assert(count == 200);
 
 	printf("Client executed select after cluster restart \n");
 
@@ -143,7 +145,7 @@ void restart_test()
 
 	printf("Client created tables after restart \n");
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 100; i++) {
 		snprintf(tmp, sizeof(tmp), "%d", i);
 
 		resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
@@ -151,9 +153,10 @@ void restart_test()
 
 		rc = resql_exec(c, false, &rs);
 		client_assert(c, rc == RESQL_OK);
+		printf("2.Client executed after cluster restart :%s \n", tmp);
 	}
 
-	for (int i = 1000; i < 2000; i++) {
+	for (int i = 100; i < 200; i++) {
 		snprintf(tmp, sizeof(tmp), "%d", i);
 
 		resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
@@ -161,6 +164,7 @@ void restart_test()
 
 		rc = resql_exec(c, false, &rs);
 		client_assert(c, rc == RESQL_OK);
+		printf("2.Client executed after cluster restart :%s \n", tmp);
 	}
 
 	resql_put_sql(c, "SELECT * FROM snapshot;");
@@ -170,7 +174,7 @@ void restart_test()
 	printf("Client executed select after restart \n");
 
 	count = resql_row_count(rs);
-	rs_assert(count == 2000);
+	rs_assert(count == 200);
 
 	for (int i = 0; i < count; i++) {
 		snprintf(tmp, sizeof(tmp), "%d", i);
