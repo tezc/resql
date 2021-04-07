@@ -47,6 +47,12 @@
 #define DEF_META_FILE "meta.resql"
 #define DEF_META_TMP  "meta.tmp.resql"
 
+static const char *server_role_str[] = {
+	"FOLLOWER",
+	"CANDIDATE",
+	"LEADER",
+};
+
 const char *server_add_node(void *arg, const char *node);
 const char *server_remove_node(void *arg, const char *node);
 const char *server_shutdown(void *arg, const char *node);
@@ -355,6 +361,15 @@ static void server_listen(struct server *s, const char *addr)
 	sc_sock_poll_add(&s->loop, &sock->fdt, SC_SOCK_READ, &sock->fdt);
 
 	sc_log_info("Listening at : %s \n", uri->str);
+}
+
+static const char *server_msg(struct server *s, struct msg *msg)
+{
+	sc_buf_clear(&s->tmp);
+	sc_buf_put_text(&s->tmp, "Current role[%s] ", server_role_str[s->role]);
+	sc_buf_put_text(&s->tmp, "Term [%"PRIu64"] ", s->meta.term);
+	msg_print(msg, &s->tmp);
+	return (const char *) s->tmp.mem;
 }
 
 static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
@@ -995,11 +1010,16 @@ static void server_on_reqvote_resp(struct server *s, struct node *node,
 	struct msg_reqvote_resp *resp = &msg->reqvote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->meta.term != resp->term) {
-		sc_log_warn("Unexpected message from %s \n", node->name);
+		sc_log_debug("Unexpected msg from [%s] : %s \n", node->name,
+			     server_msg(s, msg));
 		return;
 	}
 
 	if (resp->term > s->meta.term) {
+		sc_log_debug("Recv[reqvoteresp], node[%s] term[%" PRIu64 "], "
+			     "node's term [%" PRIu64 "], "
+			     "stepping down to follower \n",
+			     node->name, resp->term, s->meta.term);
 		server_update_meta(s, resp->term, NULL);
 		s->prevote_count = 0;
 		s->role = SERVER_ROLE_FOLLOWER;

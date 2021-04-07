@@ -22,13 +22,11 @@
  * SOFTWARE.
  */
 
+#include "conf.h"
 #include "resql.h"
+#include "server.h"
 #include "test_util.h"
 
-#include "sc/sc_uri.h"
-
-#include <conf.h>
-#include <server.h>
 #include <stdio.h>
 
 void write_test()
@@ -170,4 +168,6 @@ int main()
 {
 	test_execute(write_test);
 	test_execute(restart_test);
+
+	return 0;
 }
