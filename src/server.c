@@ -450,6 +450,8 @@ static int server_wait_snapshot(struct server *s)
 	store_snapshot_taken(&s->store);
 	metric_snapshot(true, s->ss.time, s->ss.size);
 	snapshot_replace(&s->ss);
+
+	return RS_OK;
 }
 
 static int server_create_entry(struct server *s, bool force, uint64_t seq,
