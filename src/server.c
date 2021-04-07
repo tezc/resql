@@ -367,7 +367,7 @@ static const char *server_msg(struct server *s, struct msg *msg)
 {
 	sc_buf_clear(&s->tmp);
 	sc_buf_put_text(&s->tmp, "Current role[%s] ", server_role_str[s->role]);
-	sc_buf_put_text(&s->tmp, "Term [%"PRIu64"] ", s->meta.term);
+	sc_buf_put_text(&s->tmp, "Term [%" PRIu64 "] ", s->meta.term);
 	msg_print(msg, &s->tmp);
 	return (const char *) s->tmp.mem;
 }
@@ -375,8 +375,8 @@ static const char *server_msg(struct server *s, struct msg *msg)
 static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
-	struct sc_sock *endpoint = rs_entry(fd, struct sc_sock, fdt);
 	struct sc_sock in;
+	struct sc_sock *endpoint = rs_entry(fd, struct sc_sock, fdt);
 	struct conn *conn;
 
 	rc = sc_sock_accept(endpoint, &in);
@@ -435,6 +435,23 @@ static void server_on_pending_disconnect(struct server *s, struct conn *in,
 
 static void server_on_node_disconnect(struct server *s, struct node *node);
 
+static int server_wait_snapshot(struct server *s)
+{
+	int rc;
+
+	s->ss_inprogress = false;
+
+	rc = (int) (uintptr_t) sc_cond_wait(&s->ss.cond);
+	if (rc != RS_OK) {
+		metric_snapshot(false, 0, 0);
+		return rc;
+	}
+
+	store_snapshot_taken(&s->store);
+	metric_snapshot(true, s->ss.time, s->ss.size);
+	snapshot_replace(&s->ss);
+}
+
 static int server_create_entry(struct server *s, bool force, uint64_t seq,
 			       uint64_t cid, uint32_t flags, struct sc_buf *buf)
 {
@@ -445,14 +462,8 @@ retry:
 				sc_buf_rbuf(buf), sc_buf_size(buf));
 	if (rc == RS_FULL) {
 		if (s->ss_inprogress) {
-			s->ss_inprogress = false;
-
-			rc = (int) (uintptr_t) sc_cond_wait(&s->ss.cond);
+			rc = server_wait_snapshot(s);
 			if (rc == RS_OK) {
-				store_snapshot_taken(&s->store);
-				metric_snapshot(true, s->ss.time, s->ss.size);
-				snapshot_replace(&s->ss);
-
 				goto retry;
 			}
 
@@ -593,13 +604,14 @@ static void server_finalize_client_connection(struct server *s,
 	}
 
 	sc_map_put_64v(&s->vclients, c->id, c);
+	sc_log_debug("Client connected : %s \n", c->name);
 }
 
 static void server_on_client_connect_req(struct server *s, struct conn *in,
 					 struct msg *msg)
 {
 	bool found;
-	struct client *client, *prev;
+	struct client *c, *prev;
 
 	if (!s->cluster_up || s->role != SERVER_ROLE_LEADER) {
 		server_on_pending_disconnect(s, in, MSG_NOT_LEADER);
@@ -625,15 +637,15 @@ static void server_on_client_connect_req(struct server *s, struct conn *in,
 	sc_list_del(&s->pending_conns, &in->list);
 	conn_clear_events(in);
 	conn_clear_timer(in);
-	client = client_create(in, msg->connect_req.name);
+	c = client_create(in, msg->connect_req.name);
 	rs_free(in);
 
 	sc_buf_clear(&s->tmp);
-	cmd_encode_client_connect(&s->tmp, msg->connect_req.name,
-				  client->conn.local, client->conn.remote);
+	cmd_encode_client_connect(&s->tmp, msg->connect_req.name, c->conn.local,
+				  c->conn.remote);
 
 	server_create_entry(s, true, 0, 0, CMD_CLIENT_CONNECT, &s->tmp);
-	sc_map_put_sv(&s->clients, client->name, client);
+	sc_map_put_sv(&s->clients, c->name, c);
 }
 
 static void server_on_node_connect_req(struct server *s, struct conn *pending,
@@ -1164,26 +1176,14 @@ retry:
 		rc = store_put_entry(&s->store, index, entry);
 		if (rc == RS_FULL) {
 			if (s->ss_inprogress) {
-				s->ss_inprogress = false;
-
-				rc = (int) (uintptr_t) sc_cond_wait(
-					&s->ss.cond);
+				rc = server_wait_snapshot(s);
 				if (rc == RS_OK) {
-					store_snapshot_taken(&s->store);
-					metric_snapshot(true, s->ss.time,
-							s->ss.size);
-					snapshot_replace(&s->ss);
-
 					goto retry;
 				}
-
-				metric_snapshot(false, 0, 0);
 			}
 
 			store_expand(&s->store);
 			goto retry;
-
-			// rs_abort("Failed to create entry \n");
 		}
 		index++;
 	}
@@ -1283,8 +1283,27 @@ const char *server_shutdown(void *arg, const char *node)
 	return "Shutdown in progress.";
 }
 
-void server_on_snapshot_req(struct server *s, struct node *node,
-			    struct msg *msg)
+static void server_replace_snapshot(struct server *s)
+{
+	struct state_cb cb = {
+		.arg = s,
+		.add_node = server_add_node,
+		.remove_node = server_remove_node,
+		.shutdown = server_shutdown,
+	};
+
+	state_term(&s->state);
+	store_term(&s->store);
+
+	state_init(&s->state, cb, s->conf.node.dir, s->conf.cluster.name);
+	state_open(&s->state, s->conf.node.in_memory);
+	store_init(&s->store, s->conf.node.dir, s->state.term, s->state.index);
+	snapshot_open(&s->ss, s->state.ss_path, s->state.term, s->state.index);
+
+	s->commit = s->state.index;
+}
+
+void server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 {
 	bool success = true;
 	int rc;
@@ -1296,11 +1315,11 @@ void server_on_snapshot_req(struct server *s, struct node *node,
 
 	if ((s->meta.term == req->term && s->leader == NULL) ||
 	    req->term > s->meta.term) {
-		server_become_follower(s, node);
-		server_update_meta(s, req->term, node->name);
+		server_become_follower(s, n);
+		server_update_meta(s, req->term, n->name);
 	}
 
-	node->in_timestamp = s->timestamp;
+	n->in_timestamp = s->timestamp;
 
 	if (s->ss_inprogress) {
 		sc_cond_wait(&s->ss.cond);
@@ -1309,22 +1328,7 @@ void server_on_snapshot_req(struct server *s, struct node *node,
 	rc = snapshot_recv(&s->ss, req->ss_term, req->ss_index, req->done,
 			   req->offset, req->buf, req->len);
 	if (rc == RS_DONE) {
-		struct state_cb cb = {.arg = s,
-				      .add_node = server_add_node,
-				      .remove_node = server_remove_node,
-				      .shutdown = server_shutdown};
-
-		state_term(&s->state);
-		store_term(&s->store);
-
-		state_init(&s->state, cb, s->conf.node.dir,
-			   s->conf.cluster.name);
-		state_open(&s->state, s->conf.node.in_memory);
-		store_init(&s->store, s->conf.node.dir, s->state.term,
-			   s->state.index);
-		snapshot_open(&s->ss, s->state.ss_path, s->state.term,
-			      s->state.index);
-		s->commit = s->state.index;
+		server_replace_snapshot(s);
 	}
 
 	if (rc == RS_ERROR) {
@@ -1336,11 +1340,11 @@ void server_on_snapshot_req(struct server *s, struct node *node,
 fail:
 	success = false;
 out:
-	msg_create_snapshot_resp(&node->conn.out, s->meta.term, success,
+	msg_create_snapshot_resp(&n->conn.out, s->meta.term, success,
 				 req->done);
-	rc = conn_flush(&node->conn);
+	rc = conn_flush(&n->conn);
 	if (rc != RS_OK) {
-		server_on_node_disconnect(s, node);
+		server_on_node_disconnect(s, n);
 	}
 }
 
