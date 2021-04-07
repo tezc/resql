@@ -15,28 +15,30 @@ endif ()
 
 add_executable(resql-benchmark
         resql_benchmark.c
-        sc_mutex.h
-        sc_mutex.c
-        sc_time.h
-        sc_time.c
-        sc_thread.h
-        sc_thread.c
-        sc_option.h
-        sc_option.c
-        hdr_atomic.h
-        hdr_histogram.h
-        hdr_histogram.c
-        ${CMAKE_SOURCE_DIR}/c-client/resql.h
-        ${CMAKE_SOURCE_DIR}/c-client/resql.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_mutex.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_mutex.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_time.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_time.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_thread.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_thread.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.c
+        ${CMAKE_SOURCE_DIR}/lib/hdr/hdr_atomic.h
+        ${CMAKE_SOURCE_DIR}/lib/hdr/hdr_histogram.h
+        ${CMAKE_SOURCE_DIR}/lib/hdr/hdr_histogram.c
+        ${CMAKE_SOURCE_DIR}/cresql/resql.h
+        ${CMAKE_SOURCE_DIR}/cresql/resql.c
         )
 
 target_link_libraries(resql-benchmark ${ADDITIONAL_LIBRARIES})
-target_include_directories(resql-benchmark PRIVATE ${CMAKE_SOURCE_DIR}/c-client)
+target_include_directories(resql-benchmark PRIVATE ${CMAKE_SOURCE_DIR}/cresql)
+target_include_directories(resql-benchmark PRIVATE ${CMAKE_SOURCE_DIR}/lib/sc)
+target_include_directories(resql-benchmark PRIVATE ${CMAKE_SOURCE_DIR}/lib/hdr)
 
 set_source_files_properties(
-        hdr_atomic.h
-        hdr_histogram.h
-        hdr_histogram.c
+        ${CMAKE_SOURCE_DIR}/lib/hdr/hdr_atomic.h
+        ${CMAKE_SOURCE_DIR}/lib/hdr/hdr_histogram.h
+        ${CMAKE_SOURCE_DIR}/lib/hdr/hdr_histogram.c
         PROPERTIES
         COMPILE_FLAGS "-w"
 )

@@ -1,103 +1,106 @@
 set(CMAKE_C_STANDARD 11)
 
 macro(resql_test name)
-    add_executable(${name} ${name} test_util.c test_util.h)
+    add_executable(${name} ${name})
     target_link_libraries(${name} ${PROJECT_LIBS} resql-test)
     add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}>)
 endmacro()
 
 add_compile_options(-DSC_HAVE_CONFIG_H -g -fno-omit-frame-pointer -DRS_ENABLE_ASSERT)
-include_directories(../src)
 
-add_library(resql-server STATIC
-        ../src/aux.h
-        ../src/aux.c
-        ../src/client.h
-        ../src/client.c
-        ../src/cmd.h
-        ../src/cmd.c
-        ../src/conf.h
-        ../src/conf.c
-        ../src/info.h
-        ../src/info.c
-        ../src/meta.h
-        ../src/meta.c
-        ../src/node.h
-        ../src/node.c
-        ../src/store.h
-        ../src/store.c
-        ../src/entry.h
-        ../src/entry.c
-        ../src/page.h
-        ../src/page.c
-        ../src/session.h
-        ../src/session.c
-        ../src/server.h
-        ../src/server.c
-        ../src/snapshot.h
-        ../src/snapshot.c
-        ../src/state.h
-        ../src/state.c
-        ../src/conn.h
-        ../src/conn.c
-        ../src/file.h
-        ../src/file.c
-        ../src/metric.h
-        ../src/metric.c
-        ../src/msg.h
-        ../src/msg.c
-        ../src/rs.h
-        ../src/rs.c
-        ../src/sqlite/sqlite3ext.h
-        ../src/sqlite/sqlite3.h
-        ../src/sqlite/sqlite3.c
-        ../src/sqlite/completion.c
-        ../src/sc/config.h
-        ../src/sc/sc.h
-        ../src/sc/sc.c
-        ../src/sc/sc_array.h
-        ../src/sc/sc_array.c
-        ../src/sc/sc_buf.h
-        ../src/sc/sc_buf.c
-        ../src/sc/sc_cond.h
-        ../src/sc/sc_cond.c
-        ../src/sc/sc_crc32.h
-        ../src/sc/sc_crc32.c
-        ../src/sc/sc_ini.h
-        ../src/sc/sc_ini.c
-        ../src/sc/sc_map.h
-        ../src/sc/sc_map.c
-        ../src/sc/sc_mmap.h
-        ../src/sc/sc_mmap.c
-        ../src/sc/sc_log.h
-        ../src/sc/sc_log.c
-        ../src/sc/sc_list.h
-        ../src/sc/sc_list.c
-        ../src/sc/sc_option.h
-        ../src/sc/sc_option.c
-        ../src/sc/sc_queue.h
-        ../src/sc/sc_queue.c
-        ../src/sc/sc_signal.h
-        ../src/sc/sc_signal.c
-        ../src/sc/sc_str.h
-        ../src/sc/sc_str.c
-        ../src/sc/sc_sock.h
-        ../src/sc/sc_sock.c
-        ../src/sc/sc_time.h
-        ../src/sc/sc_time.c
-        ../src/sc/sc_timer.h
-        ../src/sc/sc_timer.c
-        ../src/sc/sc_thread.h
-        ../src/sc/sc_thread.c
-        ../src/sc/sc_uri.h
-        ../src/sc/sc_uri.c)
+add_library(resql-test STATIC
+        test_util.h
+        test_util.c
+        ${CMAKE_SOURCE_DIR}/src/aux.h
+        ${CMAKE_SOURCE_DIR}/src/aux.c
+        ${CMAKE_SOURCE_DIR}/src/client.h
+        ${CMAKE_SOURCE_DIR}/src/client.c
+        ${CMAKE_SOURCE_DIR}/src/cmd.h
+        ${CMAKE_SOURCE_DIR}/src/cmd.c
+        ${CMAKE_SOURCE_DIR}/src/conf.h
+        ${CMAKE_SOURCE_DIR}/src/conf.c
+        ${CMAKE_SOURCE_DIR}/src/info.h
+        ${CMAKE_SOURCE_DIR}/src/info.c
+        ${CMAKE_SOURCE_DIR}/src/meta.h
+        ${CMAKE_SOURCE_DIR}/src/meta.c
+        ${CMAKE_SOURCE_DIR}/src/node.h
+        ${CMAKE_SOURCE_DIR}/src/node.c
+        ${CMAKE_SOURCE_DIR}/src/store.h
+        ${CMAKE_SOURCE_DIR}/src/store.c
+        ${CMAKE_SOURCE_DIR}/src/entry.h
+        ${CMAKE_SOURCE_DIR}/src/entry.c
+        ${CMAKE_SOURCE_DIR}/src/page.h
+        ${CMAKE_SOURCE_DIR}/src/page.c
+        ${CMAKE_SOURCE_DIR}/src/session.h
+        ${CMAKE_SOURCE_DIR}/src/session.c
+        ${CMAKE_SOURCE_DIR}/src/server.h
+        ${CMAKE_SOURCE_DIR}/src/server.c
+        ${CMAKE_SOURCE_DIR}/src/snapshot.h
+        ${CMAKE_SOURCE_DIR}/src/snapshot.c
+        ${CMAKE_SOURCE_DIR}/src/state.h
+        ${CMAKE_SOURCE_DIR}/src/state.c
+        ${CMAKE_SOURCE_DIR}/src/conn.h
+        ${CMAKE_SOURCE_DIR}/src/conn.c
+        ${CMAKE_SOURCE_DIR}/src/file.h
+        ${CMAKE_SOURCE_DIR}/src/file.c
+        ${CMAKE_SOURCE_DIR}/src/metric.h
+        ${CMAKE_SOURCE_DIR}/src/metric.c
+        ${CMAKE_SOURCE_DIR}/src/msg.h
+        ${CMAKE_SOURCE_DIR}/src/msg.c
+        ${CMAKE_SOURCE_DIR}/src/rs.h
+        ${CMAKE_SOURCE_DIR}/src/rs.c
+        ${CMAKE_SOURCE_DIR}/cresql/resql.h
+        ${CMAKE_SOURCE_DIR}/cresql/resql.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/config.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_array.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_array.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_buf.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_buf.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_cond.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_cond.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_crc32.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_crc32.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_ini.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_ini.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_map.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_map.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_mmap.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_mmap.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_log.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_log.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_list.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_list.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_signal.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_signal.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_str.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_str.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_sock.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_sock.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_time.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_time.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_timer.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_timer.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_thread.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_thread.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_uri.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_uri.c)
 
 # -DSQLITE_THREADSAFE=0 \
 set_source_files_properties(
-        ../src/sqlite/sqlite3.h
-        ../src/sqlite/sqlite3.c
-        ../src/sqlite/sqlite3ext.h
-        ../src/sqlite/completion.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
         APPEND PROPERTIES COMPILE_FLAGS
         "-w \
  -DSQLITE_OMIT_AUTOINIT \
@@ -114,12 +117,10 @@ set_source_files_properties(
  -DSQLITE_USE_ALLOCA"
 )
 
-target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
-
-add_library(resql-test test_util.c ../c-client/resql.c)
-target_link_libraries(resql-test PUBLIC resql-server)
-target_include_directories(resql-test PUBLIC ../c-client)
-target_include_directories(resql-test PUBLIC ../src)
+target_link_libraries(resql-test ${ADDITIONAL_LIBRARIES})
+target_include_directories(resql-test PUBLIC ${CMAKE_SOURCE_DIR}/lib)
+target_include_directories(resql-test PUBLIC ${CMAKE_SOURCE_DIR}/cresql)
+target_include_directories(resql-test PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 enable_testing()
 
@@ -162,7 +163,7 @@ add_custom_command(
         TARGET coverage
         COMMAND lcov --capture --directory .
         --output-file coverage.info --rc lcov_branch_coverage=1
-        COMMAND lcov --remove coverage.info '/usr/*' '*test*' '*/c-client/*' '*/sqlite/*' '*/sc/*'
+        COMMAND lcov --remove coverage.info '/usr/*' '*test*' '*/cresql/*' '*/sqlite/*' '*/sc/*'
         --output-file coverage.info --rc lcov_branch_coverage=1
         COMMAND lcov --list coverage.info --rc lcov_branch_coverage=1
 )

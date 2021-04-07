@@ -1,20 +1,25 @@
 /*
- *  Resql
+ * MIT License
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright (c) 2021 Ozan Tezcan
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #include "aux.h"
@@ -430,53 +435,6 @@ out:
     if (rc != SQLITE_DONE) {
         return RS_ERROR;
     }
-
-    return RS_OK;
-}
-
-int aux_read_info(struct aux *aux, struct info *n, sqlite3_stmt *stmt)
-{
-    (void) aux;
-
-    n->name = sc_str_create((char *) sqlite3_column_text(stmt, 0));
-    n->connected = sc_str_create((char *) sqlite3_column_text(stmt, 1));
-    n->role = sc_str_create((char *) sqlite3_column_text(stmt, 2));
-    n->urls = sc_str_create((char *) sqlite3_column_text(stmt, 3));
-
-    sc_buf_clear(&n->stats);
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 4));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 5));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 6));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 7));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 8));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 9));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 10));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 11));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 12));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 13));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 14));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 15));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 16));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 17));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 18));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 19));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 20));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 21));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 22));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 23));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 24));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 25));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 26));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 27));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 28));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 29));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 30));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 31));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 32));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 33));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 34));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 35));
-    sc_buf_put_str(&n->stats, (const char *) sqlite3_column_text(stmt, 36));
 
     return RS_OK;
 }

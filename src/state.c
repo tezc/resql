@@ -1,20 +1,25 @@
 /*
- *  Resql
+ * MIT License
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright (c) 2021 Ozan Tezcan
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #include "state.h"
@@ -616,15 +621,6 @@ void state_on_client_disconnect(struct state *st, const char *name, bool clean)
     }
 }
 
-void state_disconnect_sessions(struct state *st)
-{
-    const char *name;
-
-    sc_map_foreach_key (&st->names, name) {
-        state_on_client_disconnect(st, name, false);
-    }
-}
-
 void state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
 {
     bool found;
@@ -688,10 +684,14 @@ void state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
 
 void state_on_term_start(struct state *st, struct cmd_term_start *start)
 {
+    const char *name;
+
     st->realtime = start->realtime;
     st->monotonic = start->monotonic;
 
-    state_disconnect_sessions(st);
+    sc_map_foreach_key (&st->names, name) {
+        state_on_client_disconnect(st, name, false);
+    }
 }
 
 void state_on_info(struct state *st, struct sc_buf *buf)
@@ -754,17 +754,15 @@ static const char *state_errstr(struct state *st)
     return err;
 }
 
-static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
-                                         bool readonly, struct sc_buf *req,
-                                         struct sc_buf *resp)
+static int state_bind_params(struct state *st, struct sc_buf *req,
+                             sqlite3_stmt *stmt)
 {
     int rc, type, idx;
-    const char *param;
-
-    if (readonly && sqlite3_stmt_readonly(stmt) == 0) {
-        st->last_err = "Operation is not readonly.";
-        return RS_ERROR;
-    }
+    uint32_t size;
+    int64_t t;
+    double f;
+    const char *param, *val;
+    void *data;
 
     while ((type = sc_buf_get_8(req)) != TASK_FLAG_END) {
         switch (type) {
@@ -774,8 +772,7 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
              * sqlite_column_xxx api which starts from '0', add 1 to
              * index so users can work starting from '0'.
              */
-            idx = sc_buf_get_32(req);
-            idx++;
+            idx = (int) sc_buf_get_32(req) + 1;
             break;
         case TASK_PARAM_NAME:
             param = sc_buf_get_str(req);
@@ -787,63 +784,101 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
             }
             break;
         default:
-            st->last_err = "Invalid message";
-            return RS_ERROR;
+            goto invalid;
         }
 
         type = sc_buf_get_8(req);
 
         switch (type) {
-        case TASK_PARAM_INTEGER: {
-            int64_t t = sc_buf_get_64(req);
-
+        case TASK_PARAM_INTEGER:
+            t = sc_buf_get_64(req);
             rc = sqlite3_bind_int64(stmt, idx, t);
-            if (rc != SQLITE_OK) {
-                return RS_ERROR;
-            }
-        } break;
-
-        case TASK_PARAM_FLOAT: {
-            double f = sc_buf_get_double(req);
-
+            break;
+        case TASK_PARAM_FLOAT:
+            f = sc_buf_get_double(req);
             rc = sqlite3_bind_double(stmt, idx, f);
-            if (rc != SQLITE_OK) {
-                return RS_ERROR;
-            }
-        } break;
-
-        case TASK_PARAM_TEXT: {
-            uint32_t size = sc_buf_peek_32(req);
-            const char *val = sc_buf_get_str(req);
-
+            break;
+        case TASK_PARAM_TEXT:
+            size = sc_buf_peek_32(req);
+            val = sc_buf_get_str(req);
             rc = sqlite3_bind_text(stmt, idx, val, size, SQLITE_STATIC);
-            if (rc != SQLITE_OK) {
-                return RS_ERROR;
-            }
-        } break;
-
-        case TASK_PARAM_BLOB: {
-            uint32_t len = sc_buf_get_32(req);
-            void *data = sc_buf_get_blob(req, len);
-
-            rc = sqlite3_bind_blob(stmt, idx, data, len, SQLITE_STATIC);
-            if (rc != SQLITE_OK) {
-                return RS_ERROR;
-            }
-        } break;
-
-        case TASK_PARAM_NULL: {
+            break;
+        case TASK_PARAM_BLOB:
+            size = sc_buf_get_32(req);
+            data = sc_buf_get_blob(req, size);
+            rc = sqlite3_bind_blob(stmt, idx, data, size, SQLITE_STATIC);
+            break;
+        case TASK_PARAM_NULL:
             rc = sqlite3_bind_null(stmt, idx);
-            if (rc != SQLITE_OK) {
-                return RS_ERROR;
-            }
-        } break;
-
+            break;
         default:
-            st->last_err = "Invalid message";
+            goto invalid;
+        }
+
+        if (rc != SQLITE_OK) {
             return RS_ERROR;
         }
     }
+
+    return RS_OK;
+
+invalid:
+    st->last_err = "Invalid message";
+    return RS_ERROR;
+}
+
+static void state_encode_row(struct state *st, int col, sqlite3_stmt *stmt,
+                             struct sc_buf *resp)
+{
+    (void) st;
+
+    int type, len;
+    int64_t val;
+    double d;
+    const char *data;
+
+    for (int i = 0; i < col; i++) {
+        type = sqlite3_column_type(stmt, i);
+
+        switch (type)
+        case SQLITE_INTEGER: {
+            val = sqlite3_column_int64(stmt, i);
+            sc_buf_put_8(resp, TASK_PARAM_INTEGER);
+            sc_buf_put_64(resp, (uint64_t) val);
+            break;
+        case SQLITE_FLOAT:
+            d = sqlite3_column_double(stmt, i);
+            sc_buf_put_8(resp, TASK_PARAM_FLOAT);
+            sc_buf_put_double(resp, d);
+            break;
+        case SQLITE_TEXT:
+            len = sqlite3_column_bytes(stmt, i);
+            data = (const char *) sqlite3_column_text(stmt, i);
+
+            sc_buf_put_8(resp, TASK_PARAM_TEXT);
+            sc_buf_put_str_len(resp, data, len);
+            break;
+        case SQLITE_BLOB:
+            len = sqlite3_column_bytes(stmt, i);
+            data = sqlite3_column_blob(stmt, i);
+
+            sc_buf_put_8(resp, TASK_PARAM_BLOB);
+            sc_buf_put_blob(resp, data, (uint32_t) len);
+            break;
+        case SQLITE_NULL:
+            sc_buf_put_8(resp, TASK_PARAM_NULL);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+static int state_step(struct state *st, sqlite3_stmt *stmt, struct sc_buf *resp)
+{
+    int rc, col;
+    uint32_t row = 1, row_pos;
+    const char *name;
 
     rc = sqlite3_step(stmt);
 
@@ -853,71 +888,26 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     if (rc == SQLITE_ROW) {
         sc_buf_put_8(resp, TASK_FLAG_ROW);
 
-        int column_count = sqlite3_column_count(stmt);
-        sc_buf_put_32(resp, (uint32_t) column_count);
+        col = sqlite3_column_count(stmt);
+        sc_buf_put_32(resp, (uint32_t) col);
 
-        for (int i = 0; i < column_count; i++) {
-            const char *name = sqlite3_column_name(stmt, i);
+        for (int i = 0; i < col; i++) {
+            name = sqlite3_column_name(stmt, i);
             sc_buf_put_str(resp, name);
         }
 
-        uint32_t row = 0;
-        uint32_t row_pos = sc_buf_wpos(resp);
+        row_pos = sc_buf_wpos(resp);
         sc_buf_put_32(resp, row);
 
         do {
             row++;
-
-            for (int i = 0; i < column_count; i++) {
-                int t = sqlite3_column_type(stmt, i);
-
-                switch (t) {
-                case SQLITE_INTEGER: {
-                    int64_t val = sqlite3_column_int64(stmt, i);
-                    sc_buf_put_8(resp, TASK_PARAM_INTEGER);
-                    sc_buf_put_64(resp, (uint64_t) val);
-                } break;
-
-                case SQLITE_FLOAT: {
-                    double val = sqlite3_column_double(stmt, i);
-                    sc_buf_put_8(resp, TASK_PARAM_FLOAT);
-                    sc_buf_put_double(resp, val);
-                } break;
-
-                case SQLITE_TEXT: {
-                    int len;
-                    const char *data;
-
-                    len = sqlite3_column_bytes(stmt, i);
-                    data = (const char *) sqlite3_column_text(stmt, i);
-
-                    sc_buf_put_8(resp, TASK_PARAM_TEXT);
-                    sc_buf_put_str_len(resp, data, len);
-                } break;
-
-                case SQLITE_BLOB: {
-                    const void *data = sqlite3_column_blob(stmt, i);
-                    int len = sqlite3_column_bytes(stmt, i);
-
-                    sc_buf_put_8(resp, TASK_PARAM_BLOB);
-                    sc_buf_put_blob(resp, data, (uint32_t) len);
-                } break;
-
-                case SQLITE_NULL: {
-                    sc_buf_put_8(resp, TASK_PARAM_NULL);
-                } break;
-
-                default:
-                    break;
-                }
-            }
+            state_encode_row(st, col, stmt, resp);
         } while ((rc = sqlite3_step(stmt)) == SQLITE_ROW);
 
         sc_buf_set_32_at(resp, row_pos, row);
     }
 
     if (rc != SQLITE_DONE) {
-        state_check_err(st, rc);
         return RS_ERROR;
     }
 
@@ -926,13 +916,38 @@ static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
     return RS_OK;
 }
 
+static int state_exec_prepared_statement(struct state *st, sqlite3_stmt *stmt,
+                                         bool readonly, struct sc_buf *req,
+                                         struct sc_buf *resp)
+{
+    int rc;
+
+    if (readonly && sqlite3_stmt_readonly(stmt) == 0) {
+        st->last_err = "Operation is not readonly.";
+        return RS_ERROR;
+    }
+
+    rc = state_bind_params(st, req, stmt);
+    if (rc != RS_OK) {
+        return rc;
+    }
+
+    rc = state_step(st, stmt, resp);
+    if (rc != RS_OK) {
+        state_check_err(st, rc);
+        return RS_ERROR;
+    }
+
+    return RS_OK;
+}
+
 static int state_exec_stmt(struct state *st, bool readonly, struct sc_buf *req,
                            struct sc_buf *resp)
 {
     int rc;
-    sqlite3_stmt *stmt = NULL;
     uint32_t len = sc_buf_peek_32(req);
     const char *str = sc_buf_get_str(req);
+    sqlite3_stmt *stmt = NULL;
 
     rc = sqlite3_prepare_v3(st->aux.db, str, len, 0, &stmt, NULL);
     if (rc != SQLITE_OK) {
@@ -946,7 +961,7 @@ static int state_exec_stmt(struct state *st, bool readonly, struct sc_buf *req,
     return rc;
 }
 
-static int state_prepare_stmt(struct state *state, struct session *sess,
+static int state_prepare_stmt(struct state *st, struct session *sess,
                               uint64_t index, struct sc_buf *req,
                               struct sc_buf *resp)
 {
@@ -956,7 +971,7 @@ static int state_prepare_stmt(struct state *state, struct session *sess,
     const char *str = sc_buf_get_str(req);
 
     if (!sc_buf_valid(req)) {
-        state->last_err = "Corrupt message";
+        st->last_err = "Corrupt message";
         return RS_ERROR;
     }
 
@@ -965,16 +980,16 @@ static int state_prepare_stmt(struct state *state, struct session *sess,
         return RS_ERROR;
     }
 
-    state->client = false;
-    aux_add_stmt(&state->aux, sess->name, sess->id, id, str);
-    state->client = true;
+    st->client = false;
+    aux_add_stmt(&st->aux, sess->name, sess->id, id, str);
+    st->client = true;
 
     sc_buf_put_64(resp, id);
 
     return RS_OK;
 }
 
-static int state_del_prepared(struct state *state, struct session *sess,
+static int state_del_prepared(struct state *st, struct session *sess,
                               uint64_t index, struct sc_buf *req,
                               struct sc_buf *resp)
 {
@@ -987,19 +1002,19 @@ static int state_del_prepared(struct state *state, struct session *sess,
     id = sc_buf_get_64(req);
 
     if (!sc_buf_valid(req)) {
-        state->last_err = "Corrupt message";
+        st->last_err = "Corrupt message";
         return RS_ERROR;
     }
 
     rc = session_del_stmt(sess, id);
     if (rc != RS_OK) {
-        state->last_err = "Prepared statement does not exist.";
+        st->last_err = "Prepared statement does not exist.";
         return RS_ERROR;
     }
 
-    state->client = false;
-    aux_rm_stmt(&state->aux, id);
-    state->client = true;
+    st->client = false;
+    aux_rm_stmt(&st->aux, id);
+    st->client = true;
 
     return RS_OK;
 }
@@ -1174,31 +1189,30 @@ error:
 }
 
 struct session *state_on_client_request(struct state *st, uint64_t index,
-                                        unsigned char *entry)
+                                        unsigned char *e)
 {
     bool found;
     uint32_t len;
-    uint64_t id = entry_cid(entry);
     void *data;
     struct session *sess;
 
     st->last_err = NULL;
 
-    found = sc_map_get_64v(&st->ids, id, (void **) &sess);
+    found = sc_map_get_64v(&st->ids, entry_cid(e), (void **) &sess);
     if (!found) {
         return NULL;
     }
 
-    data = entry_data(entry);
-    len = entry_data_len(entry);
+    data = entry_data(e);
+    len = entry_data_len(e);
 
-    if (entry_seq(entry) == sess->seq) {
+    if (entry_seq(e) == sess->seq) {
         sc_buf_set_rpos(&sess->resp, 0);
         return sess;
     }
 
     state_exec_request(st, sess, index, data, len);
-    sess->seq = entry_seq(entry);
+    sess->seq = entry_seq(e);
 
     return sess;
 }
