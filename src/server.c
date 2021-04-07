@@ -214,10 +214,12 @@ void server_prepare_cluster(struct server *s)
 {
 	int rc;
 	const char *path = s->conf.node.dir;
-	struct state_cb cb = {.arg = s,
-			      .add_node = server_add_node,
-			      .remove_node = server_remove_node,
-			      .shutdown = server_shutdown};
+	struct state_cb cb = {
+		.arg = s,
+		.add_node = server_add_node,
+		.remove_node = server_remove_node,
+		.shutdown = server_shutdown,
+	};
 
 	s->meta_path = sc_str_create_fmt("%s/%s", path, DEF_META_FILE);
 	s->meta_tmp_path = sc_str_create_fmt("%s/%s", path, DEF_META_TMP);
@@ -240,11 +242,11 @@ void server_prepare_cluster(struct server *s)
 void server_write_meta(struct server *s)
 {
 	int rc;
-	struct file file;
+	struct file f;
 
-	file_init(&file);
+	file_init(&f);
 
-	rc = file_open(&file, s->meta_tmp_path, "w+");
+	rc = file_open(&f, s->meta_tmp_path, "w+");
 	if (rc != RS_OK) {
 		rs_abort("Failed to create file at %s \n", s->meta_tmp_path);
 	}
@@ -254,12 +256,12 @@ void server_write_meta(struct server *s)
 	sc_buf_put_str(&s->tmp, s->voted_for);
 	meta_encode(&s->meta, &s->tmp);
 
-	file_write(&file, sc_buf_rbuf(&s->tmp), sc_buf_size(&s->tmp));
-	file_term(&file);
+	file_write(&f, sc_buf_rbuf(&s->tmp), sc_buf_size(&s->tmp));
+	file_term(&f);
 
 	rc = rename(s->meta_tmp_path, s->meta_path);
 	if (rc != 0) {
-		rs_abort("rename : %s to %s failed \n", s->meta_tmp_path,
+		rs_exit("rename : %s to %s failed \n", s->meta_tmp_path,
 			 s->meta_path);
 	}
 }
@@ -268,7 +270,7 @@ void server_read_meta(struct server *s)
 {
 	int rc;
 	ssize_t size;
-	struct file file;
+	struct file f;
 
 	rc = file_remove_if_exists(s->meta_tmp_path);
 	if (rc != RS_OK) {
@@ -279,22 +281,22 @@ void server_read_meta(struct server *s)
 		meta_parse_uris(&s->meta, s->conf.cluster.nodes);
 		server_write_meta(s);
 	} else {
-		file_init(&file);
+		file_init(&f);
 
-		rc = file_open(&file, s->meta_path, "r");
+		rc = file_open(&f, s->meta_path, "r");
 		if (rc != RS_OK) {
 			sc_log_error("Cannot open meta file at %s, err : %s \n",
 				     s->meta_path, strerror(errno));
-			file_term(&file);
+			file_term(&f);
 			rs_abort("open");
 		}
 
-		size = file_size(&file);
+		size = file_size(&f);
 		sc_buf_clear(&s->tmp);
 		sc_buf_reserve(&s->tmp, (uint32_t) size);
 
-		file_read(&file, sc_buf_wbuf(&s->tmp), (size_t) size);
-		file_term(&file);
+		file_read(&f, sc_buf_wbuf(&s->tmp), (size_t) size);
+		file_term(&f);
 
 		sc_buf_mark_write(&s->tmp, (uint32_t) size);
 		sc_str_set(&s->conf.node.name, sc_buf_get_str(&s->tmp));

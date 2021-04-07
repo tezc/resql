@@ -63,7 +63,8 @@ static void snapshot_simple()
 		client_assert(c, rc == RESQL_OK);
 	}
 
-	test_server_destroy_all();
+	test_server_destroy(0);
+	test_server_destroy(1);
 	test_server_start(0, 3);
 	test_server_start(1, 3);
 	test_server_start(2, 3);
