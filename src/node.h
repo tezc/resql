@@ -33,7 +33,7 @@
 
 struct node {
 	struct server *server;
-	struct sc_sock_poll *loop;
+	struct sc_sock_poll *poll;
 	struct sc_timer *timer;
 	struct conn conn;
 

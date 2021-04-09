@@ -34,6 +34,7 @@
 #include <stdint.h>
 
 struct sc_uri;
+struct server;
 
 enum conn_state
 {
@@ -49,20 +50,18 @@ struct conn {
 	struct sc_buf out;
 	struct sc_buf in;
 	struct msg msg;
-	struct sc_sock_poll *poll;
-	struct sc_timer *timer;
+	struct server *server;
 	uint64_t timer_id;
 
 	char local[64];
 	char remote[64];
 };
 
-struct conn *conn_create(struct sc_sock_poll *p, struct sc_timer *t,
-			 struct sc_sock *s);
+struct conn *conn_create(struct server *server, struct sc_sock *s);
 void conn_destroy(struct conn *c);
 
 void conn_move(struct conn *c, struct conn *src);
-void conn_init(struct conn *c, struct sc_sock_poll *p, struct sc_timer *t);
+void conn_init(struct conn *c, struct server *s);
 void conn_term(struct conn *c);
 
 void conn_schedule(struct conn *c, uint32_t type, uint32_t timeout);

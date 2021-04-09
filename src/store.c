@@ -50,21 +50,14 @@ static void store_swap(struct store *s)
 
 static void store_read(struct store *s)
 {
-	int rc;
 	char buf[PATH_MAX];
 	size_t c;
 
 	rs_snprintf(buf, sizeof(buf), "%s/%s", s->path, DEF_PAGE_FILE_0);
-	rc = page_init(s->pages[0], buf, -1, s->ss_index);
-	if (rc != RS_OK) {
-		rs_abort("page_init failed");
-	}
+	page_init(s->pages[0], buf, -1, s->ss_index);
 
 	rs_snprintf(buf, sizeof(buf), "%s/%s", s->path, DEF_PAGE_FILE_1);
-	rc = page_init(s->pages[1], buf, -1, s->ss_index);
-	if (rc != RS_OK) {
-		rs_abort("page_init failed");
-	}
+	page_init(s->pages[1], buf, -1, s->ss_index);
 
 	if (s->pages[1]->prev_index < s->pages[0]->prev_index) {
 		store_swap(s);
@@ -94,6 +87,12 @@ static void store_read(struct store *s)
 	s->curr = (c > 0) ? s->pages[1] : s->pages[0];
 
 	s->last_index = page_last_index(s->curr);
+
+	if (page_entry_count(s->curr)) {
+		s->last_term = page_last_term(s->curr);
+	} else {
+		s->last_term = s->ss_term;
+	}
 }
 
 int store_init(struct store *s, const char *path, uint64_t ss_term,
@@ -159,6 +158,7 @@ struct page *store_ss_page(struct store *s)
 int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
 		       uint64_t cid, uint32_t flags, void *data, uint32_t len)
 {
+	int rc;
 	uint32_t size;
 
 retry:
@@ -166,12 +166,19 @@ retry:
 	assert(size < STORE_MAX_ENTRY_SIZE);
 
 	if (size > page_quota(s->curr)) {
+		if (size > page_cap(s->curr)) {
+			rc = page_reserve(s->curr, size);
+			if (rc == RS_OK) {
+				goto retry;
+			}
+		}
+
 		if (s->curr != s->pages[1]) {
 			s->curr = s->pages[1];
-			while (size > page_quota(s->curr)) {
-				page_expand(s->curr);
-			}
 			page_clear(s->curr, s->last_index);
+			if (size > page_cap(s->curr)) {
+				page_reserve(s->curr, size);
+			}
 			goto retry;
 		}
 
@@ -185,15 +192,16 @@ retry:
 	return RS_OK;
 }
 
-int store_expand(struct store *s)
+int store_reserve(struct store *s, uint32_t size)
 {
 	rs_assert(s->curr == s->pages[1]);
-	page_expand(s->pages[1]);
-	return RS_OK;
+	return page_reserve(s->pages[1], size);
 }
 
 int store_put_entry(struct store *s, uint64_t index, unsigned char *entry)
 {
+	int rc;
+
 	rs_assert(index == s->last_index + 1);
 	rs_assert(s->last_term <= entry_term(entry));
 
@@ -201,15 +209,19 @@ int store_put_entry(struct store *s, uint64_t index, unsigned char *entry)
 
 retry:
 	if (size > page_quota(s->curr)) {
+		if (size > page_cap(s->curr)) {
+			rc = page_reserve(s->curr, size);
+			if (rc == RS_OK) {
+				goto retry;
+			}
+		}
+
 		if (s->curr != s->pages[1]) {
 			s->curr = s->pages[1];
 			page_clear(s->curr, s->last_index);
-			goto retry;
-		}
-
-		if (page_entry_count(s->pages[1]) == 0) {
-			page_expand(s->pages[1]);
-			s->curr = s->pages[1];
+			if (size > page_cap(s->curr)) {
+				page_reserve(s->curr, size);
+			}
 			goto retry;
 		}
 
@@ -236,7 +248,7 @@ unsigned char *store_get_entry(struct store *s, uint64_t index)
 	return entry;
 }
 
-uint64_t store_prev_term_of(struct store *s, uint64_t index)
+uint64_t store_prev_term(struct store *s, uint64_t index)
 {
 	unsigned char *entry;
 

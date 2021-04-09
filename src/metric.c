@@ -243,8 +243,7 @@ void metric_init(struct metric *m, const char *dir)
 	m->bytes_sent = 0;
 	m->ss_success = true;
 
-	strncpy(m->dir, dir, sizeof(m->dir) - 1);
-	m->dir[sizeof(m->dir) - 1] = '\0';
+	rs_strncpy(m->dir, dir, sizeof(m->dir) - 1);
 }
 
 void metric_term(struct metric *metric)

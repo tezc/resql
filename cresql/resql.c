@@ -754,6 +754,11 @@ static const char *sc_buf_get_str(struct sc_buf *b)
 		return NULL;
 	}
 
+	if (b->rpos + len + 1 > b->wpos) {
+		b->err |= SC_BUF_CORRUPT;
+		return NULL;
+	}
+
 	str = (char *) b->mem + b->rpos;
 	b->rpos += len + 1;
 

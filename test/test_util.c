@@ -131,10 +131,16 @@ void cleanup()
 		cleanup_one(i);
 	}
 
-	rc = file_rmdir("/tmp/resql_test");
+	rc = file_rmdir(test_tmp_dir);
 	rs_assert(!(rc != 0 && errno != ENOENT));
 
-	rc = file_mkdir("/tmp/resql_test");
+	rc = file_mkdir(test_tmp_dir);
+	rs_assert(rc == 0);
+
+	rc = file_rmdir(test_tmp_dir2);
+	rs_assert(!(rc != 0 && errno != ENOENT));
+
+	rc = file_mkdir(test_tmp_dir2);
 	rs_assert(rc == 0);
 }
 

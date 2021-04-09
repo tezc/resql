@@ -30,23 +30,34 @@
 
 #include "sc/sc_uri.h"
 
-struct conn *conn_create(struct sc_sock_poll *p, struct sc_timer *t,
-			 struct sc_sock *s)
+#include <sc/sc_log.h>
+
+struct conn *conn_create(struct server *server, struct sc_sock *s)
 {
+	int rc;
 	struct conn *c;
+	struct sc_sock_poll *p = &server->poll;
 
 	c = rs_malloc(sizeof(*c));
-	conn_init(c, p, t);
+	conn_init(c, server);
 
 	c->sock = *s;
 	c->state = CONN_CONNECTED;
 	c->sock.fdt.type = SERVER_FD_WAIT_FIRST_REQ;
 
-	sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
+	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
+	if (rc != 0) {
+		goto cleanup;
+	}
+
 	sc_sock_local_str(s, c->local, sizeof(c->local));
 	sc_sock_remote_str(s, c->remote, sizeof(c->remote));
 
 	return c;
+
+cleanup:
+	rs_free(c);
+	return NULL;
 }
 
 void conn_destroy(struct conn *c)
@@ -55,10 +66,9 @@ void conn_destroy(struct conn *c)
 	rs_free(c);
 }
 
-void conn_init(struct conn *c, struct sc_sock_poll *p, struct sc_timer *t)
+void conn_init(struct conn *c, struct server *s)
 {
-	c->poll = p;
-	c->timer = t;
+	c->server = s;
 	c->state = CONN_DISCONNECTED;
 	c->timer_id = SC_TIMER_INVALID;
 
@@ -68,12 +78,30 @@ void conn_init(struct conn *c, struct sc_sock_poll *p, struct sc_timer *t)
 	sc_sock_init(&c->sock, 0, 0, 0);
 }
 
+static void conn_cleanup_sock(struct conn *c)
+{
+	int rc;
+	struct sc_sock *s = &c->sock;
+	struct sc_sock_poll *p = &c->server->poll;
+
+	rc = sc_sock_poll_del(p, &s->fdt, SC_SOCK_READ | SC_SOCK_WRITE, NULL);
+	if (rc != 0) {
+		sc_log_error("conn_term : %s \n", sc_sock_poll_err(p));
+	}
+
+	rc = sc_sock_term(s);
+	if (rc != 0) {
+		sc_log_error("conn_term : %s \n", sc_sock_error(s));
+	}
+
+	c->state = CONN_DISCONNECTED;
+}
+
 void conn_term(struct conn *c)
 {
-	sc_timer_cancel(c->timer, &c->timer_id);
-	sc_sock_poll_del(c->poll, &c->sock.fdt, SC_SOCK_READ | SC_SOCK_WRITE,
-			 NULL);
-	sc_sock_term(&c->sock);
+	sc_timer_cancel(&c->server->timer, &c->timer_id);
+	conn_cleanup_sock(c);
+
 	sc_buf_term(&c->in);
 	sc_buf_term(&c->out);
 }
@@ -86,27 +114,30 @@ void conn_move(struct conn *c, struct conn *src)
 
 void conn_schedule(struct conn *c, uint32_t type, uint32_t timeout)
 {
-	sc_timer_cancel(c->timer, &c->timer_id);
-	c->timer_id = sc_timer_add(c->timer, timeout, type, c);
+	struct sc_timer *t = &c->server->timer;
+
+	sc_timer_cancel(t, &c->timer_id);
+	c->timer_id = sc_timer_add(t, timeout, type, c);
 }
 
 void conn_clear_timer(struct conn *c)
 {
-	sc_timer_cancel(c->timer, &c->timer_id);
+	struct sc_timer *t = &c->server->timer;
+
+	sc_timer_cancel(t, &c->timer_id);
 }
 
 int conn_try_connect(struct conn *c, struct sc_uri *uri)
 {
 	int rc;
+	struct sc_sock_poll *p = &c->server->poll;
 
 	if (c->state == CONN_CONNECTED) {
 		return RS_EXISTS;
 	}
 
 	if (c->state == CONN_TCP_ATTEMPT) {
-		sc_sock_poll_del(c->poll, &c->sock.fdt, c->sock.fdt.op,
-				 &c->sock.fdt);
-		sc_sock_term(&c->sock);
+		conn_cleanup_sock(c);
 	}
 
 	c->state = CONN_TCP_ATTEMPT;
@@ -118,17 +149,14 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 	case SC_SOCK_OK:
 		c->state = CONN_CONNECTED;
 		c->sock.fdt.type = SERVER_FD_WAIT_FIRST_RESP;
-		sc_sock_poll_add(c->poll, &c->sock.fdt, SC_SOCK_READ,
-				 &c->sock.fdt);
+		sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
 
 		sc_sock_local_str(&c->sock, c->local, sizeof(c->local));
 		sc_sock_remote_str(&c->sock, c->remote, sizeof(c->remote));
 		rc = RS_OK;
-
 		break;
 	case SC_SOCK_WANT_WRITE:
-		sc_sock_poll_add(c->poll, &c->sock.fdt, SC_SOCK_WRITE,
-				 &c->sock.fdt);
+		sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_WRITE, &c->sock.fdt);
 		rc = RS_ERROR;
 		break;
 	default:
@@ -141,42 +169,50 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 int conn_on_out_connected(struct conn *c)
 {
 	int rc;
+	struct sc_sock *sock = &c->sock;
+	struct sc_sock_poll *p = &c->server->poll;
 
-	sc_timer_cancel(c->timer, &c->timer_id);
+	sc_timer_cancel(&c->server->timer, &c->timer_id);
 
-	rc = sc_sock_finish_connect(&c->sock);
+	rc = sc_sock_finish_connect(sock);
 	if (rc == SC_SOCK_ERROR) {
 		return RS_ERROR;
 	}
 
 	c->state = CONN_CONNECTED;
-	c->sock.fdt.type = SERVER_FD_WAIT_FIRST_RESP;
+	sock->fdt.type = SERVER_FD_WAIT_FIRST_RESP;
 
 	conn_clear_events(c);
-	sc_sock_poll_add(c->poll, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
-	sc_sock_local_str(&c->sock, c->local, sizeof(c->local));
-	sc_sock_remote_str(&c->sock, c->remote, sizeof(c->remote));
+
+	sc_sock_poll_add(p, &sock->fdt, SC_SOCK_READ, &sock->fdt);
+	sc_sock_local_str(sock, c->local, sizeof(c->local));
+	sc_sock_remote_str(sock, c->remote, sizeof(c->remote));
 
 	return RS_OK;
 }
 
 void conn_disconnect(struct conn *c)
 {
-	sc_timer_cancel(c->timer, &c->timer_id);
+	sc_timer_cancel(&c->server->timer, &c->timer_id);
 
 	if (c->state != CONN_DISCONNECTED) {
 		sc_buf_clear(&c->out);
 		sc_buf_clear(&c->in);
-
-		sc_sock_poll_del(c->poll, &c->sock.fdt, c->sock.fdt.op, NULL);
-		sc_sock_term(&c->sock);
-		c->state = CONN_DISCONNECTED;
+		conn_cleanup_sock(c);
 	}
 }
 
 int conn_on_writable(struct conn *c)
 {
-	sc_sock_poll_del(c->poll, &c->sock.fdt, SC_SOCK_WRITE, &c->sock.fdt);
+	int rc;
+	struct sc_sock_fd *fdt = &c->sock.fdt;
+	struct sc_sock_poll *p = &c->server->poll;
+
+	rc = sc_sock_poll_del(p, fdt, SC_SOCK_WRITE, fdt);
+	if (rc != 0) {
+		sc_log_error("sc_sock_poll_del : %s \n", sc_sock_poll_err(p));
+	}
+
 	return conn_flush(c);
 }
 
@@ -210,14 +246,26 @@ retry:
 
 void conn_allow_read(struct conn *c)
 {
+	int rc;
 	struct sc_sock_fd *fdt = &c->sock.fdt;
-	sc_sock_poll_add(c->poll, fdt, SC_SOCK_READ, fdt);
+	struct sc_sock_poll *p = &c->server->poll;
+
+	rc = sc_sock_poll_add(p, fdt, SC_SOCK_READ, fdt);
+	if (rc != 0) {
+		sc_log_error("sc_sock_poll_add : %s \n", sc_sock_poll_err(p));
+	}
 }
 
 void conn_disallow_read(struct conn *c)
 {
+	int rc;
 	struct sc_sock_fd *fdt = &c->sock.fdt;
-	sc_sock_poll_del(c->poll, fdt, SC_SOCK_READ, fdt);
+	struct sc_sock_poll *p = &c->server->poll;
+
+	rc = sc_sock_poll_del(p, fdt, SC_SOCK_READ, fdt);
+	if (rc != 0) {
+		sc_log_error("sc_sock_poll_del : %s \n", sc_sock_poll_err(p));
+	}
 }
 
 void conn_set_type(struct conn *c, int type)
@@ -227,14 +275,21 @@ void conn_set_type(struct conn *c, int type)
 
 void conn_clear_events(struct conn *c)
 {
+	int rc;
 	struct sc_sock_fd *fdt = &c->sock.fdt;
-	sc_sock_poll_del(c->poll, fdt, c->sock.fdt.op, fdt);
+	struct sc_sock_poll *p = &c->server->poll;
+
+	rc = sc_sock_poll_del(p, fdt, fdt->op, fdt);
+	if (rc != 0) {
+		sc_log_error("sc_sock_poll_del : %s \n", sc_sock_poll_err(p));
+	}
 }
 
 int conn_flush(struct conn *c)
 {
 	int rc, len;
 	void *buf;
+	struct sc_sock_poll* p = &c->server->poll;
 	struct sc_sock_fd *fdt;
 
 	if (!sc_buf_valid(&c->out)) {
@@ -256,7 +311,12 @@ retry:
 
 	if (rc == SC_SOCK_WANT_WRITE) {
 		fdt = &c->sock.fdt;
-		sc_sock_poll_add(c->poll, fdt, SC_SOCK_WRITE, fdt);
+		rc = sc_sock_poll_add(p, fdt, SC_SOCK_WRITE, fdt);
+		if (rc != 0) {
+			sc_log_error("poll_add %s \n", sc_sock_poll_err(p));
+			return RS_ERROR;
+		}
+
 		goto out;
 	}
 

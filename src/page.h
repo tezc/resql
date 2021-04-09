@@ -42,17 +42,17 @@ struct page {
 	unsigned char **entries;
 };
 
-int page_init(struct page *p, const char *path, int64_t len,
-	      uint64_t prev_index);
-int page_term(struct page *p);
-int page_expand(struct page *p);
+int page_init(struct page *p, const char *path, int64_t len, uint64_t prev_index);
+void page_term(struct page *p);
+int page_reserve(struct page *p, uint32_t size);
 bool page_isempty(struct page *p);
 
 void page_clear(struct page *p, uint64_t prev_index);
-int page_fsync(struct page *p, uint64_t index);
+void page_fsync(struct page *p, uint64_t index);
 
 uint32_t page_entry_count(struct page *p);
 uint32_t page_quota(struct page *p);
+uint32_t page_cap(struct page *p);
 
 uint64_t page_last_index(struct page *p);
 uint64_t page_last_term(struct page *p);

@@ -60,6 +60,7 @@ void snapshot_init(struct snapshot *ss, struct server *server)
 
 	ss->time = 0;
 	ss->size = 0;
+	ss->running = 0;
 
 	sc_thread_init(&ss->thread);
 	sc_sock_pipe_init(&ss->efd, SERVER_FD_TASK);
@@ -115,6 +116,16 @@ void snapshot_close(struct snapshot *ss)
 	if (rc != 0) {
 		sc_log_error("mmap term : %s \n", sc_mmap_err(&ss->map));
 	}
+}
+
+bool snapshot_running(struct snapshot *ss)
+{
+	return ss->running;
+}
+
+int snapshot_wait(struct snapshot *ss)
+{
+	return (int) (uintptr_t) sc_cond_wait(&ss->cond);
 }
 
 void snapshot_replace(struct snapshot *ss)
@@ -190,17 +201,14 @@ void snapshot_take(struct snapshot *ss, struct page *page)
 static void snapshot_compact(struct snapshot *ss, struct page *page)
 {
 	int rc;
-	uint64_t first, last;
+	uint64_t first, last, start;
 	struct state state;
 
-	uint64_t start = sc_time_mono_ns();
+	ss->running = 1;
+	start = sc_time_mono_ns();
 
 	state_init(&state, (struct state_cb){0}, ss->server->conf.node.dir, "");
-
-	rc = state_read_for_snapshot(&state);
-	if (rc != RS_OK) {
-		rs_abort("snapshot");
-	}
+	state_read_for_snapshot(&state);
 
 	first = page->prev_index + 1;
 	last = page_last_index(page);
@@ -224,28 +232,24 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 
 	state_term(&state);
 	sc_cond_signal(&ss->cond, (void *) (uintptr_t) RS_OK);
+	ss->running = 0;
 
 	sc_log_info("snapshot done in : %" PRIu64 " milliseconds, for [%" PRIu64
 		    ",%" PRIu64 "] \n",
 		    ss->time / 1000 / 1000, first, last);
 }
 
-void snapshot_set_thread_name(struct snapshot *ss)
+static void *snapshot_run(void *arg)
 {
+	int size;
 	char buf[128];
+	struct snapshot *ss = arg;
+	struct snapshot_task task;
 	const char *node = ss->server->conf.node.name;
 
 	rs_snprintf(buf, sizeof(buf), "%s-%s", node, "snapshot");
 	sc_log_set_thread_name(buf);
-}
 
-static void *snapshot_run(void *arg)
-{
-	int size;
-	struct snapshot *ss = arg;
-	struct snapshot_task task;
-
-	snapshot_set_thread_name(ss);
 	sc_log_info("Snapshot slave started ... \n");
 
 	while (true) {

@@ -63,6 +63,7 @@ struct snapshot {
 	struct sc_thread thread;
 	struct sc_sock_pipe efd;
 	struct sc_cond cond;
+	_Atomic int running;
 };
 
 void snapshot_init(struct snapshot *ss, struct server *server);
@@ -70,6 +71,8 @@ void snapshot_term(struct snapshot *ss);
 
 void snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
 		   uint64_t index);
+bool snapshot_running(struct snapshot *ss);
+int snapshot_wait(struct snapshot *ss);
 
 void snapshot_replace(struct snapshot *ss);
 

@@ -53,7 +53,7 @@ void store_snapshot_taken(struct store *s);
 
 uint64_t store_ss_index(struct store *s);
 struct page *store_ss_page(struct store *s);
-int store_expand(struct store *s);
+int store_reserve(struct store *s, uint32_t size);
 
 int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
 		       uint64_t cid, uint32_t flags, void *data, uint32_t len);
@@ -61,7 +61,7 @@ int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
 int store_put_entry(struct store *store, uint64_t index, unsigned char *entry);
 
 unsigned char *store_get_entry(struct store *s, uint64_t index);
-uint64_t store_prev_term_of(struct store *s, uint64_t index);
+uint64_t store_prev_term(struct store *s, uint64_t index);
 
 void store_entries(struct store *s, uint64_t index, uint32_t limit,
 		   unsigned char **entries, uint32_t *size, uint32_t *count);

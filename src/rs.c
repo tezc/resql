@@ -245,7 +245,8 @@ _Noreturn void rs_exit(const char *fmt, ...)
 		va_end(args);
 	}
 
-	sc_log_error("%s \n", buf);
+	sc_log_error("%s , errno : %d, error : %s\n", buf, errno,
+		     strerror(errno));
 	exit(EXIT_FAILURE);
 }
 

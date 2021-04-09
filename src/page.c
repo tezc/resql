@@ -37,6 +37,7 @@
 #include "sc/sc_time.h"
 
 #include <errno.h>
+#include <inttypes.h>
 
 #define PAGE_ENTRY_MAX_SIZE    (2u * 1024 * 1024 * 1024)
 #define PAGE_END_MARK	       0
@@ -68,16 +69,14 @@ static void page_read(struct page *p)
 		}
 
 		if (remaining < ENTRY_HEADER_SIZE) {
-			sc_log_warn("Partial entry found at page %s \n",
-				    p->path);
+			sc_log_warn("Partial entry on page %s \n", p->path);
 			goto out;
 		}
 
 		entry = sc_buf_rbuf(&p->buf);
 		rc = entry_decode(&p->buf);
 		if (rc != RS_OK) {
-			sc_log_warn("Corrupt entry found at page : %s\n",
-				    p->path);
+			sc_log_warn("Partial entry on page : %s\n", p->path);
 			goto out;
 		}
 
@@ -97,6 +96,8 @@ int page_init(struct page *p, const char *path, int64_t len,
 	uint32_t crc_val, crc_calc;
 
 	if (len > PAGE_MAX_SIZE) {
+		sc_log_error("Requested too big page : %" PRIi64 " \n",
+			     p->map.err);
 		return RS_ERROR;
 	}
 
@@ -108,13 +109,14 @@ int page_init(struct page *p, const char *path, int64_t len,
 	rc = sc_mmap_init(&p->map, path, O_CREAT | O_RDWR,
 			  PROT_READ | PROT_WRITE, MAP_SHARED, 0, (size_t) len);
 	if (rc != 0) {
-		rs_abort("Mmap : %s \n", p->map.err);
+		sc_log_error("Mmap : %s \n", p->map.err);
+		return RS_ERROR;
 	}
 
 	p->path = sc_str_create(path);
 	p->buf = sc_buf_wrap(p->map.ptr, (uint32_t) p->map.len, SC_BUF_REF);
 
-	sc_array_create(p->entries, 1000);
+	sc_array_create(p->entries, 1024);
 	sc_buf_set_wpos(&p->buf, (uint32_t) p->map.len);
 
 	crc_val = sc_buf_peek_32_at(&p->buf, PAGE_CRC_OFFSET);
@@ -122,8 +124,7 @@ int page_init(struct page *p, const char *path, int64_t len,
 
 	if (crc_calc != crc_val) {
 		if (file_len != -1) {
-			sc_log_debug("Crc32 mismatch, corrupt page : %s \n",
-				     path);
+			sc_log_error("Corrupt page : %s \n", path);
 		}
 
 		page_clear(p, prev_index);
@@ -142,51 +143,66 @@ int page_init(struct page *p, const char *path, int64_t len,
 	return RS_OK;
 }
 
-int page_term(struct page *p)
+void page_term(struct page *p)
 {
-	int rc = RS_OK, ret;
+	int rc;
 
 	page_fsync(p, page_last_index(p));
 
 	sc_array_destroy(p->entries);
 	sc_str_destroy(p->path);
 
-	ret = sc_mmap_term(&p->map);
-	if (ret != 0) {
-		sc_log_warn("munmap : %s\n", p->map.err);
-		rc = RS_ERROR;
+	rc = sc_mmap_term(&p->map);
+	if (rc != 0) {
+		sc_log_error("sc_mmap_term : %s\n", p->map.err);
 	}
-
-	return rc;
 }
 
-int page_expand(struct page *p)
+int page_reserve(struct page *p, uint32_t size)
 {
-	int rc;
+	int rc, ret = RS_OK;
 	uint64_t prev_index = p->prev_index;
 	uint64_t last_index = page_last_index(p);
 	uint64_t entry_count = page_entry_count(p);
-	size_t cap = (p->map.len * 2);
-	char *path = sc_str_create(p->path);
+	uint64_t count = p->map.len - page_quota(p);
+	uint64_t cap;
+	char *path;
 
-	rc = page_term(p);
-	if (rc != 0) {
-		sc_log_warn("munmap : %s\n", p->map.err);
+	if (page_quota(p) >= size) {
+		return RS_OK;
 	}
 
+	cap = p->map.len;
+	while (cap <= PAGE_MAX_SIZE && cap < count + size) {
+		cap = sc_to_pow2(cap + 1);
+	}
+
+	if (cap > PAGE_MAX_SIZE) {
+		return RS_ERROR;
+	}
+
+	path = sc_str_create(p->path);
+
+	page_term(p);
+
 	rc = page_init(p, path, cap, p->prev_index);
-	if (rc != 0) {
-		rs_abort("page expand failed. \n");
+	if (rc != RS_OK) {
+		ret = RS_ERROR;
+		// Revert back to old size
+		rc = page_init(p, path, -1, p->prev_index);
+		if (rc != RS_OK) {
+			rs_abort("Failed to expand page \n");
+		}
 	}
 
 	if (prev_index != p->prev_index || last_index != page_last_index(p) ||
-	    entry_count != page_entry_count(p) || p->map.len < cap) {
+	    entry_count != page_entry_count(p)) {
 		rs_abort("Corrupt file. ");
 	}
 
 	sc_str_destroy(path);
 
-	return RS_OK;
+	return ret;
 }
 
 bool page_isempty(struct page *p)
@@ -206,11 +222,14 @@ void page_clear(struct page *p, uint64_t prev_index)
 	sc_array_clear(p->entries);
 
 	memset(p->map.ptr, 0, PAGE_HEADER_LEN);
+
 	p->buf = sc_buf_wrap(p->map.ptr, (uint32_t) p->map.len, SC_BUF_REF);
 	sc_buf_set_32_at(&p->buf, PAGE_VERSION_OFFSET, PAGE_VERSION);
 	sc_buf_set_64_at(&p->buf, PAGE_PREV_INDEX_OFFSET, prev_index);
+
 	crc = sc_crc32(0, p->buf.mem, PAGE_HEADER_LEN - 4);
 	sc_buf_set_32_at(&p->buf, PAGE_CRC_OFFSET, crc);
+
 	sc_buf_set_wpos(&p->buf, PAGE_HEADER_LEN);
 	sc_buf_set_32_at(&p->buf, PAGE_HEADER_LEN, PAGE_END_MARK);
 
@@ -252,7 +271,12 @@ uint32_t page_quota(struct page *p)
 	return size - ENTRY_HEADER_SIZE - PAGE_END_MARK_LEN;
 }
 
-int page_fsync(struct page *p, uint64_t index)
+uint32_t page_cap(struct page *p)
+{
+	return sc_buf_cap(&p->buf) - PAGE_HEADER_LEN - ENTRY_HEADER_SIZE - PAGE_END_MARK_LEN;
+}
+
+void page_fsync(struct page *p, uint64_t index)
 {
 	int rc;
 	uint64_t ts;
@@ -260,12 +284,12 @@ int page_fsync(struct page *p, uint64_t index)
 
 	if (index <= p->prev_index || index > page_last_index(p) ||
 	    p->flush_index >= index) {
-		return RS_OK;
+		return;
 	}
 
 	pos = sc_buf_wpos(&p->buf);
 	if (p->flush_pos >= pos) {
-		return RS_OK;
+		return;
 	}
 
 	last = p->flush_pos;
@@ -279,8 +303,6 @@ int page_fsync(struct page *p, uint64_t index)
 
 	p->flush_pos = pos;
 	p->flush_index = page_last_index(p);
-
-	return RS_OK;
 }
 
 void page_create_entry(struct page *p, uint64_t term, uint64_t seq,
@@ -370,7 +392,7 @@ void page_remove_after(struct page *p, uint64_t index)
 		return;
 	}
 
-	pos = (uint32_t)(entry - p->map.ptr);
+	pos = (uint32_t) (entry - p->map.ptr);
 	sc_buf_set_wpos(&p->buf, pos);
 	sc_buf_set_32(&p->buf, PAGE_END_MARK);
 

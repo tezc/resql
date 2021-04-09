@@ -38,7 +38,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 
 	n = rs_calloc(1, sizeof(*n));
 
-	n->loop = &server->loop;
+	n->poll = &server->poll;
 	n->timer = &server->timer;
 	n->name = sc_str_create(name);
 	n->next = 1;
@@ -51,7 +51,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 
 	sc_list_init(&n->list);
 	sc_queue_create(n->uris, 2);
-	conn_init(&n->conn, n->loop, n->timer);
+	conn_init(&n->conn, server);
 	sc_buf_init(&n->info, 1024);
 
 	if (connect) {

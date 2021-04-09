@@ -83,7 +83,7 @@ struct server {
 	struct sc_thread thread;
 	struct conf conf;
 	struct metric metric;
-	struct sc_sock_poll loop;
+	struct sc_sock_poll poll;
 	struct sc_sock_pipe efd;
 	struct sc_sock_pipe sigfd;
 	struct sc_timer timer;
@@ -133,6 +133,7 @@ struct server {
 	struct sc_list read_reqs;
 	struct sc_buf tmp;
 	struct server_job *jobs;
+	struct sc_buf *cache;
 };
 
 void server_global_init();
@@ -143,5 +144,8 @@ void server_destroy(struct server *server);
 
 int server_start(struct server *server, bool new_thread);
 int server_stop(struct server *server);
+
+struct sc_buf server_alloc(struct server *s);
+void server_free(struct server *s, struct sc_buf buf);
 
 #endif

@@ -22,6 +22,10 @@
  * SOFTWARE.
  */
 
+#ifndef __FILE_OFFSET_BITS
+#define __FILE_OFFSET_BITS 64
+#endif
+
 #include "file.h"
 
 #include "rs.h"

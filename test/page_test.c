@@ -32,34 +32,29 @@
 
 static void page_open_test(void)
 {
-	int rc;
 	size_t page_size;
 	struct page page;
 
-	rc = page_init(&page, test_tmp_page0, -1, 5000);
-	rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, 5000);
 
 	page_size = page.map.len;
-	rs_assert(page_fsync(&page, page_last_index(&page)) == RS_OK);
-	rs_assert(page_term(&page) == RS_OK);
+	page_fsync(&page, page_last_index(&page));
+	page_term(&page);
 
-	rc = page_init(&page, test_tmp_page0, -1, 0);
-	rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, 0);
 	rs_assert(page.map.len == page_size);
 	rs_assert(page.prev_index == 5000);
-	rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 }
 
 static void page_reopen_test(void)
 {
-	int rc;
 	const int prev_index = 5000;
 	char *data = "data";
 	unsigned char *entry;
 	struct page page;
 
-	rc = page_init(&page, test_tmp_page0, -1, prev_index);
-	rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, prev_index);
 
 	for (int i = 0; i < 1000; i++) {
 		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -69,10 +64,8 @@ static void page_reopen_test(void)
 		}
 	}
 
-	rs_assert(page_term(&page) == RS_OK);
-
-	rc = page_init(&page, test_tmp_page0, -1, 0);
-	rs_assert(rc == RS_OK);
+	page_term(&page);
+	page_init(&page, test_tmp_page0, -1, 0);
 
 	for (uint64_t i = 0; i < 1000; i++) {
 		entry = page_entry_at(&page, prev_index + 1 + i);
@@ -84,21 +77,20 @@ static void page_reopen_test(void)
 		rs_assert(strcmp(entry_data(entry), data) == 0);
 	}
 
-	rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 }
 
 static void page_expand_test(void)
 {
-	int rc;
 	const int prev_index = 5000;
 	char *data = "data";
 	unsigned char *entry;
 	struct page page;
+	uint32_t size;
 
-	rc = page_init(&page, test_tmp_page0, -1, prev_index);
-	rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, prev_index);
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 4000; i++) {
 		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
 
 		if (i % 2 == 0) {
@@ -106,9 +98,15 @@ static void page_expand_test(void)
 		}
 	}
 
-	rs_assert(page_expand(&page) == RS_OK);
+	size = page_quota(&page);
+	rs_assert(size < 50000000);
 
-	for (uint64_t i = 0; i < 1000; i++) {
+	rs_assert(page_reserve(&page, 50000000) == RS_OK);
+	rs_assert(page_quota(&page) >= 50000000);
+
+	rs_assert(page_reserve(&page, 2 *1024 *1024 * 1024ull) != RS_OK);
+
+	for (uint64_t i = 0; i < 4000; i++) {
 		entry = page_entry_at(&page, prev_index + 1 + i);
 		rs_assert(entry != NULL);
 		rs_assert(entry_term(entry) == i);
@@ -118,19 +116,17 @@ static void page_expand_test(void)
 		rs_assert(strcmp(entry_data(entry), data) == 0);
 	}
 
-	rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 }
 
 static void page_remove_after_test(void)
 {
-	int rc;
 	const int prev_index = 5000;
 	char *data = "data";
 	unsigned char *entry;
 	struct page page;
 
-	rc = page_init(&page, test_tmp_page0, -1, prev_index);
-	rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, prev_index);
 
 	for (int i = 0; i < 1000; i++) {
 		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
@@ -138,10 +134,9 @@ static void page_remove_after_test(void)
 
 	page_remove_after(&page, prev_index + 501);
 
-	rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 
-	rc = page_init(&page, test_tmp_page0, -1, 0);
-	rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, 0);
 	rs_assert(page_entry_count(&page) == 501);
 
 	for (uint64_t i = 0; i < 501; i++) {
@@ -154,7 +149,7 @@ static void page_remove_after_test(void)
 		rs_assert(strcmp(entry_data(entry), data) == 0);
 	}
 
-	rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 }
 
 int main(void)

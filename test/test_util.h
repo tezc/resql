@@ -30,6 +30,8 @@
 
 #define test_tmp_page0	"/tmp/resql_test/page.0.resql"
 #define test_tmp_dir	"/tmp/resql_test"
+#define test_tmp_page0	"/tmp/resql_test/page.0.resql"
+#define test_tmp_dir2	"/tmp/resql_test2"
 #define test_execute(A) (test_util_run(A, #A))
 
 #define client_assert(c, b)                                                    \

@@ -307,7 +307,7 @@ int state_check_err(struct state *st, int rc)
 	return rc;
 }
 
-int state_write_infos(struct state *st, struct aux *aux)
+void state_write_infos(struct state *st, struct aux *aux)
 {
 	struct info *info;
 
@@ -316,8 +316,6 @@ int state_write_infos(struct state *st, struct aux *aux)
 	sc_map_foreach_value (&st->nodes, info) {
 		aux_write_info(aux, info);
 	}
-
-	return RS_OK;
 }
 
 int state_write_vars(struct state *st, struct aux *aux)
@@ -453,15 +451,14 @@ int state_read_snapshot(struct state *st, bool in_memory)
 	return RS_OK;
 }
 
-int state_read_for_snapshot(struct state *st)
+void state_read_for_snapshot(struct state *st)
 {
 	bool b;
 	int rc;
 
 	b = file_exists_at(st->ss_path);
 	if (!b) {
-		sc_log_warn("Cannot find snapshot file at %s \n", st->ss_path);
-		return RS_ERROR;
+		rs_abort("Cannot find snapshot file at %s \n", st->ss_path);
 	}
 
 	rc = file_copy(st->ss_tmp_path, st->ss_path);
@@ -480,8 +477,6 @@ int state_read_for_snapshot(struct state *st)
 	}
 
 	sqlite3_set_authorizer(st->aux.db, state_authorizer, st);
-
-	return RS_OK;
 }
 
 void state_open(struct state *st, bool in_memory)
