@@ -39,9 +39,10 @@
 
 #include <inttypes.h>
 
-#define STATE_FILE	  "state.resql"
-#define STATE_SS_FILE	  "snapshot.resql"
-#define STATE_SS_TMP_FILE "snapshot.tmp.resql"
+#define STATE_FILE	   "state.resql"
+#define STATE_SS_FILE	   "snapshot.resql"
+#define STATE_SS_TMP_FILE  "snapshot.tmp.resql"
+#define STATE_SS_COPY_FILE "snapshot.copy.resql"
 
 thread_local struct state *t_state;
 static sqlite3_vfs ext;
@@ -379,7 +380,7 @@ int state_read_vars(struct state *st, struct aux *aux)
 		return RS_ERROR;
 	}
 
-	sql = "SELECT * FROM resql_statements WHERE client_name = (?)";
+	sql = "SELECT * FROM resql_statements WHERE client_id = (?)";
 	rc = sqlite3_prepare(st->aux.db, sql, -1, &stmt, 0);
 	if (rc != SQLITE_OK) {
 		return RS_ERROR;

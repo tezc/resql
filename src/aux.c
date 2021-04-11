@@ -352,10 +352,25 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sqlite3_exec(aux->db, "PRAGMA journal_mode=MEMORY", 0, 0, 0);
-	sqlite3_exec(aux->db, "PRAGMA locking_mode=EXCLUSIVE", 0, 0, 0);
-	sqlite3_exec(aux->db, "PRAGMA synchronous=OFF", 0, 0, 0);
-	sqlite3_exec(aux->db, "PRAGMA temp_store=MEMORY", 0, 0, 0);
+	rc = sqlite3_exec(aux->db, "PRAGMA journal_mode=MEMORY", 0, 0, 0);
+	if (rc != SQLITE_OK) {
+		goto error;
+	}
+
+	rc = sqlite3_exec(aux->db, "PRAGMA locking_mode=EXCLUSIVE", 0, 0, 0);
+	if (rc != SQLITE_OK) {
+		goto error;
+	}
+
+	rc = sqlite3_exec(aux->db, "PRAGMA synchronous=OFF", 0, 0, 0);
+	if (rc != SQLITE_OK) {
+		goto error;
+	}
+
+	rc = sqlite3_exec(aux->db, "PRAGMA temp_store=MEMORY", 0, 0, 0);
+	if (rc != SQLITE_OK) {
+		goto error;
+	}
 
 	return RS_OK;
 
@@ -617,8 +632,7 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
 		return RS_ERROR;
 	}
 
-	rc = sqlite3_bind_text(stmt_tb, 1, s->name, (int) sc_str_len(s->name),
-			       NULL);
+	rc = sqlite3_bind_int64(stmt_tb, 1, s->id);
 	if (rc != SQLITE_OK) {
 		return RS_ERROR;
 	}
@@ -631,8 +645,8 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
 		rc = sqlite3_prepare_v3(aux->db, str, -1,
 					SQLITE_PREPARE_PERSISTENT, &stmt, NULL);
 		if (rc != RS_OK) {
-			rs_abort("db_prepare (%s) : %s \n", str,
-				 sqlite3_errmsg(aux->db));
+			sc_log_warn("db_prepare (%s) : %s \n", str,
+				    sqlite3_errmsg(aux->db));
 		}
 		sc_map_put_64v(&s->stmts, id, stmt);
 	}

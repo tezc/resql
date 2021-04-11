@@ -358,7 +358,7 @@ void *client_fn(void *arg)
 		val = rand_int();
 		batch = bench.batch <= t->ops ? bench.batch : t->ops;
 
-		if (val <= t->test) {
+		if (val < t->test) {
 			unsigned int read_index = t->test == 100 ? 0 : id;
 
 			for (unsigned int i = 0; i < batch; i++) {
@@ -517,7 +517,7 @@ int main(int argc, char **argv)
 		resql_bind_index_text(c, 2, "dummy");
 		resql_bind_index_text(c, 3, "dummy");
 
-		if (i % 8192 == 0) {
+		if (i > 0 && i % 8192 == 0) {
 			rc = resql_exec(c, false, &rs);
 			if (rc != RESQL_OK) {
 				rs_exit("Failed : %s \n", resql_errstr(c));

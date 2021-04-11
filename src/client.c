@@ -59,6 +59,7 @@ void client_processed(struct client *c)
 	c->msg_wait = false;
 	sc_list_del(NULL, &c->read);
 	conn_allow_read(&c->conn);
+	conn_clear_bufs(&c->conn);
 }
 
 void client_print(struct client *c, char *buf, size_t len)

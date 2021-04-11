@@ -43,6 +43,7 @@ struct snapshot {
 	struct sc_mmap map;
 	char *path;
 	char *tmp_path;
+	char *copy_path;
 
 	// Current index and size
 	uint64_t index;
@@ -57,7 +58,7 @@ struct snapshot {
 	// Recv
 	uint64_t recv_index;
 	uint64_t recv_term;
-	char *tmp_recv_path;
+	char *recv_path;
 	struct file *tmp;
 
 	struct sc_thread thread;

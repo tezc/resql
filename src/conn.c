@@ -73,9 +73,46 @@ void conn_init(struct conn *c, struct server *s)
 	c->timer_id = SC_TIMER_INVALID;
 
 	sc_list_init(&c->list);
-	sc_buf_init(&c->in, SC_SOCK_BUF_SIZE);
-	sc_buf_init(&c->out, SC_SOCK_BUF_SIZE);
 	sc_sock_init(&c->sock, 0, 0, 0);
+
+	c->in = (struct sc_buf){0};
+	c->out = (struct sc_buf){0};
+}
+
+void conn_clear_inbuf(struct conn *c)
+{
+	assert(sc_buf_cap(&c->in) != 0);
+	server_buf_free(c->server, c->in);
+	c->in = (struct sc_buf){0};
+}
+
+void conn_clear_outbuf(struct conn *c)
+{
+	assert(sc_buf_cap(&c->out) != 0);
+	server_buf_free(c->server, c->out);
+	c->out = (struct sc_buf){0};
+}
+
+void conn_clear_bufs(struct conn *c)
+{
+	if (sc_buf_cap(&c->in) != 0 && sc_buf_size(&c->in) == 0) {
+		server_buf_free(c->server, c->in);
+		c->in = (struct sc_buf){0};
+	}
+
+	if (sc_buf_cap(&c->out) != 0 && sc_buf_size(&c->out) == 0) {
+		server_buf_free(c->server, c->out);
+		c->out = (struct sc_buf){0};
+	}
+}
+
+struct sc_buf *conn_outbuf(struct conn *c)
+{
+	if (sc_buf_cap(&c->out) == 0) {
+		c->out = server_buf_alloc(c->server);
+	}
+
+	return &c->out;
 }
 
 static void conn_cleanup_sock(struct conn *c)
@@ -102,8 +139,15 @@ void conn_term(struct conn *c)
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 	conn_cleanup_sock(c);
 
-	sc_buf_term(&c->in);
-	sc_buf_term(&c->out);
+	if (sc_buf_cap(&c->in) != 0) {
+		server_buf_free(c->server, c->in);
+		c->in = (struct sc_buf){0};
+	}
+
+	if (sc_buf_cap(&c->out) != 0) {
+		server_buf_free(c->server, c->out);
+		c->out = (struct sc_buf){0};
+	}
 }
 
 void conn_move(struct conn *c, struct conn *src)
@@ -196,10 +240,13 @@ void conn_disconnect(struct conn *c)
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 
 	if (c->state != CONN_DISCONNECTED) {
-		sc_buf_clear(&c->out);
-		sc_buf_clear(&c->in);
 		conn_cleanup_sock(c);
 	}
+
+	sc_buf_clear(&c->in);
+	sc_buf_clear(&c->out);
+
+	conn_clear_bufs(c);
 }
 
 int conn_on_writable(struct conn *c)
@@ -218,8 +265,13 @@ int conn_on_writable(struct conn *c)
 
 int conn_on_readable(struct conn *c)
 {
+	bool success;
 	int rc, cap;
 	void *buf;
+
+	if (sc_buf_cap(&c->in) == 0) {
+		c->in = server_buf_alloc(c->server);
+	}
 
 	sc_buf_compact(&c->in);
 
@@ -228,8 +280,8 @@ retry:
 	cap = sc_buf_quota(&c->in);
 
 	if (cap == 0) {
-		bool b = sc_buf_reserve(&c->in, c->in.cap * 2);
-		if (!b) {
+		success = sc_buf_reserve(&c->in, c->in.cap * 2);
+		if (!success) {
 			return RS_ERROR;
 		}
 		goto retry;
@@ -289,7 +341,7 @@ int conn_flush(struct conn *c)
 {
 	int rc, len;
 	void *buf;
-	struct sc_sock_poll* p = &c->server->poll;
+	struct sc_sock_poll *p = &c->server->poll;
 	struct sc_sock_fd *fdt;
 
 	if (!sc_buf_valid(&c->out)) {
@@ -298,11 +350,11 @@ int conn_flush(struct conn *c)
 
 retry:
 	len = sc_buf_size(&c->out);
-	buf = sc_buf_rbuf(&c->out);
-
 	if (len == 0) {
 		goto out;
 	}
+
+	buf = sc_buf_rbuf(&c->out);
 
 	rc = sc_sock_send(&c->sock, buf, len, 0);
 	if (rc == SC_SOCK_ERROR) {
@@ -328,6 +380,7 @@ retry:
 	}
 
 out:
-	sc_buf_compact(&c->out);
+	conn_clear_bufs(c);
+
 	return RS_OK;
 }

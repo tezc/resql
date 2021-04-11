@@ -145,7 +145,7 @@ void server_destroy(struct server *server);
 int server_start(struct server *server, bool new_thread);
 int server_stop(struct server *server);
 
-struct sc_buf server_alloc(struct server *s);
-void server_free(struct server *s, struct sc_buf buf);
+struct sc_buf server_buf_alloc(struct server *s);
+void server_buf_free(struct server *s, struct sc_buf buf);
 
 #endif

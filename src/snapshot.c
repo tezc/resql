@@ -36,6 +36,11 @@
 #include <errno.h>
 #include <inttypes.h>
 
+#define SS_FILE	     "snapshot.resql"
+#define SS_TMP_FILE  "snapshot.tmp.resql"
+#define SS_RECV_FILE "snapshot.tmp.recv.resql"
+#define SS_COPY_FILE "snapshot.copy.resql"
+
 struct snapshot_task {
 	struct page *page;
 	bool stop;
@@ -43,17 +48,17 @@ struct snapshot_task {
 
 static void *snapshot_run(void *arg);
 
-void snapshot_init(struct snapshot *ss, struct server *server)
+void snapshot_init(struct snapshot *ss, struct server *srv)
 {
 	int rc;
+	const char *dir = srv->conf.node.dir;
 
-	ss->server = server;
-	ss->path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
-				     "snapshot.resql");
-	ss->tmp_path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
-					 "snapshot.tmp.resql");
-	ss->tmp_recv_path = sc_str_create_fmt("%s/%s", server->conf.node.dir,
-					      "snapshot.tmp.recv.resql");
+	ss->path = sc_str_create_fmt("%s/%s", dir, SS_FILE);
+	ss->tmp_path = sc_str_create_fmt("%s/%s", dir, SS_TMP_FILE);
+	ss->recv_path = sc_str_create_fmt("%s/%s", dir, SS_RECV_FILE);
+	ss->copy_path = sc_str_create_fmt("%s/%s", dir, SS_COPY_FILE);
+
+	ss->server = srv;
 	ss->tmp = NULL;
 	ss->recv_index = 0;
 	ss->recv_term = 0;
@@ -89,7 +94,8 @@ void snapshot_term(struct snapshot *ss)
 	sc_cond_term(&ss->cond);
 	sc_str_destroy(ss->path);
 	sc_str_destroy(ss->tmp_path);
-	sc_str_destroy(ss->tmp_recv_path);
+	sc_str_destroy(ss->recv_path);
+	sc_str_destroy(ss->copy_path);
 	sc_mmap_term(&ss->map);
 }
 
@@ -98,8 +104,7 @@ void snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
 {
 	int rc;
 
-	rc = sc_mmap_init(&ss->map, path, O_RDONLY, PROT_READ, MAP_SHARED, 0,
-			  0);
+	rc = sc_mmap_init(&ss->map, path, O_RDONLY, PROT_READ, MAP_SHARED, 0, 0);
 	if (rc != 0) {
 		rs_abort("snapshot");
 	}
@@ -147,7 +152,7 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 
 	if (ss->tmp == NULL) {
 		ss->tmp = file_create();
-		rc = file_open(ss->tmp, ss->tmp_recv_path, "w+");
+		rc = file_open(ss->tmp, ss->recv_path, "w+");
 		if (rc == RS_ERROR) {
 			rs_abort("snapshot");
 		}
@@ -162,7 +167,7 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 		file_destroy(ss->tmp);
 		ss->tmp = NULL;
 
-		rc = rename(ss->tmp_recv_path, ss->path);
+		rc = rename(ss->recv_path, ss->path);
 		if (rc != 0) {
 			rs_abort("rename : %s \n", strerror(errno));
 		}

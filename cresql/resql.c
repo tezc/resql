@@ -2456,7 +2456,7 @@ void resql_put_sql(struct resql *c, const char *sql)
 
 int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 {
-	int rc;
+	int rc = RESQL_SQL_ERROR;
 	struct sc_buf tmp;
 
 	*rs = NULL;
@@ -2499,7 +2499,7 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 
 error:
 	resql_clear(c);
-	return RESQL_SQL_ERROR;
+	return rc;
 }
 
 void resql_clear(struct resql *c)
