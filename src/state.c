@@ -1282,6 +1282,9 @@ int state_apply(struct state *st, uint64_t index, unsigned char *e,
 	struct cmd cmd;
 	struct sc_buf buf;
 
+	if (index != st->index + 1) {
+		sc_log_error("index : %"PRIu64" state : %"PRIu64" \n", index, st->index);
+	}
 	assert(e != NULL);
 	assert(st->index + 1 == index);
 

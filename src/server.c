@@ -1021,6 +1021,7 @@ static void server_become_follower(struct server *s, struct node *leader)
 	s->role = SERVER_ROLE_FOLLOWER;
 	s->leader = leader;
 	snapshot_clear(&s->ss);
+
 	if (leader != NULL) {
 		meta_set_leader(&s->meta, leader->name);
 	}
