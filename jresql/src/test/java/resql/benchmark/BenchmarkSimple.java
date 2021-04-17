@@ -66,14 +66,14 @@ public class BenchmarkSimple {
 
         Options opt = new OptionsBuilder().include(
                 this.getClass().getName() + ".*")
-                                          .mode(Mode.SampleTime)
-                                          .timeUnit(TimeUnit.MICROSECONDS)
-                                          .warmupTime(TimeValue.seconds(5))
+                                          .mode(Mode.Throughput)
+                                          .timeUnit(TimeUnit.SECONDS)
+                                          .warmupTime(TimeValue.seconds(2))
                                           .warmupIterations(1)
                                           .measurementTime(
                                                   TimeValue.seconds(5))
                                           .measurementIterations(1)
-                                          .threads(4)
+                                          .threads(30)
                                           .forks(1)
                                           .shouldFailOnError(true)
                                           .build();

@@ -28,7 +28,13 @@ abstract class Msg {
     public static final int MSG_LEN_SIZE = 4;
 
     public static final byte MSG_OK = 0;
+    public static final byte MSG_ERR = 1;
     public static final byte MSG_CLUSTER_NAME_MISMATCH = 2;
+    public static final byte MSG_CORRUPT = 3;
+    public static final byte MSG_UNEXPECTED = 4;
+    public static final byte MSG_TIMEOUT = 5;
+    public static final byte MSG_NOT_LEADER = 6;
+    public static final byte MSG_DISK_FULL = 7;
     public static final byte CONNECT_REQ = 0;
     public static final byte CONNECT_RESP = 1;
     public static final byte DISCONNECT_REQ = 2;
@@ -42,18 +48,21 @@ abstract class Msg {
     public static final byte PARAM_TEXT = 2;
     public static final byte PARAM_BLOB = 3;
     public static final byte PARAM_NULL = 4;
-    public static final byte PARAM_NAME = 5;
-    public static final byte PARAM_INDEX = 6;
+
+    public static final byte BIND_NAME = 0;
+    public static final byte BIND_INDEX = 1;
+    public static final byte BIND_END = 2;
 
     public static final byte FLAG_OK = 0;
     public static final byte FLAG_ERROR = 1;
-    public static final byte FLAG_DONE = 2;
-    public static final byte FLAG_STMT = 3;
-    public static final byte FLAG_STMT_ID = 4;
-    public static final byte FLAG_STMT_PREPARE = 5;
-    public static final byte FLAG_STMT_DEL_PREPARED = 6;
-    public static final byte FLAG_ROW = 7;
-    public static final byte FLAG_END = 8;
+    public static final byte FLAG_STMT = 2;
+    public static final byte FLAG_STMT_ID = 3;
+    public static final byte FLAG_STMT_PREPARE = 4;
+    public static final byte FLAG_STMT_DEL_PREPARED = 5;
+    public static final byte FLAG_OP = 6;
+    public static final byte FLAG_OP_END = 7;
+    public static final byte FLAG_ROW = 8;
+    public static final byte FLAG_MSG_END = 9;
 
     public static final int CLIENT_REQ_HEADER = 14;
 

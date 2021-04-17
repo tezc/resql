@@ -212,8 +212,7 @@ class Client implements Resql {
         } else {
             if (seq != this.seq && seq != this.seq - 1) {
                 this.seq = seq;
-                throw new ResqlFatalException(
-                        "Client session does not exist");
+                throw new ResqlFatalException("Client session does not exist");
             }
         }
 
@@ -309,11 +308,13 @@ class Client implements Resql {
     @Override
     public void put(String statement) {
         if (hasStatement) {
-            req.put(Msg.FLAG_END);
+            req.put(Msg.BIND_END);
+            req.put(Msg.FLAG_OP_END);
         }
 
         hasStatement = true;
 
+        req.put(Msg.FLAG_OP);
         req.put(Msg.FLAG_STMT);
         req.putString(statement);
     }
@@ -321,11 +322,13 @@ class Client implements Resql {
     @Override
     public void put(PreparedStatement statement) {
         if (hasStatement) {
-            req.put(Msg.FLAG_END);
+            req.put(Msg.BIND_END);
+            req.put(Msg.FLAG_OP_END);
         }
 
         hasStatement = true;
 
+        req.put(Msg.FLAG_OP);
         req.put(Msg.FLAG_STMT_ID);
         req.putLong(((Prepared) statement).getId());
     }
@@ -341,9 +344,11 @@ class Client implements Resql {
                     "Statement prepare must be a single operation.");
         }
 
+        req.put(Msg.FLAG_OP);
         req.put(Msg.FLAG_STMT_PREPARE);
         req.putString(sql);
-        req.put(Msg.FLAG_END);
+        req.put(Msg.FLAG_OP_END);
+        req.put(Msg.FLAG_MSG_END);
 
         seq++;
         Msg.encodeClientReq(req, false, seq);
@@ -359,19 +364,33 @@ class Client implements Resql {
             throw new ResqlSQLException(resp.getString());
         }
 
-        return new Prepared(resp.getLong(), sql);
+        if (resp.get() != Msg.FLAG_OP) {
+            throw new ResqlException("Received invalid message.");
+        }
+
+        // skip op result size
+        resp.getInt();
+
+        long id = resp.getLong();
+
+        if (resp.get() != Msg.FLAG_OP_END && resp.get() != Msg.FLAG_MSG_END) {
+            throw new ResqlException("Received invalid message.");
+        }
+
+        return new Prepared(id, sql);
     }
 
     @Override
     public void delete(PreparedStatement statement) {
         if (hasStatement) {
-            throw new ResqlSQLException(
-                    "Delete must be a single operation");
+            throw new ResqlSQLException("Delete must be a single operation");
         }
 
+        req.put(Msg.FLAG_OP);
         req.put(Msg.FLAG_STMT_DEL_PREPARED);
         req.putLong(((Prepared) statement).getId());
-        req.put(Msg.FLAG_END);
+        req.put(Msg.FLAG_OP_END);
+        req.put(Msg.FLAG_MSG_END);
 
         seq++;
         Msg.encodeClientReq(req, false, seq);
@@ -386,6 +405,18 @@ class Client implements Resql {
         if (resp.get() == Msg.FLAG_ERROR) {
             throw new ResqlSQLException(resp.getString());
         }
+
+        if (resp.get() != Msg.FLAG_OP) {
+            throw new ResqlException("Received invalid message.");
+        }
+
+        // skip op result size
+        resp.getInt();
+
+        if (resp.get() != Msg.FLAG_OP_END && resp.get() != Msg.FLAG_MSG_END) {
+            throw new ResqlException("Received invalid message.");
+        }
+
     }
 
     @Override
@@ -394,7 +425,9 @@ class Client implements Resql {
             throw new ResqlSQLException("Put a statement first.");
         }
 
-        req.put(Msg.FLAG_END);
+        req.put(Msg.BIND_END);
+        req.put(Msg.FLAG_OP_END);
+        req.put(Msg.FLAG_MSG_END);
         hasStatement = false;
 
         if (!readonly) {
@@ -447,7 +480,7 @@ class Client implements Resql {
             throw new ResqlSQLException("Put statement first.");
         }
 
-        req.put(Msg.PARAM_INDEX);
+        req.put(Msg.BIND_INDEX);
         req.putInt(index);
         bind(value);
     }
@@ -458,7 +491,7 @@ class Client implements Resql {
             throw new ResqlSQLException("Put statement first.");
         }
 
-        req.put(Msg.PARAM_NAME);
+        req.put(Msg.BIND_NAME);
         req.putString(param);
         bind(value);
     }

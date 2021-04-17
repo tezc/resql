@@ -49,65 +49,73 @@
 
 // clang-format off
 
-enum task_flag
+enum msg_flag
 {
-    TASK_FLAG_OK                = 0x00,
-    TASK_FLAG_ERROR             = 0x01,
-    TASK_FLAG_DONE              = 0x02,
-    TASK_FLAG_STMT              = 0x03,
-    TASK_FLAG_STMT_ID           = 0x04,
-    TASK_FLAG_STMT_PREPARE      = 0x05,
-    TASK_FLAG_STMT_DEL_PREPARED = 0x06,
-    TASK_FLAG_ROW               = 0x07,
-    TASK_FLAG_END               = 0x08
+	MSG_FLAG_OK		   = 0x00,
+	MSG_FLAG_ERROR		   = 0x01,
+	MSG_FLAG_STMT		   = 0x02,
+	MSG_FLAG_STMT_ID	   = 0x03,
+	MSG_FLAG_STMT_PREPARE	   = 0x04,
+	MSG_FLAG_STMT_DEL_PREPARED = 0x05,
+	MSG_FLAG_OP		   = 0x06,
+	MSG_FLAG_OP_END		   = 0x07,
+	MSG_FLAG_ROW		   = 0x08,
+	MSG_FLAG_MSG_END	   = 0x09,
+
 };
 
-enum task_param
+enum msg_param
 {
-    TASK_PARAM_INTEGER          = 0x00,
-    TASK_PARAM_FLOAT            = 0x01,
-    TASK_PARAM_TEXT             = 0x02,
-    TASK_PARAM_BLOB             = 0x03,
-    TASK_PARAM_NULL             = 0x04,
-    TASK_PARAM_NAME             = 0x05,
-    TASK_PARAM_INDEX            = 0x06
+	MSG_PARAM_INTEGER	   = 0x00,
+	MSG_PARAM_FLOAT		   = 0x01,
+	MSG_PARAM_TEXT		   = 0x02,
+	MSG_PARAM_BLOB		   = 0x03,
+	MSG_PARAM_NULL		   = 0x04
+};
+
+enum msg_bind
+{
+	MSG_BIND_NAME		   = 0x00,
+	MSG_BIND_INDEX		   = 0x01,
+	MSG_BIND_END		   = 0x02,
 };
 
 enum msg_rc
 {
-    MSG_OK                      = 0x00,
-    MSG_ERR                     = 0x01,
-    MSG_CLUSTER_NAME_MISMATCH   = 0x02,
-    MSG_CORRUPT                 = 0x03,
-    MSG_UNEXPECTED              = 0x04,
-    MSG_TIMEOUT                 = 0x05,
-    MSG_NOT_LEADER              = 0x06,
+	MSG_OK			   = 0x00,
+	MSG_ERR			   = 0x01,
+	MSG_CLUSTER_NAME_MISMATCH  = 0x02,
+	MSG_CORRUPT		   = 0x03,
+	MSG_UNEXPECTED		   = 0x04,
+	MSG_TIMEOUT		   = 0x05,
+	MSG_NOT_LEADER		   = 0x06,
+	MSG_DISK_FULL		   = 0x07,
 };
 
 enum msg_remote
 {
-    MSG_CLIENT                  = 0x00u,
-    MSG_NODE                    = 0x01u
+	MSG_CLIENT		   = 0x00u,
+	MSG_NODE		   = 0x01u
 };
 
 enum msg_type
 {
-    MSG_CONNECT_REQ             = 0x00,
-    MSG_CONNECT_RESP            = 0x01,
-    MSG_DISCONNECT_REQ          = 0x02,
-    MSG_DISCONNECT_RESP         = 0x03,
-    MSG_CLIENT_REQ              = 0x04,
-    MSG_CLIENT_RESP             = 0x05,
-    MSG_APPEND_REQ              = 0x06,
-    MSG_APPEND_RESP             = 0x07,
-    MSG_PREVOTE_REQ             = 0x08,
-    MSG_PREVOTE_RESP            = 0x09,
-    MSG_REQVOTE_REQ             = 0x0A,
-    MSG_REQVOTE_RESP            = 0x0B,
-    MSG_SNAPSHOT_REQ            = 0x0C,
-    MSG_SNAPSHOT_RESP           = 0x0D,
-    MSG_INFO_REQ                = 0x0E,
-    MSG_SHUTDOWN_REQ            = 0x0F
+	MSG_CONNECT_REQ		   = 0x00,
+	MSG_CONNECT_RESP	   = 0x01,
+	MSG_DISCONNECT_REQ	   = 0x02,
+	MSG_DISCONNECT_RESP	   = 0x03,
+	MSG_CLIENT_REQ		   = 0x04,
+	MSG_CLIENT_RESP		   = 0x05,
+	MSG_APPEND_REQ		   = 0x06,
+	MSG_APPEND_RESP		   = 0x07,
+	MSG_PREVOTE_REQ		   = 0x08,
+	MSG_PREVOTE_RESP	   = 0x09,
+	MSG_REQVOTE_REQ		   = 0x0A,
+	MSG_REQVOTE_RESP	   = 0x0B,
+	MSG_SNAPSHOT_REQ	   = 0x0C,
+	MSG_SNAPSHOT_RESP	   = 0x0D,
+	MSG_INFO_REQ		   = 0x0E,
+	MSG_SHUTDOWN_REQ	   = 0x0F
 };
 
 // clang-format on

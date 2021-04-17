@@ -32,31 +32,31 @@
 // clang-format off
 
 static const char *msg_rc_str[] = {
-        "MSG_OK",
-        "MSG_ERR",
-        "MSG_CLUSTER_NAME_MISMATCH",
-        "MSG_CORRUPT",
-        "MSG_UNEXPECTED",
-        "MSG_TIMEOUT",
-        "MSG_NOT_LEADER"};
+	"MSG_OK",
+	"MSG_ERR",
+	"MSG_CLUSTER_NAME_MISMATCH",
+	"MSG_CORRUPT",
+	"MSG_UNEXPECTED",
+	"MSG_TIMEOUT",
+	"MSG_NOT_LEADER"};
 
 const char *msg_type_str[] = {
-        "CONNECT_REQ",
-        "CONNECT_RESP",
-        "DISCONNECT_REQ",
-        "DISCONNECT_RESP",
-        "CLIENT_REQ",
-        "CLIENT_RESP",
-        "APPEND_REQ",
-        "APPEND_RESP",
-        "PREVOTE_REQ",
-        "PREVOTE_RESP",
-        "REQVOTE_REQ",
-        "REQVOTE_RESP",
-        "SNAPSHOT_REQ",
-        "SNAPSHOT_RESP",
-        "MSG_INFO_REQ",
-        "SHUTDOWN_REQ"
+	"CONNECT_REQ",
+	"CONNECT_RESP",
+	"DISCONNECT_REQ",
+	"DISCONNECT_RESP",
+	"CLIENT_REQ",
+	"CLIENT_RESP",
+	"APPEND_REQ",
+	"APPEND_RESP",
+	"PREVOTE_REQ",
+	"PREVOTE_RESP",
+	"REQVOTE_REQ",
+	"REQVOTE_RESP",
+	"SNAPSHOT_REQ",
+	"SNAPSHOT_RESP",
+	"MSG_INFO_REQ",
+	"SHUTDOWN_REQ"
 };
 
 // clang-format on

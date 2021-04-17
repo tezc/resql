@@ -118,7 +118,7 @@ class Result implements ResultSet, Iterator<Row> {
 
         buf.position(nextResultSet);
 
-        if (buf.get() != Msg.FLAG_STMT) {
+        if (buf.get() != Msg.FLAG_OP) {
             return false;
         }
 
@@ -137,7 +137,7 @@ class Result implements ResultSet, Iterator<Row> {
             }
             rowCount = buf.getInt();
             remainingRows = rowCount;
-        } else if (flag != Msg.FLAG_DONE) {
+        } else if (flag != Msg.FLAG_OP_END) {
             throw new ResqlException("Unexpected value : " + flag);
         }
 

@@ -44,7 +44,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#define BATCH_SIZE    (SC_SOCK_BUF_SIZE - 128)
+#define MAX_SIZE      (SC_SOCK_BUF_SIZE - 128)
 #define DEF_META_FILE "meta.resql"
 #define DEF_META_TMP  "meta.tmp.resql"
 
@@ -1120,6 +1120,7 @@ static void server_try_connect(struct server *s, struct node *n)
 
 	rc = node_try_connect(n);
 	if (rc == RS_OK) {
+		sc_log_debug("Connected to : %s \n", n->conn.remote);
 		buf = conn_outbuf(&n->conn);
 		msg_create_connect_req(buf, MSG_NODE, s->conf.cluster.name,
 				       s->conf.node.name);
@@ -1389,7 +1390,7 @@ static void server_store_entries(struct server *s, uint64_t index,
 	int rc;
 	uint32_t data_len, total_len;
 	uint64_t term;
-	void* data;
+	void *data;
 
 	unsigned char *e, *curr;
 
@@ -2080,7 +2081,7 @@ static void server_handle_jobs(struct server *s)
 			break;
 		}
 
-		sc_str_destroy(job.data);
+		sc_str_destroy(&job.data);
 	}
 
 	sc_queue_clear(s->jobs);
@@ -2107,7 +2108,7 @@ static void server_flush_snapshot(struct server *s, struct node *n)
 			   n->ss_index, n->name);
 	}
 
-	len = (uint32_t) sc_min(BATCH_SIZE, s->ss.map.len - n->ss_pos);
+	len = (uint32_t) sc_min(MAX_SIZE, s->ss.map.len - n->ss_pos);
 	data = s->ss.map.ptr + n->ss_pos;
 	done = n->ss_pos + len == s->ss.map.len;
 
@@ -2133,11 +2134,11 @@ static void server_flush_nodes(struct server *s)
 {
 	int rc;
 	uint32_t size, count;
-	uint64_t prev;
+	uint64_t prev, index;
 	uint64_t timeout = s->conf.advanced.heartbeat;
 	unsigned char *entries;
 	struct sc_list *l, *tmp;
-	struct sc_buf *buf;
+	struct sc_buf *b;
 	struct node *n;
 
 	sc_list_foreach_safe (&s->connected_nodes, tmp, l) {
@@ -2153,12 +2154,12 @@ static void server_flush_nodes(struct server *s)
 			goto flush;
 		}
 
-		store_entries(&s->store, n->next, BATCH_SIZE, &entries, &size,
+		store_entries(&s->store, n->next, MAX_SIZE, &entries, &size,
 			      &count);
 		prev = store_prev_term(&s->store, n->next - 1);
 
-		buf = conn_outbuf(&n->conn);
-		msg_create_append_req(buf, s->meta.term, n->next - 1, prev,
+		b = conn_outbuf(&n->conn);
+		msg_create_append_req(b, s->meta.term, n->next - 1, prev,
 				      s->commit, s->round, entries, size);
 		n->next += count;
 		n->msg_inflight++;
@@ -2167,13 +2168,12 @@ static void server_flush_nodes(struct server *s)
 flush:
 		if (n->msg_inflight == 0 &&
 		    s->timestamp - n->out_timestamp > timeout / 2) {
+			index = n->next - 1;
+			prev = store_prev_term(&s->store, index);
 
-			prev = store_prev_term(&s->store, n->next - 1);
-
-			buf = conn_outbuf(&n->conn);
-			msg_create_append_req(buf, s->meta.term, n->next - 1,
-					      prev, s->commit, s->round, NULL,
-					      0);
+			b = conn_outbuf(&n->conn);
+			msg_create_append_req(b, s->meta.term, index, prev,
+					      s->commit, s->round, NULL, 0);
 			n->msg_inflight++;
 			n->out_timestamp = s->timestamp;
 		}

@@ -71,7 +71,7 @@ enum server_fd_type
 
 struct server_job {
 	enum server_job_type type;
-	void *data;
+	char *data;
 };
 
 struct server_endpoint {

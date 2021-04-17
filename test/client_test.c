@@ -334,11 +334,11 @@ static void client_big()
 
 int main(void)
 {
+	test_execute(client_error);
+	test_execute(client_prepared);
 	test_execute(client_big);
 	test_execute(client_many);
 	test_execute(client_simple);
-	test_execute(client_prepared);
-	test_execute(client_error);
 
 	return 0;
 }

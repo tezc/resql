@@ -605,7 +605,7 @@ int state_on_client_connect(struct state *st, const char *name,
 	int rc;
 	bool found;
 
-	found = sc_map_get_sv(&st->names, name, (void **) &s);
+	found = sc_map_get_sv(&st->names, name, (void **) s);
 	if (!found) {
 		*s = session_create(st, name, st->index);
 		sc_map_put_sv(&st->names, (*s)->name, *s);
@@ -826,9 +826,9 @@ static int state_bind_params(struct state *st, struct sc_buf *req,
 	const char *param, *val;
 	void *data;
 
-	while ((type = sc_buf_get_8(req)) != TASK_FLAG_END) {
+	while ((type = sc_buf_get_8(req)) != MSG_BIND_END) {
 		switch (type) {
-		case TASK_PARAM_INDEX:
+		case MSG_BIND_INDEX:
 			/**
 			 * Sqlite index starts from '1', to make it consistent
 			 * with sqlite_column_xxx api which starts from '0', add
@@ -836,7 +836,7 @@ static int state_bind_params(struct state *st, struct sc_buf *req,
 			 */
 			idx = (int) sc_buf_get_32(req) + 1;
 			break;
-		case TASK_PARAM_NAME:
+		case MSG_BIND_NAME:
 			param = sc_buf_get_str(req);
 
 			idx = sqlite3_bind_parameter_index(stmt, param);
@@ -852,27 +852,27 @@ static int state_bind_params(struct state *st, struct sc_buf *req,
 		type = sc_buf_get_8(req);
 
 		switch (type) {
-		case TASK_PARAM_INTEGER:
+		case MSG_PARAM_INTEGER:
 			t = sc_buf_get_64(req);
 			rc = sqlite3_bind_int64(stmt, idx, t);
 			break;
-		case TASK_PARAM_FLOAT:
+		case MSG_PARAM_FLOAT:
 			f = sc_buf_get_double(req);
 			rc = sqlite3_bind_double(stmt, idx, f);
 			break;
-		case TASK_PARAM_TEXT:
+		case MSG_PARAM_TEXT:
 			size = sc_buf_peek_32(req);
 			val = sc_buf_get_str(req);
 			rc = sqlite3_bind_text(stmt, idx, val, size,
 					       SQLITE_STATIC);
 			break;
-		case TASK_PARAM_BLOB:
+		case MSG_PARAM_BLOB:
 			size = sc_buf_get_32(req);
 			data = sc_buf_get_blob(req, size);
 			rc = sqlite3_bind_blob(stmt, idx, data, size,
 					       SQLITE_STATIC);
 			break;
-		case TASK_PARAM_NULL:
+		case MSG_PARAM_NULL:
 			rc = sqlite3_bind_null(stmt, idx);
 			break;
 		default:
@@ -907,30 +907,28 @@ static void state_encode_row(struct state *st, int col, sqlite3_stmt *stmt,
 		switch (type)
 		case SQLITE_INTEGER: {
 			val = sqlite3_column_int64(stmt, i);
-			sc_buf_put_8(resp, TASK_PARAM_INTEGER);
+			sc_buf_put_8(resp, MSG_PARAM_INTEGER);
 			sc_buf_put_64(resp, (uint64_t) val);
 			break;
 		case SQLITE_FLOAT:
 			d = sqlite3_column_double(stmt, i);
-			sc_buf_put_8(resp, TASK_PARAM_FLOAT);
+			sc_buf_put_8(resp, MSG_PARAM_FLOAT);
 			sc_buf_put_double(resp, d);
 			break;
 		case SQLITE_TEXT:
 			len = sqlite3_column_bytes(stmt, i);
 			data = (const char *) sqlite3_column_text(stmt, i);
-
-			sc_buf_put_8(resp, TASK_PARAM_TEXT);
+			sc_buf_put_8(resp, MSG_PARAM_TEXT);
 			sc_buf_put_str_len(resp, data, len);
 			break;
 		case SQLITE_BLOB:
 			len = sqlite3_column_bytes(stmt, i);
 			data = sqlite3_column_blob(stmt, i);
-
-			sc_buf_put_8(resp, TASK_PARAM_BLOB);
+			sc_buf_put_8(resp, MSG_PARAM_BLOB);
 			sc_buf_put_blob(resp, data, (uint32_t) len);
 			break;
 		case SQLITE_NULL:
-			sc_buf_put_8(resp, TASK_PARAM_NULL);
+			sc_buf_put_8(resp, MSG_PARAM_NULL);
 			break;
 		default:
 			break;
@@ -950,7 +948,7 @@ static int state_step(struct state *st, sqlite3_stmt *stmt, struct sc_buf *resp)
 	sc_buf_put_64(resp, (uint64_t) sqlite3_last_insert_rowid(st->aux.db));
 
 	if (rc == SQLITE_ROW) {
-		sc_buf_put_8(resp, TASK_FLAG_ROW);
+		sc_buf_put_8(resp, MSG_FLAG_ROW);
 
 		col = sqlite3_column_count(stmt);
 		sc_buf_put_32(resp, (uint32_t) col);
@@ -974,8 +972,6 @@ static int state_step(struct state *st, sqlite3_stmt *stmt, struct sc_buf *resp)
 	if (rc != SQLITE_DONE) {
 		return RS_ERROR;
 	}
-
-	sc_buf_put_8(resp, TASK_FLAG_DONE);
 
 	return RS_OK;
 }
@@ -1044,6 +1040,7 @@ static int state_prepare_stmt(struct state *st, struct session *s,
 		}
 
 		session_add_stmt(s, index, stmt);
+		id = index;
 	}
 
 	st->client = false;
@@ -1113,9 +1110,9 @@ static void state_encode_error(struct state *st, struct sc_buf *resp)
 {
 	sc_buf_clear(resp);
 	msg_create_client_resp_header(resp);
-	sc_buf_put_8(resp, TASK_FLAG_ERROR);
+	sc_buf_put_8(resp, MSG_FLAG_ERROR);
 	sc_buf_put_str(resp, state_errstr(st));
-	sc_buf_put_8(resp, TASK_FLAG_END);
+	sc_buf_put_8(resp, MSG_FLAG_MSG_END);
 	msg_finalize_client_resp(resp);
 }
 
@@ -1126,42 +1123,42 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 
 	int rc;
 	uint32_t pos, result_len;
-	enum task_flag flag;
+	enum msg_flag flag;
 
 	sc_buf_clear(&s->resp);
 	msg_create_client_resp_header(resp);
-
-	sc_buf_put_8(resp, TASK_FLAG_OK);
-	flag = (enum task_flag) sc_buf_get_8(req);
+	sc_buf_put_8(resp, MSG_FLAG_OK);
 
 	rc = sqlite3_step(st->aux.begin);
 	if (rc != SQLITE_DONE) {
 		goto error;
 	}
 
-	do {
-		sc_buf_put_8(resp, TASK_FLAG_STMT);
+	while ((flag = (enum msg_flag) sc_buf_get_8(req)) == MSG_FLAG_OP) {
+		sc_buf_put_8(resp, MSG_FLAG_OP);
 
 		pos = sc_buf_wpos(resp);
 		sc_buf_put_32(resp, 0);
 
-		if (readonly && (flag == TASK_FLAG_STMT_PREPARE ||
-				 flag == TASK_FLAG_STMT_DEL_PREPARED)) {
+		flag = (enum msg_flag) sc_buf_get_8(req);
+
+		if (readonly && (flag == MSG_FLAG_STMT_PREPARE ||
+				 flag == MSG_FLAG_STMT_DEL_PREPARED)) {
 			st->last_err = "Not a readonly operation";
 			goto error;
 		}
 
 		switch (flag) {
-		case TASK_FLAG_STMT:
+		case MSG_FLAG_STMT:
 			rc = state_exec_stmt(st, readonly, req, resp);
 			break;
-		case TASK_FLAG_STMT_ID:
+		case MSG_FLAG_STMT_ID:
 			rc = state_exec_stmt_id(st, s, readonly, req, resp);
 			break;
-		case TASK_FLAG_STMT_PREPARE:
+		case MSG_FLAG_STMT_PREPARE:
 			rc = state_prepare_stmt(st, s, index, req, resp);
 			break;
-		case TASK_FLAG_STMT_DEL_PREPARED:
+		case MSG_FLAG_STMT_DEL_PREPARED:
 			rc = state_del_prepared(st, s, req);
 			break;
 		default:
@@ -1170,24 +1167,19 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 			break;
 		}
 
-		if (rc != RS_OK) {
+		flag = sc_buf_get_8(req);
+
+		if (rc != RS_OK || flag != MSG_FLAG_OP_END) {
 			goto error;
 		}
 
-		sc_buf_put_8(resp, TASK_FLAG_END);
+		sc_buf_put_8(resp, MSG_FLAG_OP_END);
 
 		result_len = sc_buf_wpos(resp) - pos;
 		sc_buf_set_32_at(resp, pos, result_len);
+	}
 
-		if (sc_buf_size(req) == 0) {
-			break;
-		}
-
-		flag = (enum task_flag) sc_buf_get_8(req);
-
-	} while (true);
-
-	if (!sc_buf_valid(req)) {
+	if (flag != MSG_FLAG_MSG_END || !sc_buf_valid(req)) {
 		goto error;
 	}
 
@@ -1196,7 +1188,7 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 		goto error;
 	}
 
-	sc_buf_put_8(resp, TASK_FLAG_DONE);
+	sc_buf_put_8(resp, MSG_FLAG_MSG_END);
 	msg_finalize_client_resp(resp);
 
 	return RS_OK;

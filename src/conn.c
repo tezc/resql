@@ -209,28 +209,27 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 int conn_on_out_connected(struct conn *c)
 {
 	int rc;
-	struct sc_sock *sock = &c->sock;
 	struct sc_sock_poll *p = &c->server->poll;
 
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 
-	rc = sc_sock_finish_connect(sock);
+	rc = sc_sock_finish_connect(&c->sock);
 	if (rc != SC_SOCK_OK) {
 		return RS_ERROR;
 	}
 
-	rc = sc_sock_poll_add(p, &sock->fdt, SC_SOCK_READ, &sock->fdt);
+	conn_clear_events(c);
+
+	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
 	if (rc != 0) {
 		return RS_ERROR;
 	}
 
 	c->state = CONN_CONNECTED;
-	sock->fdt.type = SERVER_FD_WAIT_FIRST_RESP;
+	c->sock.fdt.type = SERVER_FD_WAIT_FIRST_RESP;
 
-	conn_clear_events(c);
-
-	sc_sock_local_str(sock, c->local, sizeof(c->local));
-	sc_sock_remote_str(sock, c->remote, sizeof(c->remote));
+	sc_sock_local_str(&c->sock, c->local, sizeof(c->local));
+	sc_sock_remote_str(&c->sock, c->remote, sizeof(c->remote));
 
 	return RS_OK;
 }
@@ -299,10 +298,9 @@ retry:
 void conn_allow_read(struct conn *c)
 {
 	int rc;
-	struct sc_sock_fd *fdt = &c->sock.fdt;
 	struct sc_sock_poll *p = &c->server->poll;
 
-	rc = sc_sock_poll_add(p, fdt, SC_SOCK_READ, fdt);
+	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
 	if (rc != 0) {
 		sc_log_error("sc_sock_poll_add : %s \n", sc_sock_poll_err(p));
 	}
@@ -342,7 +340,6 @@ int conn_flush(struct conn *c)
 	int rc, len;
 	void *buf;
 	struct sc_sock_poll *p = &c->server->poll;
-	struct sc_sock_fd *fdt;
 
 	if (!sc_buf_valid(&c->out)) {
 		return RS_ERROR;
@@ -362,8 +359,7 @@ retry:
 	}
 
 	if (rc == SC_SOCK_WANT_WRITE) {
-		fdt = &c->sock.fdt;
-		rc = sc_sock_poll_add(p, fdt, SC_SOCK_WRITE, fdt);
+		rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_WRITE, &c->sock.fdt);
 		if (rc != 0) {
 			sc_log_error("poll_add %s \n", sc_sock_poll_err(p));
 			return RS_ERROR;

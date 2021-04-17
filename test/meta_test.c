@@ -81,7 +81,7 @@ void encode_test()
 	sc_buf_init(&buf, 1024);
 	uri = sc_uri_create("tcp://node3@127.0.0.1:7603");
 	meta_add(&m, uri);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 
 	meta_encode(&m, &buf);
 
@@ -122,12 +122,12 @@ void add_test()
 	uri = sc_uri_create("tcp://node0@127.0.0.1:7600");
 	b = meta_add(&m, uri);
 	rs_assert(!b);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 
 	uri = sc_uri_create("tcp://node3@127.0.0.1:7603");
 	b = meta_add(&m, uri);
 	rs_assert(b);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 
 	rs_assert(meta_exists(&m, "node0"));
 	rs_assert(meta_exists(&m, "node1"));
@@ -270,7 +270,7 @@ void change_test()
 	uri = sc_uri_create("tcp://node3@127.0.0.1:7603");
 	b = meta_add(&m, uri);
 	rs_assert(b);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 
 	rs_assert(m.prev);
 	rs_assert(m.prev->voter == 3);
@@ -308,7 +308,7 @@ void change_success_test()
 	uri = sc_uri_create("tcp://node3@127.0.0.1:7603");
 	b = meta_add(&m, uri);
 	rs_assert(b);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 
 	meta_remove_prev(&m);
 	rs_assert(m.prev == NULL);
@@ -338,7 +338,7 @@ void change_fail_test()
 	uri = sc_uri_create("tcp://node3@127.0.0.1:7603");
 	b = meta_add(&m, uri);
 	rs_assert(b);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 
 	meta_rollback(&m, 100);
 
@@ -353,7 +353,7 @@ void change_fail_test()
 	uri = sc_uri_create("tcp://node4@127.0.0.1:7604");
 	b = meta_add(&m, uri);
 	rs_assert(b);
-	sc_uri_destroy(uri);
+	sc_uri_destroy(&uri);
 	meta_rollback(&m, 99);
 
 	rs_assert(m.prev == NULL);

@@ -1094,13 +1094,20 @@ func Example0() {
 	rs, _ := s.Execute(true)
 
 	var col NullString
-	rs.Row().Read(&col)
+
+	err := rs.Row().Read(&col)
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	fmt.Println(col.String)
 
-	s.Shutdown()
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	// Output: Hello World!
-
 }
 
 func Example1() {

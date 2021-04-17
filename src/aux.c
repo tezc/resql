@@ -549,7 +549,8 @@ int aux_write_session(struct aux *aux, struct session *s)
 		rc = 0;
 
 		rc |= sqlite3_bind_int64(aux->add_stmt, 1, (sqlite3_int64) id);
-		rc |= sqlite3_bind_int64(aux->add_stmt, 2, (sqlite3_int64) s->id);
+		rc |= sqlite3_bind_int64(aux->add_stmt, 2,
+					 (sqlite3_int64) s->id);
 
 		n = (int) sc_str_len(s->name);
 		rc |= sqlite3_bind_text(aux->add_stmt, 3, s->name, n, NULL);

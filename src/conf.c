@@ -146,7 +146,7 @@ void conf_term(struct conf *c)
 void conf_copy(struct conf *dst, struct conf *src)
 {
 	*dst = *src;
-	
+
 	dst->node.name = sc_str_dup(src->node.name);
 	dst->node.bind_url = sc_str_dup(src->node.bind_url);
 	dst->node.ad_url = sc_str_dup(src->node.ad_url);

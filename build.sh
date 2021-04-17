@@ -26,9 +26,11 @@ fi
 cleanup() {
   cd "$cwd"
 
-  (kill -9 "$trainer_pid" || true) > /dev/null 2>&1
-  (kill -9 "$server_pid" || true) > /dev/null 2>&1
-  (kill -9 "$(jobs -p)" || true) > /dev/null 2>&1
+  echo "clean up"
+
+  (kill -9 "$trainer_pid" > /dev/null 2>&1) || true
+  (kill -9 "$server_pid" > /dev/null 2>&1) || true
+  (kill -9 "$(jobs -p)" > /dev/null 2>&1) || true
   rm -rf bin/resql-trainer bin/build/ bin/pgo/
 
   echo "Clean-up done"

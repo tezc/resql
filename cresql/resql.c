@@ -27,10 +27,10 @@
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <Ws2tcpip.h>
 #include <afunix.h>
 #include <windows.h>
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 #pragma warning(disable : 4996)
 #define rs_poll WSAPoll
@@ -68,7 +68,7 @@ static uint64_t sc_time_mono_ms()
 	}
 	LARGE_INTEGER count;
 	QueryPerformanceCounter(&count);
-	return (int64_t)(count.QuadPart * 1000) / frequency;
+	return (int64_t) (count.QuadPart * 1000) / frequency;
 #else
 	int rc;
 	struct timespec ts;
@@ -77,8 +77,8 @@ static uint64_t sc_time_mono_ms()
 	assert(rc == 0);
 	(void) rc;
 
-	return (uint64_t)((uint64_t) ts.tv_sec * 1000 +
-			  (uint64_t) ts.tv_nsec / 1000000);
+	return (uint64_t) ((uint64_t) ts.tv_sec * 1000 +
+			   (uint64_t) ts.tv_nsec / 1000000);
 #endif
 }
 
@@ -945,12 +945,12 @@ static int sc_sock_cleanup()
 
 #else
 
+#include <inttypes.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <inttypes.h>
 
 #define sc_close(n)    close(n)
 #define sc_unlink(n)   unlink(n)
@@ -1334,44 +1334,50 @@ static const char *sc_sock_error(struct sc_sock *s)
 	return s->err;
 }
 
-enum task_flag
+// clang-format off
+enum msg_flag
 {
-	TASK_FLAG_OK = 0,
-	TASK_FLAG_ERROR,
-	TASK_FLAG_DONE,
-	TASK_FLAG_STMT,
-	TASK_FLAG_STMT_ID,
-	TASK_FLAG_STMT_PREPARE,
-	TASK_FLAG_STMT_DEL_PREPARED,
-	TASK_FLAG_ROW,
-	TASK_FLAG_END
+	MSG_FLAG_OK		   = 0x00,
+	MSG_FLAG_ERROR		   = 0x01,
+	MSG_FLAG_STMT		   = 0x02,
+	MSG_FLAG_STMT_ID	   = 0x03,
+	MSG_FLAG_STMT_PREPARE	   = 0x04,
+	MSG_FLAG_STMT_DEL_PREPARED = 0x05,
+	MSG_FLAG_OP		   = 0x06,
+	MSG_FLAG_OP_END		   = 0x07,
+	MSG_FLAG_ROW		   = 0x08,
+	MSG_FLAG_MSG_END	   = 0x09,
 };
 
-enum task_param
+enum msg_param
 {
-	TASK_PARAM_INTEGER = 0,
-	TASK_PARAM_FLOAT,
-	TASK_PARAM_TEXT,
-	TASK_PARAM_BLOB,
-	TASK_PARAM_NULL
+	MSG_BIND_INTEGER	   = 0x00,
+	MSG_BIND_FLOAT		   = 0x01,
+	MSG_BIND_TEXT		   = 0x02,
+	MSG_BIND_BLOB		   = 0x03,
+	MSG_BIND_NULL		   = 0x04
 };
 
-enum task_param_type
+enum msg_bind
 {
-	TASK_PARAM_NAME = 5,
-	TASK_PARAM_INDEX = 6
+	MSG_BIND_NAME		   = 0x00,
+	MSG_BIND_INDEX		   = 0x01,
+	MSG_BIND_END		   = 0x02,
 };
 
 enum msg_rc
 {
-	MSG_OK,
-	MSG_ERR,
-	MSG_CLUSTER_NAME_MISMATCH,
-	MSG_CORRUPT,
-	MSG_UNEXPECTED,
-	MSG_TIMEOUT,
-	MSG_NOT_LEADER,
+	MSG_OK			   = 0x00,
+	MSG_ERR			   = 0x01,
+	MSG_CLUSTER_NAME_MISMATCH  = 0x02,
+	MSG_CORRUPT		   = 0x03,
+	MSG_UNEXPECTED		   = 0x04,
+	MSG_TIMEOUT		   = 0x05,
+	MSG_NOT_LEADER		   = 0x06,
+	MSG_DISK_FULL		   = 0x07,
 };
+
+// clang-format on
 
 struct resql_result {
 	uint32_t next_result;
@@ -1394,12 +1400,12 @@ void resql_reset_rows(struct resql_result *rs)
 
 bool resql_next(struct resql_result *rs)
 {
-	enum task_flag flag;
+	enum msg_flag flag;
 	size_t size;
 
 	sc_buf_set_rpos(&rs->buf, rs->next_result);
 
-	if (sc_buf_get_8(&rs->buf) != TASK_FLAG_STMT) {
+	if (sc_buf_get_8(&rs->buf) != MSG_FLAG_OP) {
 		return false;
 	}
 
@@ -1409,8 +1415,8 @@ bool resql_next(struct resql_result *rs)
 	rs->changes = sc_buf_get_32(&rs->buf);
 	rs->last_row_id = sc_buf_get_64(&rs->buf);
 
-	flag = (enum task_flag) sc_buf_get_8(&rs->buf);
-	if (flag == TASK_FLAG_ROW) {
+	flag = (enum msg_flag) sc_buf_get_8(&rs->buf);
+	if (flag == MSG_FLAG_ROW) {
 		rs->column_count = sc_buf_get_32(&rs->buf);
 
 		assert(rs->column_cap >= 0);
@@ -1432,7 +1438,7 @@ bool resql_next(struct resql_result *rs)
 		return true;
 	}
 
-	return flag == TASK_FLAG_DONE;
+	return flag == MSG_FLAG_OP_END;
 }
 
 struct resql_column *resql_row(struct resql_result *rs)
@@ -2222,7 +2228,7 @@ retry_recv:
 			    SC_BUF_READ);
 
 	flag = sc_buf_get_8(resp);
-	if (flag == TASK_FLAG_ERROR) {
+	if (flag == MSG_FLAG_ERROR) {
 		resql_err(c, sc_buf_get_str(resp));
 		return RESQL_SQL_ERROR;
 	}
@@ -2233,6 +2239,8 @@ retry_recv:
 int resql_prepare(struct resql *c, const char *sql, resql_stmt *stmt)
 {
 	int rc;
+	enum msg_flag flag;
+	uint32_t size;
 	uint64_t id;
 	struct sc_buf tmp;
 
@@ -2242,9 +2250,11 @@ int resql_prepare(struct resql *c, const char *sql, resql_stmt *stmt)
 		return RESQL_SQL_ERROR;
 	}
 
-	sc_buf_put_8(&c->req, TASK_FLAG_STMT_PREPARE);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP);
+	sc_buf_put_8(&c->req, MSG_FLAG_STMT_PREPARE);
 	sc_buf_put_str(&c->req, sql);
-	sc_buf_put_8(&c->req, TASK_FLAG_END);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP_END);
+	sc_buf_put_8(&c->req, MSG_FLAG_MSG_END);
 
 	c->seq++;
 	msg_finalize_client_req(&c->req, false, c->seq);
@@ -2255,19 +2265,36 @@ int resql_prepare(struct resql *c, const char *sql, resql_stmt *stmt)
 		return rc;
 	}
 
+	flag = sc_buf_get_8(&tmp);
+	if (flag != MSG_FLAG_OP) {
+		goto error;
+	}
+
+	size = sc_buf_get_32(&tmp);
+	(void) size;
+
 	id = sc_buf_get_64(&tmp);
 	if (!sc_buf_valid(&tmp)) {
-		resql_fatal(c, "Received malformed response");
-		return RESQL_ERROR;
+		goto error;
+	}
+
+	if (sc_buf_get_8(&tmp) != MSG_FLAG_OP_END &&
+	    sc_buf_get_8(&tmp) != MSG_FLAG_MSG_END) {
+		goto error;
 	}
 
 	*stmt = id;
 	return RESQL_OK;
+error:
+	resql_fatal(c, "Received malformed response");
+	return RESQL_ERROR;
 }
 
 int resql_del_prepared(struct resql *c, resql_stmt *stmt)
 {
 	int rc;
+	uint8_t flag;
+	uint32_t size;
 	struct sc_buf tmp;
 
 	if (c->statement) {
@@ -2276,9 +2303,11 @@ int resql_del_prepared(struct resql *c, resql_stmt *stmt)
 		return RESQL_SQL_ERROR;
 	}
 
-	sc_buf_put_8(&c->req, TASK_FLAG_STMT_DEL_PREPARED);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP);
+	sc_buf_put_8(&c->req, MSG_FLAG_STMT_DEL_PREPARED);
 	sc_buf_put_64(&c->req, *stmt);
-	sc_buf_put_8(&c->req, TASK_FLAG_END);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP_END);
+	sc_buf_put_8(&c->req, MSG_FLAG_MSG_END);
 
 	c->seq++;
 	msg_finalize_client_req(&c->req, false, c->seq);
@@ -2290,7 +2319,24 @@ int resql_del_prepared(struct resql *c, resql_stmt *stmt)
 		return rc;
 	}
 
+	flag = sc_buf_get_8(&tmp);
+	if (flag != MSG_FLAG_OP) {
+		goto error;
+	}
+
+	size = sc_buf_get_32(&tmp);
+	(void) size;
+
+	if (sc_buf_get_8(&tmp) != MSG_FLAG_OP_END &&
+	    sc_buf_get_8(&tmp) != MSG_FLAG_MSG_END) {
+		goto error;
+	}
+
 	return RESQL_OK;
+
+error:
+	resql_fatal(c, "Received malformed response");
+	return RESQL_ERROR;
 }
 
 void resql_bind_param_int(resql *c, const char *param, int64_t val)
@@ -2301,9 +2347,9 @@ void resql_bind_param_int(resql *c, const char *param, int64_t val)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_NAME);
+	sc_buf_put_8(&c->req, MSG_BIND_NAME);
 	sc_buf_put_str(&c->req, param);
-	sc_buf_put_8(&c->req, TASK_PARAM_INTEGER);
+	sc_buf_put_8(&c->req, MSG_BIND_INTEGER);
 	sc_buf_put_64(&c->req, (uint64_t) val);
 }
 
@@ -2315,9 +2361,9 @@ void resql_bind_param_float(resql *c, const char *param, double val)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_NAME);
+	sc_buf_put_8(&c->req, MSG_BIND_NAME);
 	sc_buf_put_str(&c->req, param);
-	sc_buf_put_8(&c->req, TASK_PARAM_FLOAT);
+	sc_buf_put_8(&c->req, MSG_BIND_FLOAT);
 	sc_buf_put_double(&c->req, val);
 }
 
@@ -2329,9 +2375,9 @@ void resql_bind_param_text(resql *c, const char *param, const char *val)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_NAME);
+	sc_buf_put_8(&c->req, MSG_BIND_NAME);
 	sc_buf_put_str(&c->req, param);
-	sc_buf_put_8(&c->req, TASK_PARAM_TEXT);
+	sc_buf_put_8(&c->req, MSG_BIND_TEXT);
 	sc_buf_put_str(&c->req, val);
 }
 
@@ -2343,9 +2389,9 @@ void resql_bind_param_blob(resql *c, const char *param, int len, void *data)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_NAME);
+	sc_buf_put_8(&c->req, MSG_BIND_NAME);
 	sc_buf_put_str(&c->req, param);
-	sc_buf_put_8(&c->req, TASK_PARAM_BLOB);
+	sc_buf_put_8(&c->req, MSG_BIND_BLOB);
 	sc_buf_put_blob(&c->req, data, (uint32_t) len);
 }
 
@@ -2357,9 +2403,9 @@ void resql_bind_param_null(resql *c, const char *param)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_NAME);
+	sc_buf_put_8(&c->req, MSG_BIND_NAME);
 	sc_buf_put_str(&c->req, param);
-	sc_buf_put_8(&c->req, TASK_PARAM_NULL);
+	sc_buf_put_8(&c->req, MSG_BIND_NULL);
 }
 
 void resql_bind_index_int(resql *c, int index, int64_t val)
@@ -2370,9 +2416,9 @@ void resql_bind_index_int(resql *c, int index, int64_t val)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_INDEX);
+	sc_buf_put_8(&c->req, MSG_BIND_INDEX);
 	sc_buf_put_32(&c->req, (uint32_t) index);
-	sc_buf_put_8(&c->req, TASK_PARAM_INTEGER);
+	sc_buf_put_8(&c->req, MSG_BIND_INTEGER);
 	sc_buf_put_64(&c->req, (uint64_t) val);
 }
 
@@ -2384,9 +2430,9 @@ void resql_bind_index_float(resql *c, int index, double val)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_INDEX);
+	sc_buf_put_8(&c->req, MSG_BIND_INDEX);
 	sc_buf_put_32(&c->req, (uint32_t) index);
-	sc_buf_put_8(&c->req, TASK_PARAM_FLOAT);
+	sc_buf_put_8(&c->req, MSG_BIND_FLOAT);
 	sc_buf_put_double(&c->req, val);
 }
 void resql_bind_index_text(resql *c, int index, const char *val)
@@ -2397,9 +2443,9 @@ void resql_bind_index_text(resql *c, int index, const char *val)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_INDEX);
+	sc_buf_put_8(&c->req, MSG_BIND_INDEX);
 	sc_buf_put_32(&c->req, (uint32_t) index);
-	sc_buf_put_8(&c->req, TASK_PARAM_TEXT);
+	sc_buf_put_8(&c->req, MSG_BIND_TEXT);
 	sc_buf_put_str(&c->req, val);
 }
 
@@ -2411,9 +2457,9 @@ void resql_bind_index_blob(resql *c, int index, int len, void *data)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_INDEX);
+	sc_buf_put_8(&c->req, MSG_BIND_INDEX);
 	sc_buf_put_32(&c->req, (uint32_t) index);
-	sc_buf_put_8(&c->req, TASK_PARAM_BLOB);
+	sc_buf_put_8(&c->req, MSG_BIND_BLOB);
 	sc_buf_put_blob(&c->req, data, (uint32_t) len);
 }
 
@@ -2425,18 +2471,20 @@ void resql_bind_index_null(resql *c, int index)
 		return;
 	}
 
-	sc_buf_put_8(&c->req, TASK_PARAM_INDEX);
+	sc_buf_put_8(&c->req, MSG_BIND_INDEX);
 	sc_buf_put_32(&c->req, (uint32_t) index);
-	sc_buf_put_8(&c->req, TASK_PARAM_NULL);
+	sc_buf_put_8(&c->req, MSG_BIND_NULL);
 }
 
 void resql_put_prepared(struct resql *c, const resql_stmt *stmt)
 {
 	if (c->statement) {
-		sc_buf_put_8(&c->req, TASK_FLAG_END);
+		sc_buf_put_8(&c->req, MSG_BIND_END);
+		sc_buf_put_8(&c->req, MSG_FLAG_OP_END);
 	}
 
-	sc_buf_put_8(&c->req, TASK_FLAG_STMT_ID);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP);
+	sc_buf_put_8(&c->req, MSG_FLAG_STMT_ID);
 	sc_buf_put_64(&c->req, *stmt);
 
 	c->statement = true;
@@ -2445,10 +2493,12 @@ void resql_put_prepared(struct resql *c, const resql_stmt *stmt)
 void resql_put_sql(struct resql *c, const char *sql)
 {
 	if (c->statement) {
-		sc_buf_put_8(&c->req, TASK_FLAG_END);
+		sc_buf_put_8(&c->req, MSG_BIND_END);
+		sc_buf_put_8(&c->req, MSG_FLAG_OP_END);
 	}
 
-	sc_buf_put_8(&c->req, TASK_FLAG_STMT);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP);
+	sc_buf_put_8(&c->req, MSG_FLAG_STMT);
 	sc_buf_put_str(&c->req, sql);
 
 	c->statement = true;
@@ -2475,7 +2525,10 @@ int resql_exec(struct resql *c, bool readonly, struct resql_result **rs)
 		goto error;
 	}
 
-	sc_buf_put_8(&c->req, TASK_FLAG_END);
+	sc_buf_put_8(&c->req, MSG_BIND_END);
+	sc_buf_put_8(&c->req, MSG_FLAG_OP_END);
+	sc_buf_put_8(&c->req, MSG_FLAG_MSG_END);
+
 	c->statement = false;
 
 	if (!readonly) {
