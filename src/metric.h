@@ -55,9 +55,9 @@ struct metric {
 	char dir[PATH_MAX];
 };
 
-void metric_init(struct metric *m, const char *dir);
+int metric_init(struct metric *m, const char *dir);
 void metric_term(struct metric *m);
-int metric_encode(struct metric *m, struct sc_buf *buf);
+void metric_encode(struct metric *m, struct sc_buf *buf);
 void metric_recv(int64_t val);
 void metric_send(int64_t val);
 void metric_fsync(uint64_t val);

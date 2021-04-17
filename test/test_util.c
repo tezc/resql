@@ -102,12 +102,15 @@ static const char *dirs[] = {
 
 void init_all()
 {
+	int rc;
+
 	if (!init) {
 		setvbuf(stdout, NULL, _IONBF, 0);
 		setvbuf(stderr, NULL, _IONBF, 0);
 
 		sc_log_set_thread_name("test");
-		server_global_init();
+		rc = server_global_init();
+		rs_assert(rc == RS_OK);
 		init = 1;
 	}
 }

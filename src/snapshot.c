@@ -48,10 +48,26 @@ struct snapshot_task {
 
 static void *snapshot_run(void *arg);
 
-void snapshot_init(struct snapshot *ss, struct server *srv)
+int snapshot_init(struct snapshot *ss, struct server *srv)
 {
 	int rc;
 	const char *dir = srv->conf.node.dir;
+
+	*ss = (struct snapshot){0};
+
+	sc_thread_init(&ss->thread);
+
+	rc = sc_sock_pipe_init(&ss->efd, SERVER_FD_TASK);
+	if (rc != 0) {
+		sc_log_error("pipe : %s \n", sc_sock_pipe_err(&ss->efd));
+		return RS_ERROR;
+	}
+
+	rc = sc_cond_init(&ss->cond);
+	if (rc != 0) {
+		sc_log_error("cond : %s \n", strerror(errno));
+		goto cleanup_pipe;
+	}
 
 	ss->path = sc_str_create_fmt("%s/%s", dir, SS_FILE);
 	ss->tmp_path = sc_str_create_fmt("%s/%s", dir, SS_TMP_FILE);
@@ -67,60 +83,111 @@ void snapshot_init(struct snapshot *ss, struct server *srv)
 	ss->size = 0;
 	ss->running = 0;
 
-	sc_thread_init(&ss->thread);
-	sc_sock_pipe_init(&ss->efd, SERVER_FD_TASK);
-	sc_cond_init(&ss->cond);
-
 	rc = sc_thread_start(&ss->thread, snapshot_run, ss);
-	if (rc != RS_OK) {
-		rs_abort("snapshot : %s \n", ss->thread.err);
+	if (rc != 0) {
+		sc_log_error("thread : %s \n", sc_thread_err(&ss->thread));
+		goto cleanup_cond;
 	}
+
+	ss->init = true;
+
+	return RS_OK;
+
+cleanup_cond:
+	sc_cond_term(&ss->cond);
+	sc_str_destroy(&ss->path);
+	sc_str_destroy(&ss->tmp_path);
+	sc_str_destroy(&ss->recv_path);
+	sc_str_destroy(&ss->copy_path);
+cleanup_pipe:
+	sc_sock_pipe_term(&ss->efd);
+
+	return RS_ERROR;
 }
 
-void snapshot_term(struct snapshot *ss)
+int snapshot_term(struct snapshot *ss)
 {
-	int rc;
+	int rc, ret = RS_OK;
 	struct snapshot_task task = {.stop = true};
 
-	sc_sock_pipe_write(&ss->efd, &task, sizeof(task));
-
-	rc = sc_thread_term(&ss->thread);
-	if (rc != RS_OK) {
-		rs_abort("snapshot");
+	if (!ss->init) {
+		return RS_OK;
 	}
 
-	sc_sock_pipe_term(&ss->efd);
-	sc_thread_term(&ss->thread);
-	sc_cond_term(&ss->cond);
-	sc_str_destroy(ss->path);
-	sc_str_destroy(ss->tmp_path);
-	sc_str_destroy(ss->recv_path);
-	sc_str_destroy(ss->copy_path);
-	sc_mmap_term(&ss->map);
+	rc = sc_sock_pipe_write(&ss->efd, &task, sizeof(task));
+	if (rc != sizeof(task)) {
+		ret = RS_ERROR;
+		sc_log_error("pipe : %s \n", strerror(errno));
+	}
+
+	rc = sc_thread_term(&ss->thread);
+	if (rc != 0) {
+		ret = RS_ERROR;
+		sc_log_error("thread : %s \n", sc_thread_err(&ss->thread));
+	}
+
+	rc = sc_sock_pipe_term(&ss->efd);
+	if (rc != 0) {
+		ret = RS_ERROR;
+		sc_log_error("pipe : %s \n", sc_sock_pipe_err(&ss->efd));
+	}
+
+	rc = sc_cond_term(&ss->cond);
+	if (rc != 0) {
+		ret = RS_ERROR;
+		sc_log_error("cond : %s \n", strerror(errno));
+	}
+
+	if (ss->open) {
+		ss->open = false;
+		rc = sc_mmap_term(&ss->map);
+		if (rc != 0) {
+			ret = RS_ERROR;
+			sc_log_error("mmap : %s \n", sc_mmap_err(&ss->map));
+		}
+	}
+
+	sc_str_destroy(&ss->path);
+	sc_str_destroy(&ss->tmp_path);
+	sc_str_destroy(&ss->recv_path);
+	sc_str_destroy(&ss->copy_path);
+
+	ss->init = false;
+
+	return ret;
 }
 
-void snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
-		   uint64_t index)
+int snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
+		  uint64_t index)
 {
 	int rc;
+	struct sc_mmap *m = &ss->map;
 
-	rc = sc_mmap_init(&ss->map, path, O_RDONLY, PROT_READ, MAP_SHARED, 0, 0);
+	rc = sc_mmap_init(m, path, O_RDONLY, PROT_READ, MAP_SHARED, 0, 0);
 	if (rc != 0) {
-		rs_abort("snapshot");
+		sc_log_error("mmap init : %s \n", sc_mmap_err(m));
+		return RS_ERROR;
 	}
 
 	ss->term = term;
 	ss->index = index;
+	ss->open = true;
+
+	return RS_OK;
 }
 
-void snapshot_close(struct snapshot *ss)
+int snapshot_close(struct snapshot *ss)
 {
 	int rc;
+	struct sc_mmap *m = &ss->map;
 
-	rc = sc_mmap_term(&ss->map);
+	rc = sc_mmap_term(m);
 	if (rc != 0) {
-		sc_log_error("mmap term : %s \n", sc_mmap_err(&ss->map));
+		sc_log_error("mmap term : %s \n", sc_mmap_err(m));
+		return RS_ERROR;
 	}
+
+	return RS_OK;
 }
 
 bool snapshot_running(struct snapshot *ss)
@@ -133,10 +200,21 @@ int snapshot_wait(struct snapshot *ss)
 	return (int) (uintptr_t) sc_cond_wait(&ss->cond);
 }
 
-void snapshot_replace(struct snapshot *ss)
+int snapshot_replace(struct snapshot *ss)
 {
-	snapshot_close(ss);
-	snapshot_open(ss, ss->path, ss->latest_term, ss->latest_index);
+	int rc;
+
+	rc = snapshot_close(ss);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
+	rc = snapshot_open(ss, ss->path, ss->latest_term, ss->latest_index);
+	if (rc != RS_OK) {
+		sc_log_error("snapshot replace failed. \n");
+	}
+
+	return rc;
 }
 
 int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
@@ -153,23 +231,33 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 	if (ss->tmp == NULL) {
 		ss->tmp = file_create();
 		rc = file_open(ss->tmp, ss->recv_path, "w+");
-		if (rc == RS_ERROR) {
-			rs_abort("snapshot");
+		if (rc != RS_OK) {
+			sc_log_error("Open file failed: %s \n", ss->recv_path);
+			return RS_ERROR;
 		}
 	}
 
 	rc = file_write_at(ss->tmp, offset, data, len);
-	if (rc == RS_ERROR) {
-		rs_abort("snapshot");
+	if (rc != RS_OK) {
+		sc_log_error("snapshot_recv write_at : %s \n", strerror(errno));
+		return rc;
 	}
 
 	if (done) {
+		rc = file_flush(ss->tmp);
+		if (rc != RS_OK) {
+			sc_log_error("snapshot_recv flush : %s \n",
+				     strerror(errno));
+			return rc;
+		}
+
 		file_destroy(ss->tmp);
 		ss->tmp = NULL;
 
 		rc = rename(ss->recv_path, ss->path);
 		if (rc != 0) {
-			rs_abort("rename : %s \n", strerror(errno));
+			sc_log_error("snapshot_recv rename : %s \n",
+				     strerror(errno));
 		}
 
 		ss->term = 0;
@@ -196,11 +284,21 @@ void snapshot_clear(struct snapshot *ss)
 	}
 }
 
-void snapshot_take(struct snapshot *ss, struct page *page)
+int snapshot_take(struct snapshot *ss, struct page *page)
 {
-	struct snapshot_task task = {.page = page, .stop = false};
+	int rc;
 
-	sc_sock_pipe_write(&ss->efd, &task, sizeof(task));
+	struct snapshot_task task = {
+		.page = page,
+		.stop = false,
+	};
+
+	rc = sc_sock_pipe_write(&ss->efd, &task, sizeof(task));
+	if (rc != sizeof(task)) {
+		return RS_ERROR;
+	}
+
+	return RS_OK;
 }
 
 static void snapshot_compact(struct snapshot *ss, struct page *page)
@@ -208,6 +306,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 	int rc;
 	uint64_t first, last, start;
 	struct state state;
+	struct session *s;
 
 	ss->running = 1;
 	start = sc_time_mono_ns();
@@ -219,7 +318,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 	last = page_last_index(page);
 
 	for (uint64_t j = first; j <= last; j++) {
-		state_apply(&state, j, page_entry_at(page, j));
+		rc = state_apply(&state, j, page_entry_at(page, j), &s);
 	}
 
 	state_close(&state);
@@ -255,7 +354,7 @@ static void *snapshot_run(void *arg)
 	rs_snprintf(buf, sizeof(buf), "%s-%s", node, "snapshot");
 	sc_log_set_thread_name(buf);
 
-	sc_log_info("Snapshot slave started ... \n");
+	sc_log_info("Snapshot thread has been started. \n");
 
 	while (true) {
 		size = sc_sock_pipe_read(&ss->efd, &task, sizeof(task));
@@ -264,6 +363,7 @@ static void *snapshot_run(void *arg)
 		}
 
 		if (task.stop) {
+			sc_log_info("Snapshot thread is shutting down. \n");
 			return (void *) RS_OK;
 		}
 

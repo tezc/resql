@@ -27,20 +27,27 @@
 
 int main(int argc, char *argv[])
 {
-	int rc;
-	struct conf config;
-	struct server *server;
+	int rc, rv;
+	struct conf conf;
+	struct server *s;
 
-	server_global_init();
+	rc = server_global_init();
+	if (rc != RS_OK) {
+		return rc;
+	}
 
-	conf_init(&config);
-	conf_read_config(&config, true, argc, argv);
+	conf_init(&conf);
+	conf_read_config(&conf, true, argc, argv);
 
-	server = server_create(&config);
-	rc = server_start(server, false);
+	s = server_create(&conf);
+	rc = server_start(s, false);
 
-	server_destroy(server);
-	server_global_shutdown();
+	server_destroy(s);
+
+	rv = server_global_shutdown();
+	if (rv != RS_OK) {
+		return rv;
+	}
 
 	return rc;
 }

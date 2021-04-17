@@ -28,7 +28,13 @@
 
 static void single()
 {
-	test_server_create(0, 1);
+	struct conf conf;
+	char* params[] = {"", "--node-directory=."};
+
+	conf_init(&conf);
+	conf_read_config(&conf, false, 2, params);
+
+	test_server_create_conf(&conf, 0);
 	pause();
 }
 

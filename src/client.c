@@ -49,7 +49,7 @@ struct client *client_create(struct conn *conn, const char *name)
 void client_destroy(struct client *c)
 {
 	sc_list_del(NULL, &c->read);
-	sc_str_destroy(c->name);
+	sc_str_destroy(&c->name);
 	conn_term(&c->conn);
 	rs_free(c);
 }

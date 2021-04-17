@@ -42,10 +42,10 @@ struct info *info_create(const char *name)
 
 void info_destroy(struct info *n)
 {
-	sc_str_destroy(n->name);
-	sc_str_destroy(n->urls);
-	sc_str_destroy(n->connected);
-	sc_str_destroy(n->role);
+	sc_str_destroy(&n->name);
+	sc_str_destroy(&n->urls);
+	sc_str_destroy(&n->connected);
+	sc_str_destroy(&n->role);
 	sc_buf_term(&n->stats);
 	rs_free(n);
 }
@@ -65,8 +65,8 @@ void info_set_urls(struct info *n, const char *urls)
 	sc_str_set(&n->urls, urls);
 }
 
-void info_set_stats(struct info *n, struct sc_buf *stats)
+void info_set_stats(struct info *n, void *data, uint32_t len)
 {
 	sc_buf_clear(&n->stats);
-	sc_buf_put_raw(&n->stats, sc_buf_rbuf(stats), sc_buf_size(stats));
+	sc_buf_put_raw(&n->stats, data, len);
 }

@@ -53,14 +53,13 @@ int file_remove(struct file *file);
 int file_flush(struct file *file);
 
 int64_t file_size_at(const char *path);
-char *file_full_path(const char *path, char *resolved);
 bool file_exists_at(const char *path);
 int file_remove_path(const char *path);
-int file_remove_if_exists(const char *path);
+int file_unlink(const char* path);
 int file_mkdir(const char *path);
 int file_rmdir(const char *path);
 int file_clear_dir(const char *path, const char *pattern);
 int file_copy(const char *dst, const char *src);
-void file_random(void *buf, size_t size);
+
 
 #endif

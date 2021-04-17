@@ -80,70 +80,81 @@ char *rs_strncpy(char *dest, const char *src, size_t max)
 
 size_t rs_dir_size(const char *path)
 {
+	int rc;
+	const char *err;
 	DIR *d;
 	struct dirent *de;
-	struct stat buf;
-	int exists;
+	struct stat st;
 	size_t total_size = 0;
-	char file_path[PATH_MAX];
+	char file[PATH_MAX];
 
 	d = opendir(path);
 	if (d == NULL) {
+		sc_log_error("dir : %s, opendir : %s", path, strerror(errno));
 		return 0;
 	}
 
 	for (de = readdir(d); de != NULL; de = readdir(d)) {
-		snprintf(file_path, PATH_MAX, "%s/%s", path, de->d_name);
-		exists = stat(file_path, &buf);
-		if (exists == 0) {
-			total_size += buf.st_size;
-		} else {
-			printf("%s \n", strerror(errno));
+		snprintf(file, PATH_MAX, "%s/%s", path, de->d_name);
+
+		rc = stat(file, &st);
+		if (rc != 0) {
+			err = strerror(errno);
+			sc_log_error("file : %s, stat : %s \n", file, err);
+			continue;
 		}
+
+		total_size += st.st_size;
 	}
 
-	closedir(d);
+	rc = closedir(d);
+	if (rc != 0) {
+		err = strerror(errno);
+		sc_log_error("dir : %s, closedir : %s \n", path, err);
+	}
 
 	return total_size;
 }
 
 int rs_write_pid_file(char *path)
 {
-	int fd, rc;
+	int fd, rc, ret = RS_OK;
 	size_t len;
 	ssize_t wr;
-	char dir[PATH_MAX];
+	char file[PATH_MAX];
 	char pidstr[32];
 
 	struct stat sb;
-	struct flock lock = {.l_type = F_WRLCK,
-			     .l_start = 0,
-			     .l_whence = SEEK_SET,
-			     .l_len = 0};
+	struct flock lock = {
+		.l_type = F_WRLCK,
+		.l_start = 0,
+		.l_whence = SEEK_SET,
+		.l_len = 0,
+	};
 
-	snprintf(dir, PATH_MAX, "%s/%s", path, ".pid");
+	snprintf(file, PATH_MAX, "%s/%s", path, ".pid");
 
-	rc = stat(dir, &sb);
+	rc = stat(file, &sb);
 	if (rc == 0) {
-		rc = unlink(dir);
+		rc = unlink(file);
 		if (rc == -1) {
-			sc_log_error("Failed to remove old PID file : '%s'",
-				     dir);
-			exit(EXIT_FAILURE);
+			sc_log_error("unlink : %s, err : %s \n", file,
+				     strerror(errno));
+			return RS_ERROR;
 		}
 	}
 
-	fd = open(dir, O_WRONLY | O_CREAT | O_CLOEXEC, 0444);
+	fd = open(file, O_WRONLY | O_CREAT | O_CLOEXEC, 0444);
 	if (fd < 0) {
-		sc_log_error("Failed to create PID file '%s'", dir);
-		exit(EXIT_FAILURE);
+		sc_log_error("open : %s, err : %s \n", file, strerror(errno));
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
 	}
 
 	rc = fcntl(fd, F_SETLK, &lock);
 	if (rc < 0) {
-		close(fd);
-		sc_log_error("Failed to set lock for PID file : '%s'", dir);
-		exit(EXIT_FAILURE);
+		sc_log_error("fcntl : %s, err : %s \n", file, strerror(errno));
+		ret = RS_ERROR;
+		goto out;
 	}
 
 	sprintf(pidstr, "%ld", (long) getpid());
@@ -151,24 +162,25 @@ int rs_write_pid_file(char *path)
 	len = strlen(pidstr);
 	wr = write(fd, pidstr, len);
 	if (wr < 0 || (size_t) wr != len) {
-		close(fd);
-		sc_log_error("Failed to write PID number at :'%s'", dir);
-		exit(EXIT_FAILURE);
+		sc_log_error("write : %s, err : %s \n", file, strerror(errno));
+		ret = errno == ENOSPC ? RS_FULL : RS_ERROR;
 	}
-
+out:
 	close(fd);
-
-	return RS_OK;
+	return ret;
 }
 
 int rs_delete_pid_file(char *path)
 {
-	char dir[PATH_MAX];
+	int rc;
+	char file[PATH_MAX];
 
-	snprintf(dir, PATH_MAX, "%s/%s", path, ".pid");
+	snprintf(file, PATH_MAX, "%s/%s", path, ".pid");
 
-	if (unlink(dir)) {
-		sc_log_warn("Failed to delete PID file at '%s' \n", dir);
+	rc = unlink(file);
+	if (rc != 0) {
+		sc_log_warn("Failed to delete PID file at '%s' \n", file);
+		return RS_ERROR;
 	}
 
 	return RS_OK;
@@ -228,7 +240,7 @@ _Noreturn void rs_on_abort(const char *file, const char *func, int line,
 		va_end(args);
 	}
 
-	sc_log_error("%s:%s:%d, msg : %s, errno : %d, error : %s \n", file,
+	sc_log_error("%s:%s:%d, msg : %s [errno : %d, error : %s] \n", file,
 		     func, line, buf, errno, strerror(errno));
 	abort();
 }
@@ -245,19 +257,26 @@ _Noreturn void rs_exit(const char *fmt, ...)
 		va_end(args);
 	}
 
-	sc_log_error("%s , errno : %d, error : %s\n", buf, errno,
+	sc_log_error("%s [errno : %d, error : %s] \n", buf, errno,
 		     strerror(errno));
 	exit(EXIT_FAILURE);
 }
 
 thread_local struct sc_rand tl_rc4;
 
-void rs_rand_init()
+int rs_rand_init()
 {
+	int rc;
 	unsigned char buf[256];
 
-	file_random(buf, sizeof(buf));
+	rc = rs_urandom(buf, sizeof(buf));
+	if (rc != RS_OK) {
+		return rc;
+	}
+
 	sc_rand_init(&tl_rc4, buf);
+
+	return RS_OK;
 }
 
 unsigned int rs_rand()
@@ -267,4 +286,33 @@ unsigned int rs_rand()
 	sc_rand_read(&tl_rc4, &val, sizeof(val));
 
 	return val;
+}
+
+int rs_urandom(void *buf, size_t size)
+{
+	int fd;
+	ssize_t sz;
+
+	memset(buf, 0, size);
+
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd < 0) {
+		sc_log_error("open /dev/urandom : %s \n", strerror(errno));
+		return RS_ERROR;
+	}
+
+retry:
+	sz = read(fd, buf, size);
+	if (sz < 0 && errno == EINTR) {
+		goto retry;
+	}
+
+	close(fd);
+
+	if (sz < 0) {
+		sc_log_error("read /dev/urandom :%s \n", strerror(errno));
+		return RS_ERROR;
+	}
+
+	return RS_OK;
 }

@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 struct page {
+	bool init;
 	char *path;
 	struct sc_mmap map;
 
@@ -42,7 +43,8 @@ struct page {
 	unsigned char **entries;
 };
 
-int page_init(struct page *p, const char *path, int64_t len, uint64_t prev_index);
+int page_init(struct page *p, const char *path, int64_t len,
+	      uint64_t prev_index);
 void page_term(struct page *p);
 int page_reserve(struct page *p, uint32_t size);
 bool page_isempty(struct page *p);

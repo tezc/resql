@@ -68,11 +68,11 @@ void node_destroy(struct node *n)
 
 	sc_list_del(NULL, &n->list);
 	conn_term(&n->conn);
-	sc_str_destroy(n->name);
+	sc_str_destroy(&n->name);
 	sc_timer_cancel(n->timer, &n->conn_timer);
 
 	sc_queue_foreach (n->uris, uri) {
-		sc_uri_destroy(uri);
+		sc_uri_destroy(&uri);
 	}
 	sc_queue_destroy(n->uris);
 

@@ -95,6 +95,8 @@ int page_init(struct page *p, const char *path, int64_t len,
 	int64_t file_len;
 	uint32_t crc_val, crc_calc;
 
+	p->init = false;
+
 	if (len > PAGE_MAX_SIZE) {
 		sc_log_error("Requested too big page : %" PRIi64 " \n",
 			     p->map.err);
@@ -110,9 +112,10 @@ int page_init(struct page *p, const char *path, int64_t len,
 			  PROT_READ | PROT_WRITE, MAP_SHARED, 0, (size_t) len);
 	if (rc != 0) {
 		sc_log_error("Mmap : %s \n", p->map.err);
-		return RS_ERROR;
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
 	}
 
+	p->init = true;
 	p->path = sc_str_create(path);
 	p->buf = sc_buf_wrap(p->map.ptr, (uint32_t) p->map.len, SC_BUF_REF);
 
@@ -147,10 +150,14 @@ void page_term(struct page *p)
 {
 	int rc;
 
+	if (!p || !p->init) {
+		return;
+	}
+
 	page_fsync(p, page_last_index(p));
 
 	sc_array_destroy(p->entries);
-	sc_str_destroy(p->path);
+	sc_str_destroy(&p->path);
 
 	rc = sc_mmap_term(&p->map);
 	if (rc != 0) {
@@ -161,24 +168,23 @@ void page_term(struct page *p)
 int page_reserve(struct page *p, uint32_t size)
 {
 	int rc, ret = RS_OK;
+	uint64_t count = p->map.len - page_quota(p);
 	uint64_t prev_index = p->prev_index;
 	uint64_t last_index = page_last_index(p);
 	uint64_t entry_count = page_entry_count(p);
-	uint64_t count = p->map.len - page_quota(p);
-	uint64_t cap;
+	uint64_t cap = p->map.len;
 	char *path;
 
 	if (page_quota(p) >= size) {
 		return RS_OK;
 	}
 
-	cap = p->map.len;
 	while (cap <= PAGE_MAX_SIZE && cap < count + size) {
 		cap = sc_to_pow2(cap + 1);
 	}
 
 	if (cap > PAGE_MAX_SIZE) {
-		return RS_ERROR;
+		return RS_FAIL;
 	}
 
 	path = sc_str_create(p->path);
@@ -187,21 +193,24 @@ int page_reserve(struct page *p, uint32_t size)
 
 	rc = page_init(p, path, cap, p->prev_index);
 	if (rc != RS_OK) {
-		ret = RS_ERROR;
+		ret = RS_FAIL;
 		// Revert back to old size
 		rc = page_init(p, path, -1, p->prev_index);
 		if (rc != RS_OK) {
-			rs_abort("Failed to expand page \n");
+			sc_log_error("Rollback failed : %s \n", path);
+			ret = rc;
+			goto out;
 		}
 	}
 
 	if (prev_index != p->prev_index || last_index != page_last_index(p) ||
 	    entry_count != page_entry_count(p)) {
-		rs_abort("Corrupt file. ");
+		sc_log_error("Log page is corrupt : %s \n", path);
+		goto out;
 	}
 
-	sc_str_destroy(path);
-
+out:
+	sc_str_destroy(&path);
 	return ret;
 }
 
@@ -273,7 +282,8 @@ uint32_t page_quota(struct page *p)
 
 uint32_t page_cap(struct page *p)
 {
-	return sc_buf_cap(&p->buf) - PAGE_HEADER_LEN - ENTRY_HEADER_SIZE - PAGE_END_MARK_LEN;
+	return sc_buf_cap(&p->buf) - PAGE_HEADER_LEN - ENTRY_HEADER_SIZE -
+	       PAGE_END_MARK_LEN;
 }
 
 void page_fsync(struct page *p, uint64_t index)
@@ -297,6 +307,7 @@ void page_fsync(struct page *p, uint64_t index)
 	ts = sc_time_mono_ns();
 	rc = sc_mmap_msync(&p->map, (last & ~(4095)), (pos - last));
 	if (rc != 0) {
+		// This should never fail
 		rs_abort("msync : %s \n", strerror(errno));
 	}
 	metric_fsync(sc_time_mono_ns() - ts);

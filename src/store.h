@@ -46,7 +46,7 @@ struct store {
 
 int store_init(struct store *s, const char *path, uint64_t ss_term,
 	       uint64_t ss_index);
-int store_term(struct store *s);
+void store_term(struct store *s);
 
 void store_flush(struct store *s);
 void store_snapshot_taken(struct store *s);

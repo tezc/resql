@@ -46,6 +46,7 @@ struct state {
 	char *ss_path;
 	char *ss_tmp_path;
 	char *last_err;
+	struct session *session; // current session
 
 	bool closed;
 
@@ -82,7 +83,7 @@ int state_global_shutdown();
 
 void state_init(struct state *st, struct state_cb cb, const char *path,
 		const char *name);
-void state_term(struct state *st);
+int state_term(struct state *st);
 
 void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv);
 int state_randomness(sqlite3_vfs *vfs, int size, char *out);
@@ -91,14 +92,14 @@ int state_currenttime(sqlite3_vfs *vfs, sqlite3_int64 *val);
 int state_read_snapshot(struct state *st, bool in_memory);
 void state_read_for_snapshot(struct state *st);
 
-void state_open(struct state *st, bool in_memory);
-void state_close(struct state *st);
+int state_open(struct state *st, bool in_memory);
+int state_close(struct state *st);
 
-void state_initial_snapshot(struct state *st);
+int state_initial_snapshot(struct state *st);
 int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 			 uint32_t len, struct sc_buf *resp);
 
-struct session *state_apply(struct state *st, uint64_t index,
-			    unsigned char *entry);
+int state_apply(struct state *st, uint64_t index, unsigned char *e,
+		struct session **s);
 
 #endif

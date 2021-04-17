@@ -39,6 +39,8 @@ struct server;
 struct page;
 
 struct snapshot {
+	bool init;
+	bool open;
 	struct server *server;
 	struct sc_mmap map;
 	char *path;
@@ -67,17 +69,17 @@ struct snapshot {
 	_Atomic int running;
 };
 
-void snapshot_init(struct snapshot *ss, struct server *server);
-void snapshot_term(struct snapshot *ss);
+int snapshot_init(struct snapshot *ss, struct server *server);
+int snapshot_term(struct snapshot *ss);
 
-void snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
+int snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
 		   uint64_t index);
 bool snapshot_running(struct snapshot *ss);
 int snapshot_wait(struct snapshot *ss);
 
-void snapshot_replace(struct snapshot *ss);
+int snapshot_replace(struct snapshot *ss);
 
-void snapshot_take(struct snapshot *ss, struct page *page);
+int snapshot_take(struct snapshot *ss, struct page *page);
 int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 		  uint64_t offset, void *data, uint64_t len);
 void snapshot_clear(struct snapshot *ss);

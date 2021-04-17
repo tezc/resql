@@ -61,6 +61,7 @@ struct conf {
 
 void conf_init(struct conf *c);
 void conf_term(struct conf *c);
+void conf_copy(struct conf *dst, struct conf *src);
 
 void conf_read_config(struct conf *c, bool read_file, int argc, char **argv);
 void conf_print(struct conf *c);

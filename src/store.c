@@ -48,16 +48,23 @@ static void store_swap(struct store *s)
 	s->pages[1] = tmp;
 }
 
-static void store_read(struct store *s)
+static int store_read(struct store *s)
 {
+	int rc;
+	size_t c, count;
 	char buf[PATH_MAX];
-	size_t c;
 
 	rs_snprintf(buf, sizeof(buf), "%s/%s", s->path, DEF_PAGE_FILE_0);
-	page_init(s->pages[0], buf, -1, s->ss_index);
+	rc = page_init(s->pages[0], buf, -1, s->ss_index);
+	if (rc != RS_OK) {
+		goto cleanup_first;
+	}
 
 	rs_snprintf(buf, sizeof(buf), "%s/%s", s->path, DEF_PAGE_FILE_1);
-	page_init(s->pages[1], buf, -1, s->ss_index);
+	rc = page_init(s->pages[1], buf, -1, s->ss_index);
+	if (rc != RS_OK) {
+		goto cleanup_second;
+	}
 
 	if (s->pages[1]->prev_index < s->pages[0]->prev_index) {
 		store_swap(s);
@@ -93,11 +100,25 @@ static void store_read(struct store *s)
 	} else {
 		s->last_term = s->ss_term;
 	}
+
+	count = page_entry_count(s->curr);
+	s->last_term = count != 0 ? page_last_term(s->curr) : s->ss_term;
+
+	return RS_OK;
+
+cleanup_second:
+	page_term(s->pages[1]);
+cleanup_first:
+	page_term(s->pages[0]);
+
+	return rc;
 }
 
 int store_init(struct store *s, const char *path, uint64_t ss_term,
 	       uint64_t ss_index)
 {
+	int rc;
+
 	s->path = sc_str_create(path);
 	s->last_index = 0;
 	s->last_term = 0;
@@ -106,12 +127,23 @@ int store_init(struct store *s, const char *path, uint64_t ss_term,
 	s->pages[0] = rs_malloc(sizeof(*s->pages[0]));
 	s->pages[1] = rs_malloc(sizeof(*s->pages[0]));
 
-	store_read(s);
+	rc = store_read(s);
+	if (rc != RS_OK) {
+		goto cleanup;
+	}
 
 	return RS_OK;
+
+cleanup:
+	sc_str_destroy(&s->path);
+	rs_free(s->pages[0]);
+	rs_free(s->pages[1]);
+	*s = (struct store){0};
+
+	return rc;
 }
 
-int store_term(struct store *s)
+void store_term(struct store *s)
 {
 	page_term(s->pages[0]);
 	page_term(s->pages[1]);
@@ -119,9 +151,7 @@ int store_term(struct store *s)
 	rs_free(s->pages[0]);
 	rs_free(s->pages[1]);
 
-	sc_str_destroy(s->path);
-
-	return RS_OK;
+	sc_str_destroy(&s->path);
 }
 
 void store_flush(struct store *s)
@@ -214,14 +244,29 @@ retry:
 			if (rc == RS_OK) {
 				goto retry;
 			}
+
+			if (rc == RS_ERROR || rc == RS_FULL) {
+				return rc;
+			}
 		}
 
 		if (s->curr != s->pages[1]) {
+			store_flush(s);
+
 			s->curr = s->pages[1];
 			page_clear(s->curr, s->last_index);
+
 			if (size > page_cap(s->curr)) {
-				page_reserve(s->curr, size);
+				rc = page_reserve(s->curr, size);
+				if (rc == RS_OK) {
+					goto retry;
+				}
+
+				if (rc == RS_ERROR || rc == RS_FULL) {
+					return rc;
+				}
 			}
+
 			goto retry;
 		}
 

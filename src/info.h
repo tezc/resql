@@ -41,6 +41,6 @@ void info_destroy(struct info *n);
 void info_set_connected(struct info *n, bool connected);
 void info_set_role(struct info *n, const char *role);
 void info_set_urls(struct info *n, const char *urls);
-void info_set_stats(struct info *n, struct sc_buf *buf);
+void info_set_stats(struct info *n, void *data, uint32_t len);
 
 #endif

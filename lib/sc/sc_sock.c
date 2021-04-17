@@ -40,18 +40,18 @@
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <Ws2tcpip.h>
 #include <afunix.h>
 #include <assert.h>
+#include <Ws2tcpip.h>
 
 #pragma warning(disable : 4996)
-#define sc_close(n)    closesocket(n)
-#define sc_unlink(n)   DeleteFileA(n)
-#define SC_ERR	       SOCKET_ERROR
-#define SC_INVALID     INVALID_SOCKET
-#define SC_EAGAIN      WSAEWOULDBLOCK
+#define sc_close(n) closesocket(n)
+#define sc_unlink(n) DeleteFileA(n)
+#define SC_ERR SOCKET_ERROR
+#define SC_INVALID INVALID_SOCKET
+#define SC_EAGAIN WSAEWOULDBLOCK
 #define SC_EINPROGRESS WSAEINPROGRESS
-#define SC_EINTR       WSAEINTR
+#define SC_EINTR WSAEINTR
 
 typedef int socklen_t;
 
@@ -120,13 +120,13 @@ int sc_sock_notify_systemd(const char *msg)
 #include <sys/un.h>
 #include <unistd.h>
 
-#define sc_close(n)    close(n)
-#define sc_unlink(n)   unlink(n)
-#define SC_ERR	       (-1)
-#define SC_INVALID     (-1)
-#define SC_EAGAIN      EAGAIN
+#define sc_close(n) close(n)
+#define sc_unlink(n) unlink(n)
+#define SC_ERR (-1)
+#define SC_INVALID (-1)
+#define SC_EAGAIN EAGAIN
 #define SC_EINPROGRESS EINPROGRESS
-#define SC_EINTR       EINTR
+#define SC_EINTR EINTR
 
 int sc_sock_notify_systemd(const char *msg)
 {
@@ -880,6 +880,10 @@ int sc_sock_pipe_init(struct sc_sock_pipe *p, int type)
 	int val = 1;
 	BOOL nodelay = 1;
 
+	*p = (struct sc_sock_pipe){
+		.fds = {SC_INVALID, SC_INVALID},
+	};
+
 	p->fdt.type = type;
 	p->fdt.op = SC_SOCK_NONE;
 	p->fdt.index = -1;
@@ -952,6 +956,10 @@ int sc_sock_pipe_term(struct sc_sock_pipe *p)
 {
 	int rc = 0, rv;
 
+	if (p->fds[0] == SC_INVALID) {
+		return 0;
+	}
+
 	rv = closesocket(p->fds[0]);
 	if (rv != 0) {
 		rc = -1;
@@ -965,6 +973,9 @@ int sc_sock_pipe_term(struct sc_sock_pipe *p)
 		sc_sock_pipe_set_err(p, "closesocket() : err(%d) ",
 				     WSAGetLastError());
 	}
+
+	p->fds[0] = SC_INVALID;
+	p->fds[1] = SC_INVALID;
 
 	return rc;
 }
@@ -1001,6 +1012,10 @@ int sc_sock_pipe_init(struct sc_sock_pipe *p, int type)
 {
 	int rc;
 
+	*p = (struct sc_sock_pipe){
+		.fds = {SC_INVALID, SC_INVALID},
+	};
+
 	rc = pipe(p->fds);
 	if (rc != 0) {
 		sc_sock_pipe_set_err(p, "pipe() : %s ", strerror(errno));
@@ -1018,6 +1033,10 @@ int sc_sock_pipe_term(struct sc_sock_pipe *p)
 {
 	int rc = 0, rv;
 
+	if (p->fds[0] == SC_INVALID) {
+		return 0;
+	}
+
 	rv = close(p->fds[0]);
 	if (rv != 0) {
 		rc = -1;
@@ -1029,6 +1048,9 @@ int sc_sock_pipe_term(struct sc_sock_pipe *p)
 		rc = -1;
 		sc_sock_pipe_set_err(p, "pipe close() : %s ", strerror(errno));
 	}
+
+	p->fds[0] = SC_INVALID;
+	p->fds[1] = SC_INVALID;
 
 	return rc;
 }
@@ -1114,8 +1136,25 @@ error:
 
 int sc_sock_poll_term(struct sc_sock_poll *p)
 {
+	int rc;
+
+	if (!p->events) {
+		return 0;
+	}
+
 	sc_sock_free(p->events);
-	return close(p->fds);
+
+	rc = close(p->fds);
+	if (rc != 0) {
+		sc_sock_poll_set_err(p, strerror(errno));
+	}
+
+	p->events = NULL;
+	p->fds = SC_INVALID;
+	p->cap = 0;
+	p->count = 0;
+
+	return rc;
 }
 
 static int sc_sock_poll_expand(struct sc_sock_poll *p)
@@ -1157,7 +1196,7 @@ int sc_sock_poll_add(struct sc_sock_poll *p, struct sc_sock_fd *fdt,
 	};
 
 	if ((fdt->op & events) == events) {
-		return 0;
+		return SC_SOCK_OK;
 	}
 
 	if (fdt->op == SC_SOCK_NONE) {
@@ -1328,8 +1367,25 @@ err:
 
 int sc_sock_poll_term(struct sc_sock_poll *p)
 {
+	int rc;
+
+	if (!p->events) {
+		return 0;
+	}
+
 	sc_sock_free(p->events);
-	return close(p->fds);
+
+	rc = close(p->fds);
+	if (rc != 0) {
+		sc_sock_poll_set_err(p, strerror(errno));
+	}
+
+	p->events = NULL;
+	p->fds = SC_INVALID;
+	p->cap = 0;
+	p->count = 0;
+
+	return rc;
 }
 
 int sc_sock_poll_add(struct sc_sock_poll *p, struct sc_sock_fd *fdt,
@@ -1340,7 +1396,7 @@ int sc_sock_poll_add(struct sc_sock_poll *p, struct sc_sock_fd *fdt,
 	int mask = fdt->op | events;
 
 	if ((fdt->op & events) == events) {
-		return 0;
+		return SC_SOCK_OK;
 	}
 
 	if (fdt->op == SC_SOCK_NONE) {
@@ -1468,14 +1524,27 @@ int sc_sock_poll_init(struct sc_sock_poll *p)
 	return 0;
 err:
 	sc_sock_free(p->events);
+	p->events = NULL;
+	p->data = NULL;
+
 	sc_sock_poll_set_err(p, "Out of memory.");
+
 	return -1;
 }
 
 int sc_sock_poll_term(struct sc_sock_poll *p)
 {
+	if (p->events == NULL) {
+		return 0;
+	}
+
 	sc_sock_free(p->events);
 	sc_sock_free(p->data);
+
+	p->events = NULL;
+	p->fds = SC_INVALID;
+	p->cap = 0;
+	p->count = 0;
 
 	return 0;
 }

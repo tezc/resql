@@ -53,9 +53,9 @@ void session_connected(struct session *s, const char *local, const char *remote,
 		       uint64_t ts);
 void session_disconnected(struct session *s, uint64_t timestamp);
 
-uint64_t session_create_stmt(struct session *s, uint64_t id, const char *sql,
-			     int len, const char **err);
+uint64_t session_sql_to_id(struct session *s, const char *sql);
 
+void session_add_stmt(struct session *s, uint64_t id, void *stmt);
 void *session_get_stmt(struct session *s, uint64_t id);
 int session_del_stmt(struct session *s, uint64_t id);
 

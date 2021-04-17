@@ -131,7 +131,7 @@
 		m->used = false;                                               \
 		m->cap = cap;                                                  \
 		m->load_fac = f;                                               \
-		m->remap = (uint32_t)(m->cap * ((double) m->load_fac / 100));  \
+		m->remap = (uint32_t) (m->cap * ((double) m->load_fac / 100)); \
                                                                                \
 		return true;                                                   \
 	}                                                                      \
@@ -140,6 +140,7 @@
 	{                                                                      \
 		if (m->mem != sc_map_empty_##name.mem) {                       \
 			sc_map_free(&m->mem[-1]);                              \
+			*m = sc_map_empty_##name;                              \
 		}                                                              \
 	}                                                                      \
                                                                                \
@@ -199,7 +200,7 @@
                                                                                \
 		m->mem = new;                                                  \
 		m->cap = cap;                                                  \
-		m->remap = (uint32_t)(m->cap * ((double) m->load_fac / 100));  \
+		m->remap = (uint32_t) (m->cap * ((double) m->load_fac / 100)); \
                                                                                \
 		return true;                                                   \
 	}                                                                      \
@@ -330,7 +331,7 @@ static uint32_t sc_map_hash_32(uint32_t a)
 
 static uint32_t sc_map_hash_64(uint64_t a)
 {
-	return ((uint32_t) a) ^ (uint32_t)(a >> 32u);
+	return ((uint32_t) a) ^ (uint32_t) (a >> 32u);
 }
 
 // clang-format off
@@ -359,20 +360,20 @@ uint32_t murmurhash(const char *key)
 	case 7: h ^= (uint64_t) p[6] << 48ul; // fall through
 	case 6: h ^= (uint64_t) p[5] << 40ul; // fall through
 	case 5: h ^= (uint64_t) p[4] << 32ul; // fall through
-    	case 4: h ^= (uint64_t) p[3] << 24ul; // fall through
+	case 4: h ^= (uint64_t) p[3] << 24ul; // fall through
 	case 3: h ^= (uint64_t) p[2] << 16ul; // fall through
 	case 2: h ^= (uint64_t) p[1] << 8ul;  // fall through
 	case 1: h ^= (uint64_t) p[0];         // fall through
 		h *= m;
-    	default:
-        	break;
-    	};
+	default:
+		break;
+	};
 
-    	h ^= h >> 47u;
-    	h *= m;
-    	h ^= h >> 47u;
+	h ^= h >> 47u;
+	h *= m;
+	h ^= h >> 47u;
 
-    	return (uint32_t) h;
+	return (uint32_t) h;
 }
 
 #define sc_map_eq(a, b) ((a) == (b))
@@ -387,4 +388,4 @@ sc_map_def_strkey(str, const char *, const char *, sc_map_streq, murmurhash)
 sc_map_def_strkey(sv,  const char *, void *,       sc_map_streq, murmurhash)
 sc_map_def_strkey(s64, const char *, uint64_t,     sc_map_streq, murmurhash)
 
-	// clang-format on
+// clang-format on

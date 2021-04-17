@@ -78,6 +78,19 @@ struct cmd_log {
 	const char *log;
 };
 
+struct cmd {
+	union {
+		struct cmd_init init;
+		struct cmd_meta meta;
+		struct cmd_term_start start;
+		struct cmd_client_connect connect;
+		struct cmd_client_disconnect disconnect;
+		struct cmd_timestamp timestamp;
+		struct cmd_log log;
+
+	};
+};
+
 void cmd_encode_init(struct sc_buf *b, unsigned char rand[256]);
 struct cmd_init cmd_decode_init(struct sc_buf *b);
 

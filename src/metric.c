@@ -46,10 +46,11 @@ static size_t metric_free_disk(const char *dir)
 
 	rc = statvfs(dir, &st);
 	if (rc < 0) {
+		sc_log_error("dir : %s, statvfs : %s \n", dir, strerror(errno));
 		return 0;
 	}
 
-	return ((size_t)(st.f_bavail) * st.f_bsize);
+	return ((size_t) (st.f_bavail) * st.f_bsize);
 }
 
 /* Returns the size of physical memory (RAM) in bytes.
@@ -64,6 +65,8 @@ static size_t metric_free_disk(const char *dir)
  * 2) Was originally implemented by David Robert Nadeau.
  * 3) Was modified for Redis by Matt Stancliff.
  * 4) This note exists in order to comply with the original license.
+ * 5) Resql took it from :
+ *    https://github.com/redis/redis/blob/unstable/src/zmalloc.c
  */
 static size_t metric_get_physical_memory(void)
 {
@@ -93,7 +96,7 @@ static size_t metric_get_physical_memory(void)
 	int mib[2];
 	mib[0] = CTL_HW;
 #if defined(HW_REALMEM)
-	mib[1] = HW_REALMEM; /* FreeBSD. ----------------- */
+	mib[1] = HW_REALMEM;   /* FreeBSD. ----------------- */
 #elif defined(HW_PHYSMEM)
 	mib[1] = HW_PHYSMEM; /* Others. ------------------ */
 #endif
@@ -112,9 +115,9 @@ static size_t metric_get_physical_memory(void)
 
 #ifdef HAVE_LINUX
 
-size_t metric_get_rss(struct metric *metric)
+size_t metric_get_rss(struct metric *m)
 {
-	(void) metric;
+	(void) m;
 
 	size_t rss;
 	char buf[4096];
@@ -168,9 +171,9 @@ size_t metric_get_rss(struct metric *metric)
 #include <sys/types.h>
 #include <unistd.h>
 
-size_t metric_get_rss(struct metric *metric)
+size_t metric_get_rss(struct metric *m)
 {
-	(void) metric;
+	(void) m;
 
 	task_t task = MACH_PORT_NULL;
 	struct task_basic_info t_info;
@@ -209,17 +212,19 @@ size_t metric_get_rss(struct metric *metric)
 	return 0L;
 }
 #else
-size_t metric_get_rss(struct metric *metric)
+size_t metric_get_rss(struct metric *m)
 {
-	(void) metric;
+	(void) m;
 	return 0;
 }
 #endif
 
 thread_local struct metric *tl_metric;
 
-void metric_init(struct metric *m, const char *dir)
+int metric_init(struct metric *m, const char *dir)
 {
+	int rc;
+	size_t n;
 	time_t t;
 	struct tm *tm, result;
 
@@ -229,11 +234,21 @@ void metric_init(struct metric *m, const char *dir)
 
 	t = time(NULL);
 	tm = localtime_r(&t, &result);
+	if (!tm) {
+		sc_log_error("localtime : %s \n", strerror(errno));
+		return RS_ERROR;
+	}
 
-	strftime(m->start, sizeof(m->start) - 1, "%d-%m-%Y %H:%M", tm);
+	n = strftime(m->start, sizeof(m->start) - 1, "%d-%m-%Y %H:%M", tm);
+	if (n == 0) {
+		sc_log_error("localtime : %s \n", strerror(errno));
+		return RS_ERROR;
+	}
 
-	if (uname(&m->utsname) != 0) {
-		rs_abort("uname : %s \n", strerror(errno));
+	rc = uname(&m->utsname);
+	if (rc != 0) {
+		sc_log_error("uname : %s \n", strerror(errno));
+		return RS_ERROR;
 	}
 
 	m->pid = getpid();
@@ -244,6 +259,8 @@ void metric_init(struct metric *m, const char *dir)
 	m->ss_success = true;
 
 	rs_strncpy(m->dir, dir, sizeof(m->dir) - 1);
+
+	return RS_OK;
 }
 
 void metric_term(struct metric *metric)
@@ -289,17 +306,14 @@ void metric_snapshot(bool success, uint64_t time, size_t size)
 	m->ss_count++;
 }
 
-int metric_encode(struct metric *m, struct sc_buf *buf)
+void metric_encode(struct metric *m, struct sc_buf *buf)
 {
-	char b[128];
+	char b[128] = "";
 	time_t t;
-	size_t sz;
+	size_t sz, n;
 	uint64_t ts, val, div;
 	struct rusage u;
 	struct tm result, *tm;
-
-	t = time(NULL);
-	tm = localtime_r(&t, &result);
 
 	memset(&u, 0, sizeof(u));
 
@@ -312,7 +326,14 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 	sc_buf_put_str(buf, DEF_ARCH);
 	sc_buf_put_fmt(buf, "%ld", m->pid);
 
-	strftime(b, sizeof(b) - 1, "%d-%m-%Y %H:%M", tm);
+	t = time(NULL);
+	tm = localtime_r(&t, &result);
+	if (tm != NULL) {
+		n = strftime(b, sizeof(b) - 1, "%d-%m-%Y %H:%M", tm);
+		if (n == 0) {
+			b[0] = '\0'; // print empty string on error.
+		}
+	}
 
 	sc_buf_put_str(buf, b);
 	sc_buf_put_str(buf, m->start);
@@ -322,12 +343,11 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 	sc_buf_put_fmt(buf, "%" PRIu64, ts);
 	sc_buf_put_fmt(buf, "%" PRIu64, ts / (60 * 60 * 24));
 
-	if (getrusage(RUSAGE_SELF, &u) != 0) {
-		sc_log_error("getrusage : %s \n", strerror(errno));
-	}
-
+	// Prints zero on getrusage failure.
+	getrusage(RUSAGE_SELF, &u);
 	sc_buf_put_fmt(buf, "%ld.%06ld", u.ru_stime.tv_sec, u.ru_stime.tv_usec);
 	sc_buf_put_fmt(buf, "%ld.%06ld", u.ru_utime.tv_sec, u.ru_utime.tv_usec);
+
 	sc_buf_put_fmt(buf, "%" PRIu64, m->bytes_recv);
 	sc_buf_put_fmt(buf, "%" PRIu64, m->bytes_sent);
 	sc_buf_put_fmt(buf, "%s",
@@ -366,6 +386,4 @@ int metric_encode(struct metric *m, struct sc_buf *buf)
 	sc_buf_put_fmt(buf, "%zu", sz);
 	sc_buf_put_fmt(buf, "%s",
 		       sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
-
-	return RS_OK;
 }

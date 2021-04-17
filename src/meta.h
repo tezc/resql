@@ -72,7 +72,7 @@ void meta_set_connected(struct meta *m, const char *name);
 void meta_set_disconnected(struct meta *m, const char *name);
 void meta_clear_connection(struct meta *m);
 void meta_set_leader(struct meta *m, const char *name);
-bool meta_parse_uris(struct meta *m, char *addrs);
+bool meta_parse_uris(struct meta *m, const char *addrs);
 
 void meta_print(struct meta *m, struct sc_buf *buf);
 

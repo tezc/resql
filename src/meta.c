@@ -49,10 +49,10 @@ void meta_node_term(struct meta_node *n)
 {
 	struct sc_uri *uri;
 
-	sc_str_destroy(n->name);
+	sc_str_destroy(&n->name);
 
 	sc_array_foreach (n->uris, uri) {
-		sc_uri_destroy(uri);
+		sc_uri_destroy(&uri);
 	}
 	sc_array_destroy(n->uris);
 }
@@ -86,9 +86,7 @@ void meta_node_decode(struct meta_node *n, struct sc_buf *buf)
 
 	for (size_t i = 0; i < count; i++) {
 		uri = sc_uri_create(sc_buf_get_str(buf));
-		if (!uri) {
-			rs_abort("meta");
-		}
+		assert(uri);
 
 		sc_array_add(n->uris, uri);
 	}
@@ -108,8 +106,8 @@ void meta_term(struct meta *m)
 {
 	struct meta_node node;
 
-	sc_str_destroy(m->name);
-	sc_str_destroy(m->uris);
+	sc_str_destroy(&m->name);
+	sc_str_destroy(&m->uris);
 
 	sc_array_foreach (m->nodes, node) {
 		meta_node_term(&node);
@@ -422,7 +420,7 @@ void meta_set_leader(struct meta *m, const char *name)
 	meta_update(m);
 }
 
-bool meta_parse_uris(struct meta *m, char *addrs)
+bool meta_parse_uris(struct meta *m, const char *addrs)
 {
 	bool found;
 	bool rc = false;
@@ -467,11 +465,11 @@ bool meta_parse_uris(struct meta *m, char *addrs)
 	rc = true;
 
 clean_uri:
-	sc_str_destroy(dup);
+	sc_str_destroy(&dup);
 
 	if (!rc) {
-		sc_str_destroy(m->name);
-		sc_str_destroy(m->uris);
+		sc_str_destroy(&m->name);
+		sc_str_destroy(&m->uris);
 	}
 
 	return rc;

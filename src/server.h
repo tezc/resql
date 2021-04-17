@@ -136,11 +136,13 @@ struct server {
 	struct sc_buf *cache;
 };
 
-void server_global_init();
-void server_global_shutdown();
+int server_global_init();
+int server_global_shutdown();
 
 struct server *server_create(struct conf *conf);
 void server_destroy(struct server *server);
+int server_init(struct server* s, struct conf *conf);
+int server_term(struct server *s);
 
 int server_start(struct server *server, bool new_thread);
 int server_stop(struct server *server);

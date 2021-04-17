@@ -61,7 +61,6 @@ struct conn *conn_create(struct server *server, struct sc_sock *s);
 void conn_destroy(struct conn *c);
 
 void conn_clear_inbuf(struct conn *c);
-void conn_clear_outbuf(struct conn *c);
 void conn_clear_bufs(struct conn *c);
 struct sc_buf *conn_outbuf(struct conn *c);
 void conn_move(struct conn *c, struct conn *src);

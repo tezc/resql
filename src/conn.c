@@ -47,7 +47,7 @@ struct conn *conn_create(struct server *server, struct sc_sock *s)
 
 	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
 	if (rc != 0) {
-		goto cleanup;
+		goto poll_err;
 	}
 
 	sc_sock_local_str(s, c->local, sizeof(c->local));
@@ -55,8 +55,11 @@ struct conn *conn_create(struct server *server, struct sc_sock *s)
 
 	return c;
 
-cleanup:
+poll_err:
+	sc_log_error("sc_sock_poll_add : %s \n", sc_sock_poll_err(p));
+	sc_sock_term(s);
 	rs_free(c);
+
 	return NULL;
 }
 
@@ -84,13 +87,6 @@ void conn_clear_inbuf(struct conn *c)
 	assert(sc_buf_cap(&c->in) != 0);
 	server_buf_free(c->server, c->in);
 	c->in = (struct sc_buf){0};
-}
-
-void conn_clear_outbuf(struct conn *c)
-{
-	assert(sc_buf_cap(&c->out) != 0);
-	server_buf_free(c->server, c->out);
-	c->out = (struct sc_buf){0};
 }
 
 void conn_clear_bufs(struct conn *c)
@@ -219,7 +215,12 @@ int conn_on_out_connected(struct conn *c)
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 
 	rc = sc_sock_finish_connect(sock);
-	if (rc == SC_SOCK_ERROR) {
+	if (rc != SC_SOCK_OK) {
+		return RS_ERROR;
+	}
+
+	rc = sc_sock_poll_add(p, &sock->fdt, SC_SOCK_READ, &sock->fdt);
+	if (rc != 0) {
 		return RS_ERROR;
 	}
 
@@ -228,7 +229,6 @@ int conn_on_out_connected(struct conn *c)
 
 	conn_clear_events(c);
 
-	sc_sock_poll_add(p, &sock->fdt, SC_SOCK_READ, &sock->fdt);
 	sc_sock_local_str(sock, c->local, sizeof(c->local));
 	sc_sock_remote_str(sock, c->remote, sizeof(c->remote));
 

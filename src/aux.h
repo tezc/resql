@@ -73,5 +73,7 @@ int aux_read_kv(struct aux *aux, const char *key, struct sc_buf *buf);
 int aux_add_stmt(struct aux *aux, const char *client, uint64_t cid, uint64_t id,
 		 const char *sql);
 int aux_rm_stmt(struct aux *aux, uint64_t id);
+int aux_rc(int rc);
+void aux_clear(sqlite3_stmt *stmt);
 
 #endif
