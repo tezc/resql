@@ -63,10 +63,14 @@ void file_init(struct file *f)
 	f->fp = NULL;
 }
 
-void file_term(struct file *f)
+int file_term(struct file *f)
 {
-	file_close(f);
+	int rc;
+
+	rc = file_close(f);
 	sc_str_destroy(&f->path);
+
+	return rc;
 }
 
 int file_open(struct file *f, const char *path, const char *mode)
@@ -76,7 +80,7 @@ int file_open(struct file *f, const char *path, const char *mode)
 	fp = fopen(path, mode);
 	if (fp == NULL) {
 		sc_log_error("file : %s, fopen : %s \n", path, strerror(errno));
-		return RS_ERROR;
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
 	}
 
 	f->fp = fp;
@@ -114,7 +118,7 @@ ssize_t file_size(struct file *f)
 	return file_size_at(f->path);
 }
 
-int64_t file_size_at(const char *path)
+ssize_t file_size_at(const char *path)
 {
 	int rc;
 	struct stat st;
@@ -122,7 +126,7 @@ int64_t file_size_at(const char *path)
 	rc = stat(path, &st);
 	if (rc != 0) {
 		sc_log_warn("file : %s, stat : %s \n", path, strerror(errno));
-		return rc;
+		return -1;
 	}
 
 	return st.st_size;
@@ -323,7 +327,7 @@ int file_remove_path(const char *path)
 int file_unlink(const char *path)
 {
 	int rc;
-	const char* err;
+	const char *err;
 
 	rc = unlink(path);
 	if (rc != 0) {
@@ -398,4 +402,18 @@ cleanup_src:
 	}
 
 	return rc;
+}
+
+int file_rename(const char *dst, const char *src)
+{
+	int rc;
+
+	rc = rename(src, dst);
+	if (rc != 0) {
+		sc_log_error("rename : %s to %s : %s \n", src, dst,
+			     strerror(errno));
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
+	}
+
+	return RS_OK;
 }

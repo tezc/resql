@@ -73,7 +73,7 @@ int snapshot_init(struct snapshot *ss, struct server *server);
 int snapshot_term(struct snapshot *ss);
 
 int snapshot_open(struct snapshot *ss, const char *path, uint64_t term,
-		   uint64_t index);
+		  uint64_t index);
 bool snapshot_running(struct snapshot *ss);
 int snapshot_wait(struct snapshot *ss);
 

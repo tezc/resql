@@ -38,7 +38,7 @@ struct file *file_create();
 void file_destroy(struct file *file);
 
 void file_init(struct file *file);
-void file_term(struct file *file);
+int file_term(struct file *file);
 int file_open(struct file *file, const char *path, const char *mode);
 int file_close(struct file *file);
 
@@ -52,14 +52,14 @@ const char *file_path(struct file *file);
 int file_remove(struct file *file);
 int file_flush(struct file *file);
 
-int64_t file_size_at(const char *path);
+ssize_t file_size_at(const char *path);
 bool file_exists_at(const char *path);
 int file_remove_path(const char *path);
-int file_unlink(const char* path);
+int file_unlink(const char *path);
 int file_mkdir(const char *path);
 int file_rmdir(const char *path);
 int file_clear_dir(const char *path, const char *pattern);
 int file_copy(const char *dst, const char *src);
-
+int file_rename(const char *dst, const char *src);
 
 #endif

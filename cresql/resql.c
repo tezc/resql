@@ -1871,8 +1871,7 @@ retry:
 	}
 
 	if (rc != MSG_OK) {
-		resql_err(c, "connection has been rejected by the server (%d).",
-			  rc);
+		resql_err(c, "connection has been rejected (%d).", rc);
 		return RESQL_ERROR;
 	}
 

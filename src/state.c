@@ -446,7 +446,7 @@ cleanup_aux:
 	return rc;
 }
 
-void state_read_for_snapshot(struct state *st)
+int state_read_for_snapshot(struct state *st)
 {
 	bool b;
 	int rc;
@@ -458,7 +458,7 @@ void state_read_for_snapshot(struct state *st)
 
 	rc = file_copy(st->ss_tmp_path, st->ss_path);
 	if (rc != RS_OK) {
-		rs_abort("db");
+		return rc;
 	}
 
 	rc = aux_init(&st->aux, st->ss_tmp_path, 0);
@@ -472,6 +472,8 @@ void state_read_for_snapshot(struct state *st)
 	}
 
 	sqlite3_set_authorizer(st->aux.db, state_authorizer, st);
+
+	return RS_OK;
 }
 
 int state_open(struct state *st, bool in_memory)
@@ -676,7 +678,7 @@ static void state_update_info(struct state *st)
 	}
 }
 
-int state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
+int state_on_meta(struct state *st, uint64_t index, struct meta *meta)
 {
 	bool found;
 	int rc;
@@ -684,8 +686,8 @@ int state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
 	struct info *info;
 	const char *name, *conn, *role;
 
-	meta_copy(&st->meta, &cmd->meta);
-	meta_term(&cmd->meta);
+	meta_copy(&st->meta, meta);
+	meta_term(meta);
 
 	sc_map_foreach (&st->nodes, name, info) {
 		found = false;
@@ -729,14 +731,14 @@ int state_on_meta(struct state *st, uint64_t index, struct cmd_meta *cmd)
 	return rc;
 }
 
-int state_on_term_start(struct state *st, uint64_t index,
-			struct cmd_term_start *start)
+int state_on_term_start(struct state *st, uint64_t index, uint64_t realtime,
+			uint64_t monotonic)
 {
 	int rc;
 	const char *name;
 
-	st->realtime = start->realtime;
-	st->monotonic = start->monotonic;
+	st->realtime = st->realtime > realtime ? st->realtime : realtime;
+	st->monotonic = monotonic;
 
 	sc_map_foreach_key (&st->names, name) {
 		rc = state_on_client_disconnect(st, name, false);
@@ -880,7 +882,7 @@ static int state_bind_params(struct state *st, struct sc_buf *req,
 		}
 
 		if (rc != SQLITE_OK) {
-			return RS_ERROR;
+			return aux_rc(rc);
 		}
 	}
 
@@ -970,7 +972,7 @@ static int state_step(struct state *st, sqlite3_stmt *stmt, struct sc_buf *resp)
 	}
 
 	if (rc != SQLITE_DONE) {
-		return RS_ERROR;
+		return aux_rc(rc);
 	}
 
 	return RS_OK;
@@ -1005,7 +1007,7 @@ static int state_exec_stmt(struct state *st, bool readonly, struct sc_buf *req,
 
 	rc = sqlite3_prepare_v3(st->aux.db, str, len, 0, &stmt, NULL);
 	if (rc != SQLITE_OK) {
-		return RS_ERROR;
+		return aux_rc(rc);
 	}
 
 	rc = state_exec_prepared_statement(st, stmt, readonly, req, resp);
@@ -1121,7 +1123,7 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 {
 	assert(sc_buf_size(req) < UINT32_MAX);
 
-	int rc;
+	int rc, rv;
 	uint32_t pos, result_len;
 	enum msg_flag flag;
 
@@ -1131,7 +1133,7 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 
 	rc = sqlite3_step(st->aux.begin);
 	if (rc != SQLITE_DONE) {
-		goto error;
+		return aux_rc(rc);
 	}
 
 	while ((flag = (enum msg_flag) sc_buf_get_8(req)) == MSG_FLAG_OP) {
@@ -1162,9 +1164,8 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 			rc = state_del_prepared(st, s, req);
 			break;
 		default:
-			rc = RS_ERROR;
 			st->last_err = "Invalid message";
-			break;
+			goto error;
 		}
 
 		flag = sc_buf_get_8(req);
@@ -1180,16 +1181,25 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 	}
 
 	if (flag != MSG_FLAG_MSG_END || !sc_buf_valid(req)) {
+		st->last_err = "Invalid message";
 		goto error;
 	}
 
 	rc = sqlite3_step(st->aux.commit);
 	if (rc != SQLITE_DONE) {
+		rc = aux_rc(rc);
 		goto error;
 	}
 
 	sc_buf_put_8(resp, MSG_FLAG_MSG_END);
 	msg_finalize_client_resp(resp);
+
+	if (!sc_buf_valid(resp)) {
+		st->last_err = (resp->err == SC_BUF_OOM) ?
+					     "Response is too big." :
+					     "Internal error.";
+		goto error;
+	}
 
 	return RS_OK;
 
@@ -1197,12 +1207,19 @@ error:
 	state_encode_error(st, resp);
 
 	st->client = false;
-	rc = sqlite3_step(st->aux.rollback);
-	if (rc != SQLITE_DONE) {
-		sc_log_error("Rollback : %s \n", sqlite3_errmsg(st->aux.db));
+	rv = sqlite3_step(st->aux.rollback);
+	if (rv != SQLITE_DONE) {
+		if (aux_rc(rv) != RS_ERROR) {
+			sc_log_error("Rollback : %s \n",
+				     sqlite3_errmsg(st->aux.db));
+		}
 	}
 
-	return RS_OK;
+	if (rc != RS_FATAL) {
+		rc = RS_OK;
+	}
+
+	return rc;
 }
 
 int state_on_client_request(struct state *st, uint64_t index, unsigned char *e,
@@ -1213,15 +1230,14 @@ int state_on_client_request(struct state *st, uint64_t index, unsigned char *e,
 	uint32_t len = entry_data_len(e);
 	uint64_t client_id = entry_cid(e);
 	uint64_t seq = entry_seq(e);
-	void* data = entry_data(e);
+	void *data = entry_data(e);
 	struct sc_buf req = sc_buf_wrap(data, len, SC_BUF_READ);
 
 	st->last_err = NULL;
 
 	found = sc_map_get_64v(&st->ids, client_id, (void **) s);
 	if (!found) {
-		st->last_err = "Session does not exist.";
-		goto error;
+		rs_abort("Session does not exist : %" PRIu64 "\n", client_id);
 	}
 
 	if (seq == (*s)->seq) {
@@ -1230,17 +1246,20 @@ int state_on_client_request(struct state *st, uint64_t index, unsigned char *e,
 	}
 
 	rc = state_exec_request(st, *s, index, false, &req, &(*s)->resp);
+	if (rc == RS_FULL && st->full) {
+		// max-page-size config has been reached, it's safe to continue
+		rc = RS_OK;
+	}
+
 	(*s)->seq = seq;
 
 	return rc;
-error:
-	state_encode_error(st, &(*s)->resp);
-	return RS_OK;
 }
 
 int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 			 uint32_t len, struct sc_buf *resp)
 {
+	int rc;
 	bool found;
 	struct session *s;
 	struct sc_buf req = sc_buf_wrap(buf, len, SC_BUF_READ);
@@ -1256,14 +1275,24 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 		goto error;
 	}
 
-	return state_exec_request(st, s, 0, true, &req, resp);
+	rc = state_exec_request(st, s, 0, true, &req, resp);
+	if (rc == RS_FULL) {
+		/*
+		 * RS_FULL is benign on readonly requests, it occurs when temp
+		 * store is full.
+		 */
+		rc = RS_OK;
+	}
+
+	return rc;
+
 error:
 	state_encode_error(st, resp);
 	return RS_OK;
 }
 
 static int state_on_init(struct state *st, uint64_t realtime,
-			 uint64_t monotonic, const unsigned char rand[256])
+			 uint64_t monotonic, const unsigned char *rand)
 {
 	st->realtime = realtime;
 	st->monotonic = monotonic;
@@ -1283,7 +1312,8 @@ int state_apply(struct state *st, uint64_t index, unsigned char *e,
 	struct sc_buf buf;
 
 	if (index != st->index + 1) {
-		sc_log_error("index : %"PRIu64" state : %"PRIu64" \n", index, st->index);
+		sc_log_error("index : %" PRIu64 " state : %" PRIu64 " \n",
+			     index, st->index);
 	}
 	assert(e != NULL);
 	assert(st->index + 1 == index);
@@ -1306,23 +1336,24 @@ int state_apply(struct state *st, uint64_t index, unsigned char *e,
 		break;
 	case CMD_META:
 		cmd.meta = cmd_decode_meta(&buf);
-		rc = state_on_meta(st, index, &cmd.meta);
+		rc = state_on_meta(st, index, &cmd.meta.meta);
 		break;
-	case CMD_TERM_START:
-		cmd.start = cmd_decode_term_start(&buf);
-		rc = state_on_term_start(st, index, &cmd.start);
+	case CMD_TERM:
+		cmd.term = cmd_decode_term_start(&buf);
+		rc = state_on_term_start(st, index, cmd.term.realtime,
+					 cmd.term.monotonic);
 		break;
-	case CMD_CLIENT_REQUEST:
+	case CMD_REQUEST:
 		st->client = true;
 		rc = state_on_client_request(st, index, e, s);
 		break;
-	case CMD_CLIENT_CONNECT:
+	case CMD_CONNECT:
 		cmd.connect = cmd_decode_client_connect(&buf);
 		rc = state_on_client_connect(st, cmd.connect.name,
 					     cmd.connect.local,
 					     cmd.connect.remote, s);
 		break;
-	case CMD_CLIENT_DISCONNECT:
+	case CMD_DISCONNECT:
 		cmd.disconnect = cmd_decode_client_disconnect(&buf);
 		rc = state_on_client_disconnect(st, cmd.disconnect.name,
 						cmd.disconnect.clean);

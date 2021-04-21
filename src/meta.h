@@ -51,7 +51,6 @@ struct meta {
 	uint64_t index;
 	uint32_t voter;
 	struct meta_node *nodes;
-
 	struct meta *prev;
 };
 

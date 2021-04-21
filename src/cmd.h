@@ -33,10 +33,10 @@ enum cmd_id
 {
 	CMD_INIT,
 	CMD_META,
-	CMD_TERM_START,
-	CMD_CLIENT_REQUEST,
-	CMD_CLIENT_CONNECT,
-	CMD_CLIENT_DISCONNECT,
+	CMD_TERM,
+	CMD_REQUEST,
+	CMD_CONNECT,
+	CMD_DISCONNECT,
 	CMD_TIMESTAMP,
 	CMD_INFO,
 	CMD_LOG
@@ -52,18 +52,18 @@ struct cmd_meta {
 	struct meta meta;
 };
 
-struct cmd_term_start {
+struct cmd_term {
 	uint64_t monotonic;
 	uint64_t realtime;
 };
 
-struct cmd_client_connect {
+struct cmd_connect {
 	const char *name;
 	const char *local;
 	const char *remote;
 };
 
-struct cmd_client_disconnect {
+struct cmd_disconnect {
 	const char *name;
 	bool clean;
 };
@@ -82,12 +82,11 @@ struct cmd {
 	union {
 		struct cmd_init init;
 		struct cmd_meta meta;
-		struct cmd_term_start start;
-		struct cmd_client_connect connect;
-		struct cmd_client_disconnect disconnect;
+		struct cmd_term term;
+		struct cmd_connect connect;
+		struct cmd_disconnect disconnect;
 		struct cmd_timestamp timestamp;
 		struct cmd_log log;
-
 	};
 };
 
@@ -98,15 +97,14 @@ void cmd_encode_meta(struct sc_buf *b, struct meta *meta);
 struct cmd_meta cmd_decode_meta(struct sc_buf *b);
 
 void cmd_encode_term_start(struct sc_buf *b);
-struct cmd_term_start cmd_decode_term_start(struct sc_buf *b);
+struct cmd_term cmd_decode_term_start(struct sc_buf *b);
 
 void cmd_encode_client_connect(struct sc_buf *b, const char *name,
 			       const char *local, const char *remote);
-struct cmd_client_connect cmd_decode_client_connect(struct sc_buf *buf);
+struct cmd_connect cmd_decode_client_connect(struct sc_buf *buf);
 
-void cmd_encode_client_disconnect(struct sc_buf *b, const char *name,
-				  bool clean);
-struct cmd_client_disconnect cmd_decode_client_disconnect(struct sc_buf *b);
+void cmd_encode_disconnect(struct sc_buf *b, const char *name, bool clean);
+struct cmd_disconnect cmd_decode_client_disconnect(struct sc_buf *b);
 
 void cmd_encode_timestamp(struct sc_buf *b);
 struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *b);

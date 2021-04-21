@@ -295,6 +295,7 @@ int snapshot_take(struct snapshot *ss, struct page *page)
 
 	rc = sc_sock_pipe_write(&ss->efd, &task, sizeof(task));
 	if (rc != sizeof(task)) {
+		sc_log_error("pipe_write : %s \n", sc_sock_pipe_err(&ss->efd));
 		return RS_ERROR;
 	}
 
@@ -311,14 +312,20 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 	ss->running = 1;
 	start = sc_time_mono_ns();
 
-	state_init(&state, (struct state_cb){0}, ss->server->conf.node.dir, "");
-	state_read_for_snapshot(&state);
-
 	first = page->prev_index + 1;
 	last = page_last_index(page);
 
+	state_init(&state, (struct state_cb){0}, ss->server->conf.node.dir, "");
+	rc = state_read_for_snapshot(&state);
+	if (rc != RS_OK) {
+		goto error;
+	}
+
 	for (uint64_t j = first; j <= last; j++) {
 		rc = state_apply(&state, j, page_entry_at(page, j), &s);
+		if (rc != RS_OK) {
+			goto error;
+		}
 	}
 
 	state_close(&state);
@@ -340,6 +347,15 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 
 	sc_log_info("snapshot done in : %" PRIu64 " milliseconds, for [%" PRIu64
 		    ",%" PRIu64 "] \n",
+		    ss->time / 1000 / 1000, first, last);
+	return;
+
+error:
+	state_term(&state);
+	sc_cond_signal(&ss->cond, (void *) (uintptr_t) rc);
+	ss->running = 0;
+	sc_log_info("snapshot failure in : %" PRIu64
+		    " milliseconds, for [%" PRIu64 ",%" PRIu64 "] \n",
 		    ss->time / 1000 / 1000, first, last);
 }
 

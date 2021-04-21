@@ -151,6 +151,9 @@ void store_term(struct store *s)
 	rs_free(s->pages[0]);
 	rs_free(s->pages[1]);
 
+	s->pages[0] = NULL;
+	s->pages[1] = NULL;
+
 	sc_str_destroy(&s->path);
 }
 

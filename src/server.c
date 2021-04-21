@@ -33,7 +33,6 @@
 #include "session.h"
 
 #include "sc/sc_array.h"
-#include "sc/sc_crc32.h"
 #include "sc/sc_log.h"
 #include "sc/sc_queue.h"
 #include "sc/sc_signal.h"
@@ -42,11 +41,10 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <unistd.h>
 
-#define MAX_SIZE      (SC_SOCK_BUF_SIZE - 128)
-#define DEF_META_FILE "meta.resql"
-#define DEF_META_TMP  "meta.tmp.resql"
+#define MAX_SIZE  (SC_SOCK_BUF_SIZE - 128)
+#define META_FILE "meta.resql"
+#define META_TMP  "meta.tmp.resql"
 
 static const char *server_role_str[] = {
 	"FOLLOWER",
@@ -57,198 +55,183 @@ static const char *server_role_str[] = {
 const char *server_add_node(void *arg, const char *node);
 const char *server_remove_node(void *arg, const char *node);
 const char *server_shutdown(void *arg, const char *node);
+static int server_prepare_start(struct server *s);
 
-int server_global_init()
+static void server_listen(struct server *s, const char *addr)
 {
-	int rc;
+	int family, rc;
+	const char *host;
+	struct sc_uri *uri;
+	struct sc_sock *sock;
+	struct server_endpoint e;
 
-	srand((int) sc_time_mono_ns());
-	sc_crc32_init();
-
-	rc = sc_log_init();
-	if (rc != 0) {
-		fprintf(stderr, "Failed to init log.\n");
-		fflush(stderr);
-		return RS_ERROR;
+	uri = sc_uri_create(addr);
+	if (!uri) {
+		rs_exit("Failed to parse bind url : %s \n", addr);
 	}
 
-	rc = sc_signal_init();
-	if (rc != 0) {
-		sc_log_error("signal_init : %s \n", strerror(errno));
-		return RS_ERROR;
+	if (strcmp(uri->scheme, "unix") == 0) {
+		family = SC_SOCK_UNIX;
+	} else if (*uri->host == '[') {
+		family = SC_SOCK_INET6;
+	} else {
+		family = SC_SOCK_INET;
 	}
 
-	rc = sc_sock_startup();
-	if (rc != 0) {
-		sc_log_error("sc_sock_startup : %s \n", strerror(errno));
-		return RS_ERROR;
-	}
+	sock = rs_malloc(sizeof(*sock));
+	sc_sock_init(sock, SERVER_FD_INCOMING_CONN, false, family);
 
-	rc = state_global_init();
+	host = (family == SC_SOCK_UNIX) ? uri->path : uri->host;
+
+	rc = sc_sock_listen(sock, host, uri->port);
 	if (rc != RS_OK) {
-		return rc;
+		rs_exit("Failed to listen at : %s, reason : %s \n", uri->str,
+			sc_sock_error(sock));
 	}
 
-	return RS_OK;
+	e.uri = uri;
+	e.sock = sock;
+
+	sc_array_add(s->endpoints, e);
+
+	rc = sc_sock_poll_add(&s->poll, &sock->fdt, SC_SOCK_READ, &sock->fdt);
+	if (rc != 0) {
+		rs_exit("Poll failed : %s \n", sc_sock_poll_err(&s->poll));
+	}
+
+	sc_log_info("Listening at : %s \n", uri->str);
 }
 
-int server_global_shutdown()
+void server_init(struct server *s)
 {
 	int rc;
-
-	rc = sc_sock_cleanup();
-	if (rc != 0) {
-		return RS_ERROR;
-	}
-
-	rc = state_global_shutdown();
-	if (rc != 0) {
-		return RS_ERROR;
-	}
-
-	return RS_OK;
-}
-
-struct server *server_create(struct conf *conf)
-{
-	struct server *s;
-
-	s = rs_calloc(1, sizeof(*s));
-	server_init(s, conf);
-
-	return s;
-}
-
-void server_destroy(struct server *s)
-{
-	server_term(s);
-	rs_free(s);
-}
-
-int server_init(struct server *s, struct conf *conf)
-{
-	int rc;
+	char *urls, *save = NULL;
+	const char *token;
+	const char *dir = s->conf.node.dir;
 	struct sc_sock_fd *fdt;
+	struct conf *c = &s->conf;
+
+	sc_thread_init(&s->thread);
+
+	rc = sc_log_set_level(c->node.log_level);
+	if (rc != 0) {
+		rs_exit("Invalid log level : '%s' \n", c->node.log_level);
+	}
+
+	rc = strcasecmp(c->node.log_dest, "stdout");
+	if (rc != 0) {
+		sc_log_set_stdout(false);
+		rc = sc_log_set_file("log.prev.txt", "log.current.txt");
+		if (rc != 0) {
+			rs_exit("log set file : %s \n", strerror(errno));
+		}
+	}
+
+	rc = rs_rand_init();
+	if (rc != RS_OK) {
+		rs_exit("rand failed.");
+	}
+
+	rc = file_mkdir(c->node.dir);
+	if (rc != RS_OK) {
+		rs_exit("Failed to create directory : '%s' \n", c->node.dir);
+	}
+
+retry_pid:
+	rc = rs_write_pid_file(c->node.dir);
+	if (rc != RS_OK) {
+		if (rc == RS_ERROR) {
+			rs_exit("PID file error, shutting down. ");
+		}
+
+		if (rc == RS_FULL) {
+			sc_log_error("Disk is full. Retry in 5 seconds. \n");
+			sc_time_sleep(5000);
+			goto retry_pid;
+		}
+	}
 
 	rc = sc_sock_poll_init(&s->poll);
 	if (rc != 0) {
-		sc_log_error("poll_init : %s \n", sc_sock_poll_err(&s->poll));
-		return RS_ERROR;
+		rs_exit("poll_init : %s \n", sc_sock_poll_err(&s->poll));
 	}
 
 	rc = sc_sock_pipe_init(&s->efd, SERVER_FD_TASK);
 	if (rc != 0) {
-		sc_log_error("pipe_init : %s \n", sc_sock_poll_err(&s->poll));
-		goto cleanup_poll;
+		rs_exit("pipe_init : %s \n", sc_sock_poll_err(&s->poll));
 	}
 
 	fdt = &s->efd.fdt;
 	rc = sc_sock_poll_add(&s->poll, fdt, SC_SOCK_READ, fdt);
 	if (rc != 0) {
-		sc_log_error("poll_add : %s \n", sc_sock_poll_err(&s->poll));
-		goto cleanup_pipe;
+		rs_exit("poll_add : %s \n", sc_sock_poll_err(&s->poll));
 	}
 
 	rc = sc_sock_pipe_init(&s->sigfd, SERVER_FD_SIGNAL);
 	if (rc != 0) {
-		sc_log_error("pipe_init : %s \n", sc_sock_poll_err(&s->poll));
-		goto cleanup_sigpipe;
+		rs_exit("pipe_init : %s \n", sc_sock_poll_err(&s->poll));
 	}
 
 	sc_signal_shutdown_fd = s->sigfd.fds[1];
 	fdt = &s->sigfd.fdt;
 	rc = sc_sock_poll_add(&s->poll, fdt, SC_SOCK_READ, fdt);
 	if (rc != 0) {
-		sc_log_error("poll_add : %s \n", sc_sock_poll_err(&s->poll));
-		goto cleanup_sigpipe;
+		rs_exit("poll_add : %s \n", sc_sock_poll_err(&s->poll));
 	}
 
-	s->conf = *conf;
-	sc_thread_init(&s->thread);
-	meta_init(&s->meta, s->conf.cluster.name);
+	sc_array_create(s->endpoints, 2);
 
+	conf_print(&s->conf);
+
+	urls = s->conf.node.bind_url;
+	while ((token = sc_str_token_begin(urls, &save, " ")) != NULL) {
+		server_listen(s, token);
+	}
+
+	if (sc_array_size(s->endpoints) == 0) {
+		rs_exit("Server is not listening on any port. \n");
+	}
+
+	meta_init(&s->meta, s->conf.cluster.name);
 	sc_buf_init(&s->tmp, 1024);
 	sc_timer_init(&s->timer, sc_time_mono_ms());
-	sc_array_create(s->endpoints, 2);
+	sc_array_create(s->term_clients, 4);
+	sc_array_create(s->nodes, 4);
+	sc_array_create(s->unknown_nodes, 4);
 	sc_list_init(&s->pending_conns);
+	sc_list_init(&s->connected_nodes);
+	sc_list_init(&s->read_reqs);
 	sc_map_init_sv(&s->clients, 32, 0);
 	sc_map_init_64v(&s->vclients, 32, 0);
-	sc_array_create(s->term_clients, 4);
-
-	sc_array_create(s->nodes, 4);
-	sc_list_init(&s->connected_nodes);
-	sc_array_create(s->unknown_nodes, 4);
 	sc_queue_create(s->jobs, 4);
-	sc_list_init(&s->read_reqs);
-
 	sc_queue_create(s->cache, 32);
 
-	s->stop_requested = false;
-	s->ss_inprogress = false;
-	s->commit = 0;
-	s->round = 0;
-	s->round_prev = 0;
-	s->round_match = 0;
-	s->voted_for = NULL;
+	s->info_timer = SC_TIMER_INVALID;
+	s->election_timer = SC_TIMER_INVALID;
+	s->full_timer = SC_TIMER_INVALID;
 
-	return RS_OK;
-
-cleanup_sigpipe:
-	sc_sock_pipe_term(&s->sigfd);
-cleanup_pipe:
-	sc_sock_pipe_term(&s->efd);
-cleanup_poll:
-	sc_sock_poll_term(&s->poll);
-
-	return RS_ERROR;
+	s->meta_path = sc_str_create_fmt("%s/%s", dir, META_FILE);
+	s->meta_tmp_path = sc_str_create_fmt("%s/%s", dir, META_TMP);
 }
 
-void server_endpoint_term(struct server_endpoint *endp)
-{
-	int rc;
-
-	if (strcmp(endp->uri->scheme, "unix") == 0) {
-		file_unlink(endp->uri->path);
-	}
-
-	sc_uri_destroy(&endp->uri);
-
-	rc = sc_sock_term(endp->sock);
-	if (rc != 0) {
-		sc_log_error("sock_term : %s \n", sc_sock_error(endp->sock));
-	}
-
-	rs_free(endp->sock);
-}
-
-int server_term(struct server *s)
+int server_close(struct server *s)
 {
 	int rc, ret = RS_OK;
 	struct node *node;
 	struct conn *conn;
 	struct client *client;
 	struct sc_list *list, *tmp;
-	struct server_endpoint endp;
 	struct server_job job;
-	struct sc_buf buf;
-
-	rc = snapshot_term(&s->ss);
-	if (rc != RS_OK) {
-		ret = RS_ERROR;
-	}
 
 	sc_str_destroy(&s->voted_for);
-	sc_str_destroy(&s->passwd);
 
 	sc_array_foreach (s->nodes, node) {
 		node_destroy(node);
 	}
-	sc_array_destroy(s->nodes);
 
 	sc_array_foreach (s->unknown_nodes, node) {
 		node_destroy(node);
 	}
-	sc_array_destroy(s->unknown_nodes);
 
 	sc_list_foreach_safe (&s->pending_conns, tmp, list) {
 		conn = sc_list_entry(list, struct conn, list);
@@ -262,62 +245,113 @@ int server_term(struct server *s)
 	sc_array_foreach (s->term_clients, client) {
 		client_destroy(client);
 	}
-	sc_array_destroy(s->term_clients);
 
-	sc_array_foreach (s->endpoints, endp) {
-		server_endpoint_term(&endp);
+	sc_queue_foreach (s->jobs, job) {
+		sc_str_destroy(&job.data);
 	}
-	sc_array_destroy(s->endpoints);
+
+	rc = snapshot_term(&s->ss);
+	if (rc != RS_OK) {
+		ret = rc;
+		sc_log_error("snapshot_term : %d", rc);
+	}
 
 	rc = state_term(&s->state);
 	if (rc != RS_OK) {
 		ret = rc;
+		sc_log_error("state_term : %d", rc);
 	}
 
 	store_term(&s->store);
-	meta_term(&s->meta);
 
-	rc = sc_sock_poll_term(&s->poll);
-	if (rc != 0) {
-		sc_log_error("poll_term : %s \n", sc_sock_poll_err(&s->poll));
-		ret = RS_ERROR;
-	}
+	sc_queue_clear(s->jobs);
+	sc_array_clear(s->term_clients);
+	sc_array_clear(s->nodes);
+	sc_array_clear(s->unknown_nodes);
+	sc_list_clear(&s->pending_conns);
+	sc_list_clear(&s->connected_nodes);
+	sc_list_clear(&s->read_reqs);
+	sc_map_clear_sv(&s->clients);
+	sc_map_clear_64v(&s->vclients);
+	sc_timer_clear(&s->timer);
+
+	s->stop_requested = false;
+	s->ss_inprogress = false;
+	s->cluster_up = false;
+	s->last_ts = 0;
+	s->role = SERVER_ROLE_FOLLOWER;
+
+	s->commit = 0;
+	s->round = 0;
+	s->round_prev = 0;
+	s->round_match = 0;
+
+	return ret;
+}
+
+void server_term(struct server *s)
+{
+	int rc;
+	struct sc_buf buf;
+	struct server_endpoint e;
+
+	server_close(s);
+
+	sc_array_destroy(s->nodes);
+	sc_array_destroy(s->unknown_nodes);
+	sc_array_destroy(s->term_clients);
 
 	sc_timer_term(&s->timer);
-
 	sc_map_term_sv(&s->clients);
 	sc_map_term_64v(&s->vclients);
-
-	sc_queue_foreach (s->jobs, job) {
-		rs_free(job.data);
-	}
-	sc_queue_destroy(s->jobs);
 
 	sc_queue_foreach (s->cache, buf) {
 		sc_buf_term(&buf);
 	}
+
 	sc_queue_destroy(s->cache);
+	sc_queue_destroy(s->jobs);
 
 	sc_str_destroy(&s->meta_path);
 	sc_str_destroy(&s->meta_tmp_path);
 	sc_buf_term(&s->tmp);
 
+	sc_array_foreach (s->endpoints, e) {
+		if (strcmp(e.uri->scheme, "unix") == 0) {
+			file_unlink(e.uri->path);
+		}
+
+		sc_uri_destroy(&e.uri);
+
+		rc = sc_sock_term(e.sock);
+		if (rc != 0) {
+			sc_log_error("sock_term : %s\n", sc_sock_error(e.sock));
+		}
+
+		rs_free(e.sock);
+	}
+	sc_array_destroy(s->endpoints);
+
 	rc = sc_sock_pipe_term(&s->efd);
 	if (rc != 0) {
 		sc_log_error("pipe_term : %s \n", sc_sock_pipe_err(&s->efd));
-		ret = RS_ERROR;
 	}
 
 	rc = sc_sock_pipe_term(&s->sigfd);
 	if (rc != 0) {
 		sc_log_error("pipe_term : %s \n", sc_sock_pipe_err(&s->sigfd));
-		ret = RS_ERROR;
 	}
 
-	metric_term(&s->metric);
-	conf_term(&s->conf);
+	rc = sc_sock_poll_term(&s->poll);
+	if (rc != 0) {
+		sc_log_error("poll_term : %s \n", sc_sock_poll_err(&s->poll));
+	}
 
-	return ret;
+	rs_delete_pid_file(s->conf.node.dir);
+
+	metric_term(&s->metric);
+	meta_term(&s->meta);
+	conf_term(&s->conf);
 }
 
 struct sc_buf server_buf_alloc(struct server *s)
@@ -355,8 +389,6 @@ int server_prepare_cluster(struct server *s)
 		.shutdown = server_shutdown,
 	};
 
-	s->meta_path = sc_str_create_fmt("%s/%s", path, DEF_META_FILE);
-	s->meta_tmp_path = sc_str_create_fmt("%s/%s", path, DEF_META_TMP);
 	s->cluster_up = false;
 	s->role = SERVER_ROLE_FOLLOWER;
 	s->leader = NULL;
@@ -383,7 +415,6 @@ int server_write_meta(struct server *s)
 
 	rc = file_open(&f, s->meta_tmp_path, "w+");
 	if (rc != RS_OK) {
-		sc_log_error("Failed to create file : %s \n", s->meta_tmp_path);
 		return rc;
 	}
 
@@ -392,26 +423,33 @@ int server_write_meta(struct server *s)
 	sc_buf_put_str(&s->tmp, s->voted_for);
 	meta_encode(&s->meta, &s->tmp);
 
-	file_write(&f, sc_buf_rbuf(&s->tmp), sc_buf_size(&s->tmp));
-	rc = file_flush(&f);
-	file_term(&f);
-
+	rc = file_write(&f, sc_buf_rbuf(&s->tmp), sc_buf_size(&s->tmp));
 	if (rc != RS_OK) {
-		goto cleanup;
+		goto cleanup_file;
 	}
 
-	rc = rename(s->meta_tmp_path, s->meta_path);
-	if (rc != 0) {
-		sc_log_error("rename : %s to %s failed \n", s->meta_tmp_path,
-			     s->meta_path);
-		rc = RS_ERROR;
-		goto cleanup;
+	rc = file_flush(&f);
+	if (rc != RS_OK) {
+		goto cleanup_file;
+	}
+
+	rc = file_term(&f);
+	if (rc != RS_OK) {
+		goto cleanup_tmp;
+	}
+
+	rc = file_rename(s->meta_path, s->meta_tmp_path);
+	if (rc != RS_OK) {
+		goto cleanup_tmp;
 	}
 
 	return RS_OK;
 
-cleanup:
+cleanup_file:
+	file_term(&f);
+cleanup_tmp:
 	file_remove_path(s->meta_tmp_path);
+
 	return rc;
 }
 
@@ -420,6 +458,9 @@ static int server_create_meta(struct server *s)
 	bool b;
 	int rc;
 	const char *urls = s->conf.cluster.nodes;
+
+	meta_term(&s->meta);
+	meta_init(&s->meta, s->conf.cluster.name);
 
 	b = meta_parse_uris(&s->meta, urls);
 	if (!b) {
@@ -461,13 +502,14 @@ static int server_parse_meta(struct server *s)
 		goto cleanup;
 	}
 
-	file_term(&f);
-
 	sc_buf_mark_write(&s->tmp, (uint32_t) size);
 	sc_str_set(&s->conf.node.name, sc_buf_get_str(&s->tmp));
 	sc_str_set(&s->voted_for, sc_buf_get_str(&s->tmp));
 
+	meta_term(&s->meta);
+	meta_init(&s->meta, s->conf.cluster.name);
 	meta_decode(&s->meta, &s->tmp);
+
 	rc = RS_OK;
 
 cleanup:
@@ -518,56 +560,12 @@ int server_read_meta(struct server *s)
 	return RS_OK;
 }
 
-void server_update_meta(struct server *s, uint64_t term, const char *voted_for)
+int server_update_meta(struct server *s, uint64_t term, const char *voted_for)
 {
 	s->meta.term = term;
 	sc_str_set(&s->voted_for, voted_for);
-	server_write_meta(s);
-}
 
-static void server_listen(struct server *s, const char *addr)
-{
-	int family, rc;
-	const char *host;
-	struct sc_uri *uri;
-	struct sc_sock *sock;
-	struct server_endpoint e;
-
-	uri = sc_uri_create(addr);
-	if (!uri) {
-		rs_exit("Failed to parse bind url : %s \n", addr);
-	}
-
-	if (strcmp(uri->scheme, "unix") == 0) {
-		family = SC_SOCK_UNIX;
-	} else if (*uri->host == '[') {
-		family = SC_SOCK_INET6;
-	} else {
-		family = SC_SOCK_INET;
-	}
-
-	sock = rs_malloc(sizeof(*sock));
-	sc_sock_init(sock, SERVER_FD_INCOMING_CONN, false, family);
-
-	host = (family == SC_SOCK_UNIX) ? uri->path : uri->host;
-
-	rc = sc_sock_listen(sock, host, uri->port);
-	if (rc != RS_OK) {
-		rs_exit("Failed to listen at : %s, reason : %s \n", uri->str,
-			sc_sock_error(sock));
-	}
-
-	e.uri = uri;
-	e.sock = sock;
-
-	sc_array_add(s->endpoints, e);
-
-	rc = sc_sock_poll_add(&s->poll, &sock->fdt, SC_SOCK_READ, &sock->fdt);
-	if (rc != 0) {
-		rs_exit("Poll failed : %s \n", sc_sock_poll_err(&s->poll));
-	}
-
-	sc_log_info("Listening at : %s \n", uri->str);
+	return server_write_meta(s);
 }
 
 static const char *server_msg(struct server *s, struct msg *msg)
@@ -647,8 +645,6 @@ static void server_on_pending_disconnect(struct server *s, struct conn *in,
 	conn_destroy(in);
 }
 
-static void server_on_node_disconnect(struct server *s, struct node *node);
-
 static int server_wait_snapshot(struct server *s)
 {
 	int rc;
@@ -659,7 +655,7 @@ static int server_wait_snapshot(struct server *s)
 
 	s->ss_inprogress = false;
 
-	rc = (int) (uintptr_t) sc_cond_wait(&s->ss.cond);
+	rc = snapshot_wait(&s->ss);
 	if (rc != RS_OK) {
 		metric_snapshot(false, 0, 0);
 		return rc;
@@ -686,6 +682,10 @@ retry:
 		rc = server_wait_snapshot(s);
 		if (rc == RS_OK) {
 			goto retry;
+		}
+
+		if (rc == RS_FULL) {
+			return rc;
 		}
 
 		if (force) {
@@ -732,19 +732,28 @@ static void server_log(struct server *s, const char *level, const char *fmt,
 #define server_warn(s, ...) (server_log(s, "WARN", server_ap(__VA_ARGS__, "")))
 #define server_err(s, ...)  (server_log(s, "ERROR", server_ap(__VA_ARGS__, "")))
 
-static void server_write_init_cmd(struct server *s)
+static int server_write_init_cmd(struct server *s)
 {
+	int rc;
 	unsigned char rand[256];
 
-	rs_urandom(rand, sizeof(rand));
+	rc = rs_urandom(rand, sizeof(rand));
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	sc_buf_clear(&s->tmp);
 	cmd_encode_init(&s->tmp, rand);
 
-	server_create_entry(s, true, 0, 0, CMD_INIT, &s->tmp);
+	rc = server_create_entry(s, true, 0, 0, CMD_INIT, &s->tmp);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
+	return RS_OK;
 }
 
-static void server_write_meta_cmd(struct server *s)
+static int server_write_meta_cmd(struct server *s)
 {
 	bool b;
 	struct node *node;
@@ -768,18 +777,14 @@ static void server_write_meta_cmd(struct server *s)
 
 	sc_buf_clear(&s->tmp);
 	cmd_encode_meta(&s->tmp, &s->meta);
-	server_create_entry(s, true, 0, 0, CMD_META, &s->tmp);
+
+	return server_create_entry(s, true, 0, 0, CMD_META, &s->tmp);
 }
 
-static void server_write_term_start_cmd(struct server *s)
+static int server_on_node_disconnect(struct server *s, struct node *node)
 {
-	sc_buf_clear(&s->tmp);
-	cmd_encode_term_start(&s->tmp);
-	server_create_entry(s, true, 0, 0, CMD_TERM_START, &s->tmp);
-}
+	int rc = RS_OK;
 
-static void server_on_node_disconnect(struct server *s, struct node *node)
-{
 	sc_log_info("Node is not connected : %s \n", node->name);
 
 	node_disconnect(node);
@@ -789,18 +794,33 @@ static void server_on_node_disconnect(struct server *s, struct node *node)
 	}
 
 	if (s->role == SERVER_ROLE_LEADER) {
-		server_write_meta_cmd(s);
+		rc = server_write_meta_cmd(s);
 	}
+
+	return rc;
 }
 
-static void server_on_client_disconnect(struct server *s, struct client *c,
-					enum msg_rc rc)
+static int server_write_term_start_cmd(struct server *s)
 {
+	sc_buf_clear(&s->tmp);
+	cmd_encode_term_start(&s->tmp);
+
+	return server_create_entry(s, true, 0, 0, CMD_TERM, &s->tmp);
+}
+
+static int server_on_client_disconnect(struct server *s, struct client *c,
+				       enum msg_rc msg_rc)
+{
+	int rc;
+
 	if (s->role == SERVER_ROLE_LEADER) {
 		sc_buf_clear(&s->tmp);
-		cmd_encode_client_disconnect(&s->tmp, c->name, rc == MSG_OK);
-		server_create_entry(s, true, 0, 0, CMD_CLIENT_DISCONNECT,
-				    &s->tmp);
+		cmd_encode_disconnect(&s->tmp, c->name, msg_rc == MSG_OK);
+		rc = server_create_entry(s, true, 0, 0, CMD_DISCONNECT,
+					 &s->tmp);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 	conn_clear_bufs(&c->conn);
@@ -810,6 +830,8 @@ static void server_on_client_disconnect(struct server *s, struct client *c,
 	sc_map_del_64v(&s->vclients, c->id, NULL);
 	sc_map_del_sv(&s->clients, c->name, NULL);
 	sc_array_add(s->term_clients, c);
+
+	return RS_OK;
 }
 
 static void server_finalize_client_connection(struct server *s,
@@ -832,10 +854,11 @@ static void server_finalize_client_connection(struct server *s,
 	sc_log_debug("Client connected : %s \n", c->name);
 }
 
-static void server_on_client_connect_req(struct server *s, struct conn *in,
-					 struct msg_connect_req *msg)
+static int server_on_client_connect_req(struct server *s, struct conn *in,
+					struct msg_connect_req *msg)
 {
 	bool found;
+	int rc;
 	struct client *c, *prev;
 
 	if (!s->cluster_up || s->role != SERVER_ROLE_LEADER) {
@@ -862,24 +885,26 @@ static void server_on_client_connect_req(struct server *s, struct conn *in,
 	c = client_create(in, msg->name);
 	rs_free(in);
 
+	sc_map_put_sv(&s->clients, c->name, c);
 	sc_buf_clear(&s->tmp);
 	cmd_encode_client_connect(&s->tmp, msg->name, c->conn.local,
 				  c->conn.remote);
-	server_create_entry(s, true, 0, 0, CMD_CLIENT_CONNECT, &s->tmp);
-	sc_map_put_sv(&s->clients, c->name, c);
 	conn_clear_bufs(&c->conn);
 
-	return;
+	rc = server_create_entry(s, true, 0, 0, CMD_CONNECT, &s->tmp);
+
+	return rc;
 
 not_leader:
 	server_on_pending_disconnect(s, in, MSG_NOT_LEADER);
-	return;
+	return RS_OK;
 err:
 	server_on_pending_disconnect(s, in, MSG_ERR);
+	return RS_OK;
 }
 
-static void server_on_node_connect_req(struct server *s, struct conn *pending,
-				       struct msg_connect_req *msg)
+static int server_on_node_connect_req(struct server *s, struct conn *pending,
+				      struct msg_connect_req *msg)
 {
 	int rc;
 	bool found = false;
@@ -916,11 +941,13 @@ static void server_on_node_connect_req(struct server *s, struct conn *pending,
 	}
 
 	if (s->role == SERVER_ROLE_LEADER) {
-		server_write_meta_cmd(s);
+		return server_write_meta_cmd(s);
 	}
+
+	return RS_OK;
 }
 
-static void server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
+static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
 	struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
@@ -937,7 +964,7 @@ static void server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 	if (rc == RS_INVALID || rc == RS_ERROR) {
 		goto disconnect;
 	} else if (rc == RS_PARTIAL) {
-		return;
+		return RS_OK;
 	}
 
 	if (msg.type != MSG_CONNECT_RESP || msg.connect_resp.rc != MSG_OK) {
@@ -947,10 +974,10 @@ static void server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 	conn_set_type(&node->conn, SERVER_FD_NODE_RECV);
 	sc_list_add_tail(&s->connected_nodes, &node->list);
 
-	return;
+	return RS_OK;
 
 disconnect:
-	server_on_node_disconnect(s, node);
+	return server_on_node_disconnect(s, node);
 }
 
 static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
@@ -985,8 +1012,9 @@ static void server_schedule_election(struct server *s)
 	s->election_timer = sc_timer_add(&s->timer, t, type, NULL);
 }
 
-static void server_become_leader(struct server *s)
+static int server_become_leader(struct server *s)
 {
+	int rc;
 	struct node *node;
 
 	s->role = SERVER_ROLE_LEADER;
@@ -1001,15 +1029,27 @@ static void server_become_leader(struct server *s)
 	}
 
 	if (s->store.last_index == 0) {
-		server_write_init_cmd(s);
+		rc = server_write_init_cmd(s);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
-	server_write_meta_cmd(s);
-	server_write_term_start_cmd(s);
+	rc = server_write_meta_cmd(s);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
+	rc = server_write_term_start_cmd(s);
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	sc_buf_clear(&s->tmp);
 	meta_print(&s->meta, &s->tmp);
 	sc_log_info(sc_buf_rbuf(&s->tmp));
+
+	return RS_OK;
 }
 
 static void server_become_follower(struct server *s, struct node *leader)
@@ -1027,7 +1067,7 @@ static void server_become_follower(struct server *s, struct node *leader)
 	}
 }
 
-static void server_check_prevote_count(struct server *s)
+static int server_check_prevote_count(struct server *s)
 {
 	int rc;
 	struct sc_list *n, *tmp;
@@ -1035,7 +1075,11 @@ static void server_check_prevote_count(struct server *s)
 	struct sc_buf *buf;
 
 	if (s->prevote_count >= s->meta.voter / 2 + 1) {
-		server_update_meta(s, s->prevote_term, s->conf.node.name);
+		rc = server_update_meta(s, s->prevote_term, s->conf.node.name);
+		if (rc != RS_OK) {
+			return rc;
+		}
+
 		s->vote_count = 1;
 
 		sc_list_foreach_safe (&s->connected_nodes, tmp, n) {
@@ -1047,17 +1091,25 @@ static void server_check_prevote_count(struct server *s)
 					       s->store.last_term);
 			rc = conn_flush(&node->conn);
 			if (rc != RS_OK) {
-				server_on_node_disconnect(s, node);
+				rc = server_on_node_disconnect(s, node);
+				if (rc != RS_OK) {
+					return rc;
+				}
 			}
 		}
 
 		if (s->vote_count >= s->meta.voter / 2 + 1) {
-			server_become_leader(s);
+			rc = server_become_leader(s);
+			if (rc != RS_OK) {
+				return rc;
+			}
 		}
 	}
+
+	return RS_OK;
 }
 
-static void server_on_election_timeout(struct server *s)
+static int server_on_election_timeout(struct server *s)
 {
 	int rc;
 	size_t connected;
@@ -1067,20 +1119,20 @@ static void server_on_election_timeout(struct server *s)
 	uint64_t timeout = s->conf.advanced.heartbeat;
 
 	if (s->leader == s->own) {
-		return;
+		return RS_OK;
 	}
 
 	if (timeout > s->timestamp - s->vote_timestamp) {
-		return;
+		return RS_OK;
 	}
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
-		return;
+		return RS_OK;
 	}
 
 	if (!meta_exists(&s->meta, s->conf.node.name)) {
-		return;
+		return RS_OK;
 	}
 
 	connected = sc_list_count(&s->connected_nodes) + 1;
@@ -1090,7 +1142,7 @@ static void server_on_election_timeout(struct server *s)
 			    "Connected nodes = %zu, "
 			    "No election will take place \n",
 			    (size_t) s->meta.voter, connected);
-		return;
+		return RS_OK;
 	}
 
 	sc_log_info("Starting election, term[%" PRIu64 "]\n", s->meta.term + 1);
@@ -1111,7 +1163,7 @@ static void server_on_election_timeout(struct server *s)
 		}
 	}
 
-	server_check_prevote_count(s);
+	return server_check_prevote_count(s);
 }
 
 static void server_try_connect(struct server *s, struct node *n)
@@ -1132,7 +1184,7 @@ static void server_try_connect(struct server *s, struct node *n)
 	}
 }
 
-static void server_on_info_timer(struct server *s)
+static int server_on_info_timer(struct server *s)
 {
 	int rc;
 	struct sc_list *l;
@@ -1155,7 +1207,11 @@ static void server_on_info_timer(struct server *s)
 					sc_buf_size(&n->info));
 		}
 
-		server_create_entry(s, true, 0, 0, CMD_INFO, &s->tmp);
+		rc = server_create_entry(s, true, 0, 0, CMD_INFO, &s->tmp);
+		if (rc != RS_OK) {
+			return rc;
+		}
+
 	} else {
 		if (s->leader != NULL) {
 			buf = conn_outbuf(&s->leader->conn);
@@ -1169,34 +1225,105 @@ static void server_on_info_timer(struct server *s)
 	}
 
 	s->info_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_INFO, NULL);
+
+	return RS_OK;
 }
 
-void server_on_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
+static void server_on_full_disk(struct server *s)
+{
+	int rc;
+
+	if (s->full) {
+		return;
+	}
+
+	sc_log_error("Disk is full. \n");
+
+	rc = server_close(s);
+	if (rc != RS_OK && rc != RS_FULL) {
+		rs_exit("server close : %d", rc);
+	}
+
+	s->full = true;
+	sc_timer_cancel(&s->timer, &s->full_timer);
+	s->full_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_FULL, NULL);
+}
+
+static void server_on_full_timer(struct server *s)
+{
+	assert(s->full);
+
+	int rc;
+	char tmp[PATH_MAX];
+	char req[64];
+	char cur[64];
+
+	size_t dir_size;
+	ssize_t ss_size;
+	size_t limit = 64 * 1024 * 1024;
+
+	dir_size = rs_dir_free(s->conf.node.dir);
+
+	rs_snprintf(tmp, sizeof(tmp), "%s/snapshot.resql", s->conf.node.dir);
+	ss_size = file_size_at(tmp);
+	if (ss_size > 0) {
+		limit += (size_t) ss_size;
+	}
+
+	if (dir_size > limit) {
+		rc = server_prepare_start(s);
+		if (rc == RS_ERROR) {
+			rs_exit("prepare_start : %d .", rc);
+		}
+
+		if (rc == RS_OK) {
+			s->full = false;
+			return;
+		}
+	}
+
+	s->full_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_FULL, NULL);
+
+	sc_bytes_to_size(cur, sizeof(cur), dir_size);
+	sc_bytes_to_size(req, sizeof(req), limit);
+
+	sc_log_error("Free space : %s, need : %s. Retry in 10 seconds \n", cur,
+		     req);
+}
+
+void server_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
 {
 	(void) timeout;
 
+	int rc = RS_OK;
 	struct server *s = arg;
+
+	if (s->timer_rc != RS_OK) {
+		return;
+	}
 
 	switch (type) {
 	case SERVER_TIMER_PENDING:
 		server_on_pending_disconnect(s, data, MSG_TIMEOUT);
 		break;
-
 	case SERVER_TIMER_CONNECT:
 		server_try_connect(s, data);
 		break;
-
 	case SERVER_TIMER_ELECTION:
-		server_on_election_timeout(s);
+		rc = server_on_election_timeout(s);
 		server_schedule_election(s);
 		break;
-
 	case SERVER_TIMER_INFO:
-		server_on_info_timer(s);
+		rc = server_on_info_timer(s);
+		break;
+	case SERVER_TIMER_FULL:
+		server_on_full_timer(s);
 		break;
 	default:
 		break;
 	}
+
+	s->timer_rc = rc;
 }
 
 int server_on_client_req(struct server *s, struct client *c, struct msg *msg)
@@ -1220,7 +1347,7 @@ int server_on_client_req(struct server *s, struct client *c, struct msg *msg)
 		} else {
 			buf = sc_buf_wrap(req->buf, req->len, SC_BUF_READ);
 			rc = server_create_entry(s, false, req->seq, c->id,
-						 CMD_CLIENT_REQUEST, &buf);
+						 CMD_REQUEST, &buf);
 			if (rc != RS_OK) {
 				return RS_ERROR;
 			}
@@ -1240,10 +1367,11 @@ int server_on_client_req(struct server *s, struct client *c, struct msg *msg)
 	return RS_OK;
 }
 
-static void server_on_reqvote_req(struct server *s, struct node *node,
-				  struct msg *msg)
+static int server_on_reqvote_req(struct server *s, struct node *node,
+				 struct msg *msg)
 {
 	bool grant = false;
+	int rc;
 	uint64_t timeout = s->conf.advanced.heartbeat;
 	uint64_t last_index = s->store.last_index;
 	struct msg_prevote_req *req = &msg->prevote_req;
@@ -1260,49 +1388,61 @@ static void server_on_reqvote_req(struct server *s, struct node *node,
 
 	if (req->term > s->meta.term && req->last_log_index >= last_index) {
 		grant = true;
-		server_update_meta(s, req->term, node->name);
+		rc = server_update_meta(s, req->term, node->name);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 out:
 	buf = conn_outbuf(&node->conn);
 	msg_create_reqvote_resp(buf, req->term, last_index, grant);
+
+	return RS_OK;
 }
 
-static void server_on_reqvote_resp(struct server *s, struct node *node,
-				   struct msg *msg)
+static int server_on_reqvote_resp(struct server *s, struct node *n,
+				  struct msg *msg)
 {
+	int rc = RS_OK;
 	struct msg_reqvote_resp *resp = &msg->reqvote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->meta.term != resp->term) {
-		sc_log_debug("Unexpected msg from [%s] : %s \n", node->name,
+		sc_log_debug("Unexpected msg from [%s] : %s \n", n->name,
 			     server_msg(s, msg));
-		return;
+		return RS_OK;
 	}
 
 	if (resp->term > s->meta.term) {
 		sc_log_debug("Recv[reqvoteresp], node[%s] term[%" PRIu64 "], "
 			     "node's term [%" PRIu64 "], "
 			     "stepping down to follower \n",
-			     node->name, resp->term, s->meta.term);
+			     n->name, resp->term, s->meta.term);
 
-		server_update_meta(s, resp->term, NULL);
+		rc = server_update_meta(s, resp->term, NULL);
+		if (rc != RS_OK) {
+			return rc;
+		}
+
 		s->prevote_count = 0;
 		s->role = SERVER_ROLE_FOLLOWER;
-		return;
+		return RS_OK;
 	}
 
 	if (!resp->granted) {
-		return;
+		return RS_OK;
 	}
 
 	s->vote_count++;
 	if (s->vote_count >= s->meta.voter / 2 + 1) {
-		server_become_leader(s);
+		rc = server_become_leader(s);
 	}
+
+	return rc;
 }
 
-static void server_on_prevote_req(struct server *s, struct node *node,
-				  struct msg *msg)
+static int server_on_prevote_req(struct server *s, struct node *n,
+				 struct msg *msg)
 {
 	bool result = false;
 	uint64_t index = s->store.last_index;
@@ -1326,40 +1466,43 @@ static void server_on_prevote_req(struct server *s, struct node *node,
 	s->vote_timestamp = s->timestamp;
 
 out:
-	buf = conn_outbuf(&node->conn);
+	buf = conn_outbuf(&n->conn);
 	msg_create_prevote_resp(buf, req->term, index, result);
+
+	return RS_OK;
 }
 
-static void server_on_prevote_resp(struct server *s, struct node *node,
-				   struct msg *msg)
+static int server_on_prevote_resp(struct server *s, struct node *node,
+				  struct msg *msg)
 {
 	(void) node;
 
 	struct msg_prevote_resp *resp = &msg->prevote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->prevote_term != resp->term) {
-		return;
+		return RS_OK;
 	}
 
 	if (resp->term > s->prevote_term) {
 		server_update_meta(s, resp->term, NULL);
 		s->prevote_count = 0;
 		s->role = SERVER_ROLE_FOLLOWER;
-		return;
+		return RS_OK;
 	}
 
 	if (!resp->granted) {
-		return;
+		return RS_OK;
 	}
 
 	s->prevote_count++;
-	server_check_prevote_count(s);
+
+	return server_check_prevote_count(s);
 }
 
 static void server_on_applied_entry(struct server *s, unsigned char *entry,
 				    struct session *sess);
 
-static void server_update_commit(struct server *s, uint64_t commit)
+static int server_update_commit(struct server *s, uint64_t commit)
 {
 	int rc;
 	unsigned char *entry;
@@ -1371,8 +1514,13 @@ static void server_update_commit(struct server *s, uint64_t commit)
 			entry = store_get_entry(&s->store, i);
 			rc = state_apply(&s->state, i, entry, &sess);
 			if (rc != RS_OK) {
-				rs_abort("");
+				if (rc == RS_FULL) {
+					return rc;
+				}
+
+				rs_abort("error : %d \n", rc);
 			}
+
 			server_on_applied_entry(s, entry, sess);
 		}
 
@@ -1381,12 +1529,17 @@ static void server_update_commit(struct server *s, uint64_t commit)
 
 	if (!s->ss_inprogress && s->commit >= store_ss_index(&s->store)) {
 		s->ss_inprogress = true;
-		snapshot_take(&s->ss, store_ss_page(&s->store));
+		rc = snapshot_take(&s->ss, store_ss_page(&s->store));
+		if (rc != RS_OK) {
+			rs_abort("error");
+		}
 	}
+
+	return RS_OK;
 }
 
-static void server_store_entries(struct server *s, uint64_t index,
-				 unsigned char *buf, uint32_t len)
+static int server_store_entries(struct server *s, uint64_t index,
+				unsigned char *buf, uint32_t len)
 {
 	int rc;
 	uint32_t data_len, total_len;
@@ -1423,6 +1576,10 @@ retry:
 				goto retry;
 			}
 
+			if (rc == RS_FULL) {
+				return rc;
+			}
+
 			rc = store_reserve(&s->store, total_len);
 			if (rc != RS_OK) {
 				rs_exit("Out of disk space .. \n");
@@ -1435,10 +1592,13 @@ retry:
 	if (s->conf.advanced.fsync) {
 		store_flush(&s->store);
 	}
+
+	return RS_OK;
 }
 
-void server_on_append_req(struct server *s, struct node *n, struct msg *msg)
+int server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 {
+	int rc;
 	bool success = false;
 	uint64_t prev;
 	struct msg_append_req *req = &msg->append_req;
@@ -1451,7 +1611,10 @@ void server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 	if (req->term > s->meta.term ||
 	    (s->meta.term == req->term && s->leader == NULL)) {
 		server_become_follower(s, n);
-		server_update_meta(s, req->term, n->name);
+		rc = server_update_meta(s, req->term, n->name);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 	n->in_timestamp = s->timestamp;
@@ -1462,23 +1625,33 @@ void server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 		goto out;
 	}
 
-	server_store_entries(s, req->prev_log_index + 1, req->buf, req->len);
+	rc = server_store_entries(s, req->prev_log_index + 1, req->buf,
+				  req->len);
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	server_become_follower(s, n);
-	server_update_commit(s, req->leader_commit);
+	rc = server_update_commit(s, req->leader_commit);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
 	success = true;
 out:
 	buf = conn_outbuf(&n->conn);
 	msg_create_append_resp(buf, s->meta.term, s->store.last_index,
 			       success ? req->round : 0, success);
+	return RS_OK;
 }
 
-void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
+int server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 {
+	int rc;
 	struct msg_append_resp *resp = &msg->append_resp;
 
 	if (s->role != SERVER_ROLE_LEADER) {
-		return;
+		return RS_OK;
 	}
 
 	node->msg_inflight--;
@@ -1488,7 +1661,11 @@ void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 
 	if (!resp->success) {
 		if (resp->term > s->meta.term) {
-			server_update_meta(s, resp->term, NULL);
+			rc = server_update_meta(s, resp->term, NULL);
+			if (rc != RS_OK) {
+				return rc;
+			}
+
 			server_become_follower(s, NULL);
 		}
 
@@ -1496,6 +1673,8 @@ void server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 		node->next = node->match + 1;
 		node->round = 0;
 	}
+
+	return RS_OK;
 }
 
 const char *server_add_node(void *arg, const char *node)
@@ -1564,7 +1743,7 @@ static void server_replace_snapshot(struct server *s)
 	s->commit = s->state.index;
 }
 
-void server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
+int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 {
 	bool success = true;
 	int rc;
@@ -1579,13 +1758,18 @@ void server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 	if ((s->meta.term == req->term && s->leader == NULL) ||
 	    req->term > s->meta.term) {
 		server_become_follower(s, n);
-		server_update_meta(s, req->term, n->name);
+
+		rc = server_update_meta(s, req->term, n->name);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 	n->in_timestamp = s->timestamp;
 
-	if (s->ss_inprogress) {
-		sc_cond_wait(&s->ss.cond);
+	rc = server_wait_snapshot(s);
+	if (rc == RS_FULL) {
+		return rc;
 	}
 
 	rc = snapshot_recv(&s->ss, req->ss_term, req->ss_index, req->done,
@@ -1600,18 +1784,25 @@ void server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 out:
 	buf = conn_outbuf(&n->conn);
 	msg_create_snapshot_resp(buf, s->meta.term, success, req->done);
+
+	return RS_OK;
 }
 
-void server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
+int server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 {
+	int rc;
 	struct msg_snapshot_resp *resp = &msg->snapshot_resp;
 
 	n->msg_inflight--;
 
 	if (resp->term > s->meta.term) {
-		server_update_meta(s, resp->term, NULL);
+		rc = server_update_meta(s, resp->term, NULL);
+		if (rc != RS_OK) {
+			return rc;
+		}
+
 		server_become_follower(s, NULL);
-		return;
+		return RS_OK;
 	}
 
 	if (resp->done) {
@@ -1619,28 +1810,31 @@ void server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 		server_warn(s, "Snapshot[%" PRIu64 "] sent to : %s",
 			    s->ss.index, n->name);
 	}
+
+	return RS_OK;
 }
 
-void server_on_info_req(struct server *s, struct node *n, struct msg *msg)
+int server_on_info_req(struct server *s, struct node *n, struct msg *msg)
 {
 	(void) s;
 
 	sc_buf_clear(&n->info);
 	sc_buf_put_raw(&n->info, msg->info_req.buf, msg->info_req.len);
+
+	return RS_OK;
 }
 
-void server_on_shutdown_req(struct server *s, struct node *n, struct msg *msg)
+int server_on_shutdown_req(struct server *s)
 {
-	(void) n;
-	(void) msg;
-
 	sc_log_info("Received shutdown request.. \n");
 	s->stop_requested = true;
+
+	return RS_OK;
 }
 
-void server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
+int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 {
-	int rc;
+	int rc, ret;
 	struct msg msg;
 
 	struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
@@ -1663,38 +1857,42 @@ void server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		while ((rc = msg_parse(&node->conn.in, &msg)) == RS_OK) {
 			switch (msg.type) {
 			case MSG_APPEND_REQ:
-				server_on_append_req(s, node, &msg);
+				ret = server_on_append_req(s, node, &msg);
 				break;
 			case MSG_APPEND_RESP:
-				server_on_append_resp(s, node, &msg);
+				ret = server_on_append_resp(s, node, &msg);
 				break;
 			case MSG_PREVOTE_REQ:
-				server_on_prevote_req(s, node, &msg);
+				ret = server_on_prevote_req(s, node, &msg);
 				break;
 			case MSG_PREVOTE_RESP:
-				server_on_prevote_resp(s, node, &msg);
+				ret = server_on_prevote_resp(s, node, &msg);
 				break;
 			case MSG_REQVOTE_REQ:
-				server_on_reqvote_req(s, node, &msg);
+				ret = server_on_reqvote_req(s, node, &msg);
 				break;
 			case MSG_REQVOTE_RESP:
-				server_on_reqvote_resp(s, node, &msg);
+				ret = server_on_reqvote_resp(s, node, &msg);
 				break;
 			case MSG_SNAPSHOT_REQ:
-				server_on_snapshot_req(s, node, &msg);
+				ret = server_on_snapshot_req(s, node, &msg);
 				break;
 			case MSG_SNAPSHOT_RESP:
-				server_on_snapshot_resp(s, node, &msg);
+				ret = server_on_snapshot_resp(s, node, &msg);
 				break;
 			case MSG_INFO_REQ:
-				server_on_info_req(s, node, &msg);
+				ret = server_on_info_req(s, node, &msg);
 				break;
 			case MSG_SHUTDOWN_REQ:
-				server_on_shutdown_req(s, node, &msg);
+				ret = server_on_shutdown_req(s);
 				break;
 			default:
 				server_on_node_disconnect(s, node);
-				return;
+				return RS_OK;
+			}
+
+			if (ret != RS_OK) {
+				return ret;
 			}
 		}
 
@@ -1709,67 +1907,101 @@ void server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		goto disconnect;
 	}
 
-	return;
+	return RS_OK;
 
 disconnect:
 	server_on_node_disconnect(s, node);
+	return RS_OK;
 }
 
-void server_on_client_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
+int server_on_client_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 {
 	int rc;
+	int ret = MSG_ERR;
 	struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
 	struct conn *conn = rs_entry(sock, struct conn, sock);
-	struct client *client = rs_entry(conn, struct client, conn);
+	struct client *c = rs_entry(conn, struct client, conn);
+	struct msg_client_req *req;
+	struct sc_buf buf;
 
-	if (client->terminated) {
-		return;
+	if (c->terminated) {
+		return RS_OK;
 	}
 
 	if (ev & SC_SOCK_WRITE) {
-		rc = conn_on_writable(&client->conn);
+		rc = conn_on_writable(&c->conn);
 		if (rc != RS_OK) {
 			goto disconnect;
 		}
 	}
 
 	if (ev & SC_SOCK_READ) {
-		if (client_pending(client)) {
+		if (client_pending(c)) {
 			conn_disallow_read(conn);
-			return;
+			return RS_OK;
 		}
 
-		rc = conn_on_readable(&client->conn);
+		rc = conn_on_readable(&c->conn);
 		if (rc != RS_OK) {
 			goto disconnect;
 		}
 
-		rc = msg_parse(&client->conn.in, &client->msg);
+		rc = msg_parse(&c->conn.in, &c->msg);
 		if (rc == RS_INVALID) {
 			goto disconnect;
 		}
 
 		if (rc == RS_PARTIAL) {
-			return;
+			return RS_OK;
 		}
 
-		rc = server_on_client_req(s, client, &client->msg);
-		if (rc != RS_OK) {
+		if (c->msg.type == MSG_DISCONNECT_REQ) {
+			ret = MSG_OK;
 			goto disconnect;
+		}
+
+		if (c->msg.type != MSG_CLIENT_REQ) {
+			goto disconnect;
+		}
+
+		c->msg_wait = true;
+		req = &c->msg.client_req;
+
+		if (req->readonly) {
+			if (s->round_prev == s->round) {
+				s->round++;
+			}
+
+			c->round_index = s->round;
+			c->commit_index = s->store.last_index;
+			sc_list_add_tail(&s->read_reqs, &c->read);
+		} else {
+			buf = sc_buf_wrap(req->buf, req->len, SC_BUF_READ);
+			rc = server_create_entry(s, false, req->seq, c->id,
+						 CMD_REQUEST, &buf);
+			if (rc == RS_FULL) {
+				return rc;
+			}
+
+			if (rc != RS_OK) {
+				goto disconnect;
+			}
+
+			c->seq = req->seq;
+			conn_clear_bufs(&c->conn);
 		}
 	}
 
-	return;
+	return RS_OK;
 
 disconnect:
-	server_on_client_disconnect(s, client, MSG_ERR);
+	server_on_client_disconnect(s, c, ret);
+	return RS_OK;
 }
 
 static int server_prepare_start(struct server *s)
 {
 	int rc;
-	char *save = NULL, *urls;
-	const char *token;
 	struct node *node;
 	struct meta_node n;
 
@@ -1781,17 +2013,6 @@ static int server_prepare_start(struct server *s)
 	rc = server_read_meta(s);
 	if (rc != RS_OK) {
 		return rc;
-	}
-
-	conf_print(&s->conf);
-
-	urls = s->conf.node.bind_url;
-	while ((token = sc_str_token_begin(urls, &save, " ")) != NULL) {
-		server_listen(s, token);
-	}
-
-	if (sc_array_size(s->endpoints) == 0) {
-		rs_exit("Server is not listening on any port. \n");
 	}
 
 	sc_array_foreach (s->meta.nodes, n) {
@@ -1892,19 +2113,19 @@ static void server_on_applied_entry(struct server *s, unsigned char *entry,
 	case CMD_META:
 		server_on_meta(s, &s->state.meta);
 		break;
-	case CMD_TERM_START:
+	case CMD_TERM:
 		server_on_term_start(s, &s->state.meta);
 		break;
-	case CMD_CLIENT_REQUEST:
+	case CMD_REQUEST:
 		server_on_applied_client_req(s, sess->id,
 					     sc_buf_rbuf(&sess->resp),
 					     sc_buf_size(&sess->resp));
 		break;
 
-	case CMD_CLIENT_CONNECT:
+	case CMD_CONNECT:
 		server_on_client_connect_applied(s, sess);
 		break;
-	case CMD_CLIENT_DISCONNECT:
+	case CMD_DISCONNECT:
 	case CMD_INIT:
 	case CMD_INFO:
 	case CMD_TIMESTAMP:
@@ -1931,7 +2152,7 @@ static int server_sort_rounds(const void *n1, const void *n2)
 	return node1->round > node2->round ? -1 : 1;
 }
 
-static void server_check_commit(struct server *s)
+static int server_check_commit(struct server *s)
 {
 	int rc;
 	uint64_t match, round_index;
@@ -1943,10 +2164,13 @@ static void server_check_commit(struct server *s)
 	sc_array_sort(s->nodes, server_sort_matches);
 	match = s->nodes[index]->match;
 
-	server_update_commit(s, match);
+	rc = server_update_commit(s, match);
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	if (sc_list_is_empty(&s->read_reqs)) {
-		return;
+		return RS_OK;
 	}
 
 	sc_array_sort(s->nodes, server_sort_rounds);
@@ -1962,22 +2186,33 @@ static void server_check_commit(struct server *s)
 		}
 
 		buf = conn_outbuf(&c->conn);
-
 		rc = state_apply_readonly(&s->state, c->id,
 					  c->msg.client_req.buf,
 					  c->msg.client_req.len, buf);
-
-		if (rc != RS_OK || conn_flush(&c->conn) != RS_OK) {
-			server_on_client_disconnect(s, c, MSG_ERR);
+		if (rc != RS_OK) {
+			/**
+			 * readonly requests should not fail. Even it triggers
+			 * RS_FULL, it's returned as RS_OK from state as RS_FULL
+			 * gives no harm on readonly requests.
+			 */
+			rs_abort("apply_readonly : %d.", rc);
 		}
 
 		client_processed(c);
+
+		rc = conn_flush(&c->conn);
+		if (rc != RS_OK) {
+			server_on_client_disconnect(s, c, MSG_ERR);
+		}
 	}
+
+	return RS_OK;
 }
 
-static void server_job_add_node(struct server *s, struct server_job *job)
+static int server_job_add_node(struct server *s, struct server_job *job)
 {
 	bool b;
+	int rc = RS_OK;
 	const char *msg;
 	struct sc_uri *uri = NULL;
 
@@ -2000,7 +2235,7 @@ static void server_job_add_node(struct server *s, struct server_job *job)
 	}
 
 	meta_add(&s->meta, uri);
-	server_write_meta_cmd(s);
+	rc = server_write_meta_cmd(s);
 
 	goto out;
 
@@ -2008,9 +2243,10 @@ err:
 	server_err(s, "Add node[%s] : %s", job->data, msg);
 out:
 	sc_uri_destroy(&uri);
+	return rc;
 }
 
-static void server_job_remove_node(struct server *s, struct server_job *job)
+static int server_job_remove_node(struct server *s, struct server_job *job)
 {
 	bool b;
 	const char *msg;
@@ -2028,12 +2264,11 @@ static void server_job_remove_node(struct server *s, struct server_job *job)
 	}
 
 	meta_remove(&s->meta, name);
-	server_write_meta_cmd(s);
 
-	return;
-
+	return server_write_meta_cmd(s);
 err:
 	server_err(s, "Remove node[%s] : %s", job->data, msg);
+	return RS_OK;
 }
 
 static void server_job_shutdown(struct server *s, struct server_job *job)
@@ -2047,8 +2282,8 @@ static void server_job_shutdown(struct server *s, struct server_job *job)
 	if (*name == '*') {
 		sc_list_foreach (&s->connected_nodes, l) {
 			n = sc_list_entry(l, struct node, list);
-			buf = conn_outbuf(&n->conn);
 
+			buf = conn_outbuf(&n->conn);
 			msg_create_shutdown_req(buf, true);
 
 			rc = conn_flush(&n->conn);
@@ -2059,21 +2294,22 @@ static void server_job_shutdown(struct server *s, struct server_job *job)
 	}
 
 	if (*name == '*' || strcmp(name, s->conf.node.name) == 0) {
-		server_on_shutdown_req(s, NULL, NULL);
+		server_on_shutdown_req(s);
 	}
 }
 
-static void server_handle_jobs(struct server *s)
+static int server_handle_jobs(struct server *s)
 {
+	int rc = RS_OK;
 	struct server_job job;
 
 	sc_queue_foreach (s->jobs, job) {
 		switch (job.type) {
 		case SERVER_JOB_ADD_NODE:
-			server_job_add_node(s, &job);
+			rc = server_job_add_node(s, &job);
 			break;
 		case SERVER_JOB_REMOVE_NODE:
-			server_job_remove_node(s, &job);
+			rc = server_job_remove_node(s, &job);
 			break;
 		case SERVER_JOB_SHUTDOWN:
 			server_job_shutdown(s, &job);
@@ -2086,6 +2322,8 @@ static void server_handle_jobs(struct server *s)
 	}
 
 	sc_queue_clear(s->jobs);
+
+	return rc;
 }
 
 static void server_flush_snapshot(struct server *s, struct node *n)
@@ -2186,8 +2424,9 @@ flush:
 	}
 }
 
-static void server_flush(struct server *s)
+static int server_flush(struct server *s)
 {
+	int rc;
 	struct client *c;
 
 	sc_array_foreach (s->term_clients, c) {
@@ -2196,7 +2435,7 @@ static void server_flush(struct server *s)
 	sc_array_clear(s->term_clients);
 
 	if (s->role != SERVER_ROLE_LEADER) {
-		return;
+		return RS_OK;
 	}
 
 	server_flush_nodes(s);
@@ -2210,14 +2449,17 @@ static void server_flush(struct server *s)
 	}
 	s->own->round = s->round;
 
-	server_check_commit(s);
+	rc = server_check_commit(s);
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	s->round_prev = s->round;
 
-	server_handle_jobs(s);
+	return server_handle_jobs(s);
 }
 
-static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd)
+static int server_on_connect_req(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
 	uint32_t type;
@@ -2236,7 +2478,7 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd)
 		resp_code = MSG_CORRUPT;
 		goto disconnect;
 	} else if (rc == RS_PARTIAL) {
-		return;
+		return RS_OK;
 	}
 
 	if (msg.type != MSG_CONNECT_REQ) {
@@ -2250,130 +2492,48 @@ static void server_on_connect_req(struct server *s, struct sc_sock_fd *fd)
 		goto disconnect;
 	}
 
+	if (s->full) {
+		resp_code = MSG_DISK_FULL;
+		goto disconnect;
+	}
+
 	type = msg.connect_req.flags & MSG_CONNECT_TYPE;
 
 	switch (type) {
 	case MSG_CLIENT:
-		server_on_client_connect_req(s, pending, &msg.connect_req);
+		rc = server_on_client_connect_req(s, pending, &msg.connect_req);
 		break;
 	case MSG_NODE:
-		server_on_node_connect_req(s, pending, &msg.connect_req);
+		rc = server_on_node_connect_req(s, pending, &msg.connect_req);
 		break;
 	default:
 		resp_code = MSG_CORRUPT;
 		goto disconnect;
 	}
 
-	return;
+	return rc;
 
 disconnect:
 	server_on_pending_disconnect(s, pending, resp_code);
-}
-
-static void server_loop(struct server *s)
-{
-	int events = 0, retry = 1;
-	uint32_t event;
-	uint64_t timeo;
-	struct sc_sock_fd *fd;
-
-	s->timestamp = sc_time_mono_ms();
-
-	timeo = sc_timer_timeout(&s->timer, s->timestamp, s, server_on_timeout);
-	retry--;
-
-	events = sc_sock_poll_wait(&s->poll, retry > 0 ? 0 : (int) timeo);
-	if (events < 0) {
-		rs_exit("poll wait : %s \n", sc_sock_poll_err(&s->poll));
-	}
-
-	for (int i = 0; i < events; i++) {
-		retry = 100;
-		fd = sc_sock_poll_data(&s->poll, i);
-		event = sc_sock_poll_event(&s->poll, i);
-
-		switch (fd->type) {
-		case SERVER_FD_NODE_RECV:
-			server_on_node_recv(s, fd, event);
-			break;
-		case SERVER_FD_CLIENT_RECV:
-			server_on_client_recv(s, fd, event);
-			break;
-		case SERVER_FD_INCOMING_CONN:
-			server_on_incoming_conn(s, fd);
-			break;
-		case SERVER_FD_OUTGOING_CONN:
-			server_on_outgoing_conn(s, fd);
-			break;
-		case SERVER_FD_WAIT_FIRST_REQ:
-			server_on_connect_req(s, fd);
-			break;
-		case SERVER_FD_WAIT_FIRST_RESP:
-			server_on_connect_resp(s, fd);
-			break;
-		case SERVER_FD_TASK:
-			server_on_task(s);
-			break;
-		case SERVER_FD_SIGNAL:
-			server_on_signal(s);
-			break;
-		default:
-			rs_abort("Unexpected fd type : %d \n", fd->type);
-		}
-	}
-
-	server_flush(s);
+	return RS_OK;
 }
 
 static void *server_run(void *arg)
 {
 	int rc;
+	int events = 0, retry = 1, timeout;
+	uint32_t event;
+	struct sc_sock_fd *fd;
 	struct server *s = arg;
-	struct conf *c = &s->conf;
+	struct conf conf = s->conf;
 
-	sc_log_set_thread_name(c->node.name);
+	sc_log_set_thread_name(conf.node.name);
 
-	rc = sc_log_set_level(c->node.log_level);
-	if (rc != 0) {
-		sc_log_error("Invalid log level : '%s' \n", c->node.log_level);
-	}
-
-	rc = strcasecmp(c->node.log_dest, "stdout");
-	if (rc != 0) {
-		sc_log_set_stdout(false);
-		sc_log_set_file("log.prev.txt", "log.current.txt");
-	}
-
-	rc = metric_init(&s->metric, c->node.dir);
+	rc = metric_init(&s->metric, conf.node.dir);
 	if (rc != RS_OK) {
-		return (void *) (uintptr_t) rc;
+		rs_exit("metric init failed.");
 	}
 
-	rc = rs_rand_init();
-	if (rc != RS_OK) {
-		return (void *) (uintptr_t) rc;
-	}
-
-	rc = file_mkdir(c->node.dir);
-	if (rc != RS_OK) {
-		rs_exit("Failed to create directory : '%s' \n", c->node.dir);
-	}
-
-retry_pid:
-	rc = rs_write_pid_file(c->node.dir);
-	if (rc != RS_OK) {
-		if (rc == RS_ERROR) {
-			rs_exit("PID file error, shutting down. ");
-		}
-
-		if (rc == RS_FULL) {
-			sc_log_error("Disk is full. Retry in 5 seconds. \n");
-			sc_time_sleep(5000);
-			goto retry_pid;
-		}
-	}
-
-retry_prepare:
 	rc = server_prepare_start(s);
 	if (rc != RS_OK) {
 		if (rc == RS_ERROR) {
@@ -2381,20 +2541,11 @@ retry_prepare:
 		}
 
 		if (rc == RS_FULL) {
-			struct conf conf;
-
-			conf_copy(&conf, &s->conf);
-			sc_log_error("Disk is full. Retry in 5 seconds. \n");
-
-			server_term(s);
-			server_init(s, &conf);
-
-			sc_time_sleep(5000);
-			goto retry_prepare;
+			server_on_full_disk(s);
 		}
 	}
 
-	if (c->cmdline.systemd) {
+	if (conf.cmdline.systemd) {
 		rc = sc_sock_notify_systemd("READY=1\n");
 		if (rc != 0) {
 			rs_exit("systemd failed : %s \n", strerror(errno));
@@ -2404,52 +2555,148 @@ retry_prepare:
 	sc_log_info("Resql[v%s] has been started.. \n", RS_VERSION);
 
 	while (!s->stop_requested) {
-		server_loop(s);
+		s->timestamp = sc_time_mono_ms();
+
+		timeout = (int) sc_timer_timeout(&s->timer, s->timestamp, s,
+						 server_timeout);
+		if (s->timer_rc == RS_ERROR) {
+			rs_exit("server_timeout failed");
+		}
+
+		if (s->timer_rc == RS_FULL) {
+			s->timer_rc = RS_OK;
+			server_on_full_disk(s);
+		}
+
+		retry = retry > 0 ? retry - 1 : 0;
+
+		events = sc_sock_poll_wait(&s->poll, retry > 0 ? 0 : timeout);
+		if (events < 0) {
+			rs_exit("poll : %s \n", sc_sock_poll_err(&s->poll));
+		}
+
+		rc = RS_OK;
+
+		for (int i = 0; i < events; i++) {
+
+			retry = 100;
+			fd = sc_sock_poll_data(&s->poll, i);
+			event = sc_sock_poll_event(&s->poll, i);
+
+			switch (fd->type) {
+			case SERVER_FD_NODE_RECV:
+				rc = server_on_node_recv(s, fd, event);
+				break;
+			case SERVER_FD_CLIENT_RECV:
+				rc = server_on_client_recv(s, fd, event);
+				break;
+			case SERVER_FD_INCOMING_CONN:
+				server_on_incoming_conn(s, fd);
+				break;
+			case SERVER_FD_OUTGOING_CONN:
+				server_on_outgoing_conn(s, fd);
+				break;
+			case SERVER_FD_WAIT_FIRST_REQ:
+				rc = server_on_connect_req(s, fd);
+				break;
+			case SERVER_FD_WAIT_FIRST_RESP:
+				rc = server_on_connect_resp(s, fd);
+				break;
+			case SERVER_FD_TASK:
+				server_on_task(s);
+				break;
+			case SERVER_FD_SIGNAL:
+				server_on_signal(s);
+				break;
+			default:
+				rs_abort("fd type : %d \n", fd->type);
+			}
+
+			if (rc != RS_OK) {
+				break;
+			}
+		}
+
+		if (rc == RS_FULL) {
+			server_on_full_disk(s);
+		} else if (rc == RS_ERROR) {
+			rs_exit("failed with code : %d ", rc);
+		}
+
+		rc = server_flush(s);
+		if (rc == RS_FULL) {
+			server_on_full_disk(s);
+		} else if (rc == RS_ERROR) {
+			rs_exit("failed with code : %d ", rc);
+		}
 	}
 
 	sc_log_info("Resql[%s] is shutting down \n", s->conf.node.name);
-
-	state_close(&s->state);
 
 	if (s->conf.cmdline.systemd) {
 		sc_sock_notify_systemd("STATUS=Resql is shutting down.\n");
 	}
 
-	rs_delete_pid_file(s->conf.node.dir);
+	server_term(s);
 
 	return (void *) RS_OK;
 }
 
-int server_start(struct server *s, bool new_thread)
+int server_start_now(struct conf *c)
+{
+	int rc;
+	struct server *s;
+
+	s = rs_calloc(1, sizeof(*s));
+	s->conf = *c;
+	server_init(s);
+
+	rc = (int) (uintptr_t) server_run(&s->thread);
+	rs_free(s);
+
+	return rc;
+}
+
+struct server *server_start(struct conf *c)
 {
 	int rc;
 
-	if (!new_thread) {
-		return (int) (uintptr_t) server_run(&s->thread);
-	} else {
-		rc = sc_thread_start(&s->thread, server_run, s);
-		if (rc != 0) {
-			sc_thread_term(&s->thread);
-			return RS_ERROR;
-		}
+	struct server *s;
 
-		return RS_OK;
+	s = rs_calloc(1, sizeof(*s));
+
+	s->conf = *c;
+	server_init(s);
+
+	rc = sc_thread_start(&s->thread, server_run, s);
+	if (rc != 0) {
+		rc = RS_ERROR;
+		sc_thread_term(&s->thread);
+		goto error;
 	}
+
+	return s;
+error:
+	rs_free(s);
+	return NULL;
 }
 
 int server_stop(struct server *s)
 {
-	int rc;
+	int rc, ret = RS_OK;
 
 	rc = sc_sock_pipe_write(&s->efd, &(char){1}, 1);
 	if (rc != 1) {
 		sc_log_error("sc_sock_pipe_write : %s \n", strerror(errno));
-		return RS_ERROR;
+		ret = RS_ERROR;
 	}
 
 	rc = (int) (intptr_t) sc_thread_term(&s->thread);
+	if (rc != 0) {
+		sc_log_error("thread_term : %s \n", sc_thread_err(&s->thread));
+		ret = RS_ERROR;
+	}
 
-	server_destroy(s);
-
-	return rc;
+	rs_free(s);
+	return ret;
 }

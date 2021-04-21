@@ -35,23 +35,8 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <sys/resource.h>
-#include <sys/statvfs.h>
 #include <time.h>
 #include <unistd.h>
-
-static size_t metric_free_disk(const char *dir)
-{
-	int rc;
-	struct statvfs st;
-
-	rc = statvfs(dir, &st);
-	if (rc < 0) {
-		sc_log_error("dir : %s, statvfs : %s \n", dir, strerror(errno));
-		return 0;
-	}
-
-	return ((size_t) (st.f_bavail) * st.f_bsize);
-}
 
 /* Returns the size of physical memory (RAM) in bytes.
  * It looks ugly, but this is the cleanest way to achieve cross platform
@@ -310,7 +295,7 @@ void metric_encode(struct metric *m, struct sc_buf *buf)
 {
 	char b[128] = "";
 	time_t t;
-	size_t sz, n;
+	ssize_t sz, n;
 	uint64_t ts, val, div;
 	struct rusage u;
 	struct tm result, *tm;
@@ -379,11 +364,11 @@ void metric_encode(struct metric *m, struct sc_buf *buf)
 	sc_buf_put_str(buf, m->dir);
 
 	sz = rs_dir_size(m->dir);
-	sc_buf_put_fmt(buf, "%zu", sz);
+	sc_buf_put_fmt(buf, "%zd", sz);
 	sc_buf_put_str(buf, sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
 
-	sz = metric_free_disk(m->dir);
-	sc_buf_put_fmt(buf, "%zu", sz);
+	sz = rs_dir_free(m->dir);
+	sc_buf_put_fmt(buf, "%zd", sz);
 	sc_buf_put_fmt(buf, "%s",
 		       sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
 }

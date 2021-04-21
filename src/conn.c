@@ -359,7 +359,8 @@ retry:
 	}
 
 	if (rc == SC_SOCK_WANT_WRITE) {
-		rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_WRITE, &c->sock.fdt);
+		rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_WRITE,
+				      &c->sock.fdt);
 		if (rc != 0) {
 			sc_log_error("poll_add %s \n", sc_sock_poll_err(p));
 			return RS_ERROR;

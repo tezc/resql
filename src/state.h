@@ -90,7 +90,7 @@ int state_randomness(sqlite3_vfs *vfs, int size, char *out);
 int state_currenttime(sqlite3_vfs *vfs, sqlite3_int64 *val);
 
 int state_read_snapshot(struct state *st, bool in_memory);
-void state_read_for_snapshot(struct state *st);
+int state_read_for_snapshot(struct state *st);
 
 int state_open(struct state *st, bool in_memory);
 int state_close(struct state *st);

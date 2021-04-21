@@ -632,16 +632,12 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
 			 * If client disconnected abruptly and client's
 			 * statement becomes invalid, e.g table which is used by
 			 * statement is dropped, prepare may return error.
-			 *
-			 * Prepared statement will be null and should be handled
-			 * if client tries to execute the prepared statement.
 			 */
 			if (aux_rc(rc) != RS_ERROR) {
 				goto out;
 			}
 
-			rc = SQLITE_OK;
-			stmt = NULL;
+			continue;
 		}
 
 		sc_map_put_64v(&s->stmts, id, stmt);

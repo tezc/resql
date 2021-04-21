@@ -102,15 +102,12 @@ static const char *dirs[] = {
 
 void init_all()
 {
-	int rc;
-
 	if (!init) {
 		setvbuf(stdout, NULL, _IONBF, 0);
 		setvbuf(stderr, NULL, _IONBF, 0);
 
 		sc_log_set_thread_name("test");
-		rc = server_global_init();
-		rs_assert(rc == RS_OK);
+		rs_global_init();
 		init = 1;
 	}
 }
@@ -163,7 +160,6 @@ struct server *test_server_start(int id, int cluster_size)
 {
 	char *opt[] = {""};
 
-	int rc;
 	struct conf conf;
 	struct server *s;
 
@@ -183,10 +179,8 @@ struct server *test_server_start(int id, int cluster_size)
 
 	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
-	s = server_create(&conf);
-
-	rc = server_start(s, true);
-	if (rc != RS_OK) {
+	s = server_start(&conf);
+	if (!s) {
 		abort();
 	}
 
@@ -198,13 +192,10 @@ struct server *test_server_start(int id, int cluster_size)
 
 struct server *test_server_create_conf(struct conf *conf, int id)
 {
-	int rc;
 	struct server *s;
 
-	s = server_create(conf);
-
-	rc = server_start(s, true);
-	if (rc != RS_OK) {
+	s = server_start(conf);
+	if (!s) {
 		abort();
 	}
 
@@ -244,7 +235,6 @@ struct server *test_server_create(int id, int cluster_size)
 {
 	char *opt[] = {""};
 
-	int rc;
 	struct conf conf;
 	struct server *s;
 
@@ -265,10 +255,8 @@ struct server *test_server_create(int id, int cluster_size)
 
 	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
-	s = server_create(&conf);
-
-	rc = server_start(s, true);
-	if (rc != RS_OK) {
+	s = server_start(&conf);
+	if (!s) {
 		abort();
 	}
 

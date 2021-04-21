@@ -66,6 +66,29 @@ abstract class Msg {
 
     public static final int CLIENT_REQ_HEADER = 14;
 
+    public static String rcToText(int rc) {
+
+        switch (rc) {
+            case MSG_OK:
+                return "ok";
+            case MSG_ERR:
+                return "err";
+            case MSG_CLUSTER_NAME_MISMATCH:
+                return "cluster name mismatch";
+            case MSG_CORRUPT:
+                return "corrupt";
+            case MSG_TIMEOUT:
+                return "timeout";
+            case MSG_NOT_LEADER:
+                return "not leader";
+            case MSG_DISK_FULL:
+                return "disk is full";
+            default:
+                return "unknown rc";
+
+        }
+    }
+
     public static int remaining(RawBuffer buf) {
         int len = buf.getInt();
         if (len > buf.remaining() + buf.position()) {
@@ -77,13 +100,12 @@ abstract class Msg {
     }
 
     public static void encodeConnectReq(RawBuffer buf, String clusterName,
-                                        String name) {
+            String name) {
 
-        final int length = RawBuffer.intLen(MSG_LEN_SIZE) +
-                RawBuffer.byteLen(CONNECT_REQ) +
-                RawBuffer.intLen(REMOTE_TYPE_CLIENT) +
-                RawBuffer.stringLen("resql") +
-                RawBuffer.stringLen(clusterName) + RawBuffer.stringLen(name);
+        final int length = RawBuffer.intLen(MSG_LEN_SIZE) + RawBuffer.byteLen(
+                CONNECT_REQ) + RawBuffer.intLen(REMOTE_TYPE_CLIENT) +
+                RawBuffer.stringLen("resql") + RawBuffer.stringLen(
+                clusterName) + RawBuffer.stringLen(name);
 
         buf.putInt(length);
         buf.put(CONNECT_REQ);
@@ -95,9 +117,9 @@ abstract class Msg {
     }
 
     public static void encodeDisconnectReq(RawBuffer buf, byte rc, int flags) {
-        final int len = RawBuffer.intLen(MSG_LEN_SIZE) +
-                RawBuffer.byteLen(DISCONNECT_REQ) + RawBuffer.byteLen(rc) +
-                RawBuffer.intLen(flags);
+        final int len = RawBuffer.intLen(MSG_LEN_SIZE) + RawBuffer.byteLen(
+                DISCONNECT_REQ) + RawBuffer.byteLen(rc) + RawBuffer.intLen(
+                flags);
 
         buf.putInt(len);
         buf.put(DISCONNECT_REQ);
@@ -111,7 +133,7 @@ abstract class Msg {
     }
 
     public static void encodeClientReq(RawBuffer buf, boolean readonly,
-                                       long seq) {
+            long seq) {
         int pos = buf.position();
 
         buf.position(0);

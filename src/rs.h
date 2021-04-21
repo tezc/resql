@@ -124,6 +124,9 @@ enum rs_rc
 
 // clang-format on
 
+void rs_global_init();
+void rs_global_shutdown();
+
 _Noreturn void rs_on_abort(const char *file, const char *func, int line,
 			   const char *fmt, ...);
 
@@ -133,7 +136,8 @@ int rs_snprintf(char *buf, size_t max_len, const char *fmt, ...);
 int rs_vsnprintf(char *buf, size_t max_len, const char *fmt, va_list list);
 char *rs_strncpy(char *dest, const char *src, size_t max);
 
-size_t rs_dir_size(const char *path);
+ssize_t rs_dir_size(const char *path);
+ssize_t rs_dir_free(const char *path);
 
 int rs_write_pid_file(char *path);
 int rs_delete_pid_file(char *path);

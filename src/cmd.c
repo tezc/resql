@@ -50,9 +50,9 @@ void cmd_encode_term_start(struct sc_buf *b)
 	sc_buf_put_64(b, sc_time_mono_ms());
 }
 
-struct cmd_term_start cmd_decode_term_start(struct sc_buf *b)
+struct cmd_term cmd_decode_term_start(struct sc_buf *b)
 {
-	struct cmd_term_start start;
+	struct cmd_term start;
 
 	start.realtime = sc_buf_get_64(b);
 	start.monotonic = sc_buf_get_64(b);
@@ -83,9 +83,9 @@ void cmd_encode_client_connect(struct sc_buf *b, const char *name,
 	sc_buf_put_str(b, remote);
 }
 
-struct cmd_client_connect cmd_decode_client_connect(struct sc_buf *b)
+struct cmd_connect cmd_decode_client_connect(struct sc_buf *b)
 {
-	struct cmd_client_connect cmd;
+	struct cmd_connect cmd;
 
 	cmd.name = sc_buf_get_str(b);
 	cmd.local = sc_buf_get_str(b);
@@ -94,16 +94,15 @@ struct cmd_client_connect cmd_decode_client_connect(struct sc_buf *b)
 	return cmd;
 }
 
-void cmd_encode_client_disconnect(struct sc_buf *b, const char *name,
-				  bool clean)
+void cmd_encode_disconnect(struct sc_buf *b, const char *name, bool clean)
 {
 	sc_buf_put_str(b, name);
 	sc_buf_put_bool(b, clean);
 }
 
-struct cmd_client_disconnect cmd_decode_client_disconnect(struct sc_buf *b)
+struct cmd_disconnect cmd_decode_client_disconnect(struct sc_buf *b)
 {
-	struct cmd_client_disconnect cmd;
+	struct cmd_disconnect cmd;
 
 	cmd.name = sc_buf_get_str(b);
 	cmd.clean = sc_buf_get_bool(b);

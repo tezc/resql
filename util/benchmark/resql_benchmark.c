@@ -30,6 +30,7 @@
 #include "sc_time.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -50,6 +51,8 @@
 	fflush(stdout);                                                        \
 	exit(1);
 
+const char *fsync_stmt = "SELECT name, fsync_average_ms, fsync_max_ms "
+			 "FROM resql_info;";
 const char *clear_stmt = "DROP TABLE IF EXISTS bench_resql;";
 const char *create_stmt = "CREATE TABLE bench_resql (id INTEGER PRIMARY KEY, "
 			  "col1 TEXT, col2 TEXT, col3 TEXT);";
@@ -444,6 +447,102 @@ void print_progress(double percentage)
 	fflush(stdout);
 }
 
+#define MAX(a, b) ((a) < (b) ? (b) : (a))
+#define RST	  "\x1b[0m"
+#define COLUMN	  "\x1b[0;35m"
+
+void resql_print_seperator(int total, const int *columns)
+{
+	int x = -1;
+	int pos = 0;
+
+	for (int i = 0; i < total; i++) {
+		if (i == pos) {
+			x++;
+			pos += columns[x] + 3;
+			printf("+");
+		} else {
+			printf("-");
+		}
+	}
+	printf("\n");
+}
+
+void resql_print_fsync(struct resql_result *rs)
+{
+	int total = 1, count;
+	uint32_t columns;
+	int *p = NULL;
+	struct resql_column *row;
+
+	count = resql_column_count(rs);
+	p = calloc(sizeof(int), count);
+
+	columns = resql_column_count(rs);
+	while ((row = resql_row(rs)) != NULL) {
+		for (size_t i = 0; i < columns; i++) {
+			p[i] = MAX(p[i], (int) strlen(row[i].name));
+		}
+	}
+
+	resql_reset_rows(rs);
+
+	while ((row = resql_row(rs)) != NULL) {
+		columns = resql_column_count(rs);
+		for (uint32_t i = 0; i < columns; i++) {
+			switch (row[i].type) {
+			case RESQL_TEXT:
+				p[i] = MAX(p[i], row[i].len);
+				break;
+			case RESQL_NULL:
+				goto out;
+			default:
+				printf("Error, result set corrupt! \n");
+				goto out;
+			}
+		}
+	}
+
+	resql_reset_rows(rs);
+
+	for (int i = 0; i < count; i++) {
+		total += p[i] + 3;
+	}
+
+	resql_print_seperator(total, p);
+	columns = resql_column_count(rs);
+	row = resql_row(rs);
+	for (uint32_t i = 0; i < columns; i++) {
+		printf("|" COLUMN " %-*s " RST, p[i], row[i].name);
+	}
+	printf("|\n");
+
+	resql_print_seperator(total, p);
+
+	do {
+		columns = resql_column_count(rs);
+		for (uint32_t i = 0; i < columns; i++) {
+			switch (row[i].type) {
+			case RESQL_TEXT:
+				printf("| %-*s ", p[i], row[i].text);
+				break;
+			case RESQL_NULL:
+				goto out;
+			default:
+				printf("Error, result set corrupt! \n");
+				goto out;
+			}
+		}
+
+		printf("|\n");
+
+		resql_print_seperator(total, p);
+	} while ((row = resql_row(rs)) != NULL);
+
+out:
+	free(p);
+}
+
 int main(int argc, char **argv)
 {
 	int rc;
@@ -452,6 +551,7 @@ int main(int argc, char **argv)
 	struct sigaction action;
 	struct hdr_histogram *h;
 	resql *c;
+	// struct resql_column *row;
 	resql_stmt stmt;
 	resql_result *rs;
 
@@ -616,6 +716,14 @@ int main(int argc, char **argv)
 
 	printf("\n\n");
 
+	resql_put_sql(c, fsync_stmt);
+	rc = resql_exec(c, false, &rs);
+	if (rc != RESQL_OK) {
+		rs_exit("Benchmark failed : %s \n", resql_errstr(c));
+	}
+
+	resql_print_fsync(rs);
+
 	double total = (double) (end_ts - ts);
 
 	const double th = (double) bench.ops / (total / 1e9);
@@ -644,7 +752,7 @@ int main(int argc, char **argv)
 	resql_put_sql(c, clear_stmt);
 	rc = resql_exec(c, false, &rs);
 	if (rc != RESQL_OK) {
-		rs_exit("Benchmark setup failed : %s \n", resql_errstr(c));
+		rs_exit("Benchmark clean up failed : %s \n", resql_errstr(c));
 	}
 
 	resql_shutdown(c);

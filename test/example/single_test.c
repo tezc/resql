@@ -24,6 +24,7 @@
 
 #include "test_util.h"
 
+#include "server.h"
 #include <unistd.h>
 
 static void single()
@@ -35,11 +36,12 @@ static void single()
 	conf_read_config(&conf, false, 2, params);
 
 	test_server_create_conf(&conf, 0);
-	pause();
+	sleep(60);
 }
 
 int main(void)
 {
+	rs_global_init();
 	test_execute(single);
 
 	return 0;

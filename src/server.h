@@ -48,6 +48,7 @@ enum server_timer
 	SERVER_TIMER_CONNECT,
 	SERVER_TIMER_ELECTION,
 	SERVER_TIMER_INFO,
+	SERVER_TIMER_FULL
 };
 
 enum server_job_type
@@ -87,65 +88,57 @@ struct server {
 	struct sc_sock_pipe efd;
 	struct sc_sock_pipe sigfd;
 	struct sc_timer timer;
-	struct server_endpoint *endpoints;
-	struct sc_list pending_conns;
+
 	struct sc_buf buf;
 	struct sc_map_sv clients;
 	struct sc_map_64v vclients;
-	struct node **nodes;
+	struct sc_list pending_conns;
 	struct sc_list connected_nodes;
-	struct node **unknown_nodes;
-	struct client **term_clients;
-	uint64_t election_timer;
-	uint64_t info_timer;
-	uint64_t last_ts;
-
-	bool ss_inprogress;
-	bool stop_requested;
-	bool cluster_up;
-
-	char *passwd;
-
-	// Cluster management
-	char *meta_path;
-	char *meta_tmp_path;
-
-	char *voted_for;
-	uint64_t vote_timestamp;
-	struct meta meta;
-
-	struct store store;
-	struct state state;
-	struct snapshot ss;
-
-	struct node *leader;
-	struct node *own;
-	enum server_role role;
-
-	uint64_t timestamp;
-	uint64_t prevote_term;
-	unsigned int prevote_count;
-	unsigned int vote_count;
-	uint64_t round_match;
-	uint64_t round_prev;
-	uint64_t round;
-	uint64_t commit;
 	struct sc_list read_reqs;
 	struct sc_buf tmp;
 	struct server_job *jobs;
 	struct sc_buf *cache;
+	struct meta meta;
+	struct store store;
+	struct state state;
+	struct snapshot ss;
+	struct server_endpoint *endpoints;
+	struct node **nodes;
+	struct node *leader;
+	struct node *own;
+	struct node **unknown_nodes;
+	struct client **term_clients;
+
+	bool ss_inprogress;
+	bool stop_requested;
+	bool cluster_up;
+	bool full;
+	int timer_rc;
+
+	// Cluster management
+	char *meta_path;
+	char *meta_tmp_path;
+	char *voted_for;
+
+	enum server_role role;
+	unsigned int prevote_count;
+	unsigned int vote_count;
+	uint64_t vote_timestamp;
+	uint64_t prevote_term;
+	uint64_t round_match;
+	uint64_t round_prev;
+	uint64_t round;
+	uint64_t commit;
+	uint64_t timestamp;
+	uint64_t election_timer;
+	uint64_t info_timer;
+	uint64_t full_timer;
+	uint64_t last_ts;
 };
 
-int server_global_init();
-int server_global_shutdown();
-
-struct server *server_create(struct conf *conf);
-void server_destroy(struct server *server);
-int server_init(struct server* s, struct conf *conf);
-int server_term(struct server *s);
-
-int server_start(struct server *server, bool new_thread);
-int server_stop(struct server *server);
+struct server *server_start(struct conf *c);
+int server_start_now(struct conf *c);
+int server_stop(struct server *s);
 
 struct sc_buf server_buf_alloc(struct server *s);
 void server_buf_free(struct server *s, struct sc_buf buf);

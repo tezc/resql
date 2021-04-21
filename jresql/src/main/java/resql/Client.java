@@ -41,6 +41,7 @@ class Client implements Resql {
     private final int timeout;
     private final String outgoingAddr;
     private final int outgoingPort;
+    private int lastConnectRc;
     private long seq = 0;
     private boolean connected = false;
     private boolean hasStatement;
@@ -75,6 +76,8 @@ class Client implements Resql {
         outgoingAddr = config.outgoingAddr;
         outgoingPort = config.outgoingPort;
 
+        req.flip();
+
         for (String s : config.urls) {
             try {
                 urls.add(new URI(s));
@@ -96,7 +99,7 @@ class Client implements Resql {
         }
 
         if (!connected) {
-            throw new ResqlException("Failed to connect");
+            throw new ResqlException("Failed to connect : " + Msg.rcToText(lastConnectRc));
         }
 
         clear();
@@ -199,6 +202,8 @@ class Client implements Resql {
             }
         }
 
+        lastConnectRc = rc;
+
         if (rc == Msg.MSG_CLUSTER_NAME_MISMATCH) {
             throw new ResqlFatalException("Cluster name mismatch!");
         }
@@ -275,7 +280,8 @@ class Client implements Resql {
                     int b = sock.read(resp.backend());
                     if (b <= 0) {
                         connected = false;
-                        continue;
+                        resp.clear();
+                        break;
                     }
                 } catch (IOException e) {
                     connected = false;
@@ -302,6 +308,9 @@ class Client implements Resql {
             }
         }
 
+        if (!connected) {
+            throw new ResqlException("Request failed : " + Msg.rcToText(lastConnectRc));
+        }
         throw new ResqlException("Request failed");
     }
 

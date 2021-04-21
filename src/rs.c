@@ -25,16 +25,64 @@
 #include "rs.h"
 
 #include "file.h"
+#include "state.h"
 
 #include "sc/sc.h"
+#include "sc/sc_crc32.h"
 #include "sc/sc_log.h"
+#include "sc/sc_signal.h"
+#include "sc/sc_sock.h"
+#include "sc/sc_time.h"
 
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
+
+void rs_global_init()
+{
+	int rc;
+
+	srand((int) sc_time_mono_ns());
+	sc_crc32_init();
+
+	rc = sc_log_init();
+	if (rc != 0) {
+		rs_exit("Failed to init log.");
+	}
+
+	rc = sc_signal_init();
+	if (rc != 0) {
+		rs_exit("signal_init : %s ", strerror(errno));
+	}
+
+	rc = sc_sock_startup();
+	if (rc != 0) {
+		rs_exit("sc_sock_startup : %s ", strerror(errno));
+	}
+
+	rc = state_global_init();
+	if (rc != RS_OK) {
+		rs_exit("state_global_init failure");
+	}
+}
+void rs_global_shutdown()
+{
+	int rc;
+
+	rc = sc_sock_cleanup();
+	if (rc != 0) {
+		rs_exit("sc_sock_cleanup : %s ", strerror(errno));
+	}
+
+	rc = state_global_shutdown();
+	if (rc != 0) {
+		rs_exit("state_global_shutdown failure");
+	}
+}
 
 int rs_snprintf(char *buf, size_t max_len, const char *fmt, ...)
 {
@@ -78,7 +126,7 @@ char *rs_strncpy(char *dest, const char *src, size_t max)
 	return ret;
 }
 
-size_t rs_dir_size(const char *path)
+ssize_t rs_dir_size(const char *path)
 {
 	int rc;
 	const char *err;
@@ -91,7 +139,7 @@ size_t rs_dir_size(const char *path)
 	d = opendir(path);
 	if (d == NULL) {
 		sc_log_error("dir : %s, opendir : %s", path, strerror(errno));
-		return 0;
+		return -1;
 	}
 
 	for (de = readdir(d); de != NULL; de = readdir(d)) {
@@ -114,6 +162,20 @@ size_t rs_dir_size(const char *path)
 	}
 
 	return total_size;
+}
+
+ssize_t rs_dir_free(const char *dir)
+{
+	int rc;
+	struct statvfs st;
+
+	rc = statvfs(dir, &st);
+	if (rc != 0) {
+		sc_log_error("dir : %s, statvfs : %s \n", dir, strerror(errno));
+		return -1;
+	}
+
+	return ((ssize_t) (st.f_bavail) * st.f_bsize);
 }
 
 int rs_write_pid_file(char *path)

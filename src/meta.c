@@ -117,6 +117,7 @@ void meta_term(struct meta *m)
 	if (m->prev) {
 		meta_term(m->prev);
 		rs_free(m->prev);
+		m->prev = NULL;
 	}
 }
 

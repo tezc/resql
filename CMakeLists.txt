@@ -59,6 +59,8 @@ macro(enable_c_flag_if_avail _flag _append_to_var _set_var)
     if (${_set_var})
         message("Setting flag ${_flag}")
         set(${_append_to_var} "${${_append_to_var}} ${_flag}")
+    else ()
+        message("Flag is not supported : ${_flag}")
     endif ()
 endmacro()
 
@@ -346,6 +348,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     endif ()
 endif ()
 
+enable_warning_if_supported(-Wunused-result)
 
 set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_COVERAGE} ${C_FLAGS_COMMON} ${C_FLAGS_DEB}")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${C_FLAGS_COMMON} ${C_FLAGS_DEB}")
