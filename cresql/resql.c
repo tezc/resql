@@ -1918,7 +1918,10 @@ int resql_connect(struct resql *c)
 	rc = sc_sock_connect(&c->sock, host, uri->port, c->source_addr,
 			     c->source_port);
 	if (rc == SC_SOCK_WANT_WRITE) {
-		struct pollfd fds = {.fd = c->sock.fdt.fd, .events = POLLOUT};
+		struct pollfd fds = {
+			.fd = c->sock.fdt.fd,
+			.events = POLLOUT,
+		};
 
 retry:
 		rc = rs_poll(&fds, 1, 3000);

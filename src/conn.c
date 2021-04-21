@@ -184,9 +184,6 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 	sc_sock_init(&c->sock, SERVER_FD_OUTGOING_CONN, false, SC_SOCK_INET);
 
 	rc = sc_sock_connect(&c->sock, uri->host, uri->port, NULL, NULL);
-	if (rc < 0) {
-		return RS_ERROR;
-	}
 
 	switch (rc) {
 	case SC_SOCK_OK:
@@ -203,6 +200,7 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 		rc = RS_INPROGRESS;
 		break;
 	default:
+		rc = RS_ERROR;
 		break;
 	}
 
