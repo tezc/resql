@@ -79,7 +79,7 @@ void rs_global_shutdown()
 	}
 
 	rc = state_global_shutdown();
-	if (rc != 0) {
+	if (rc != RS_OK) {
 		rs_exit("state_global_shutdown failure");
 	}
 }
@@ -126,7 +126,7 @@ char *rs_strncpy(char *dest, const char *src, size_t max)
 	return ret;
 }
 
-ssize_t rs_dir_size(const char *path)
+size_t rs_dir_size(const char *path)
 {
 	int rc;
 	const char *err;
@@ -164,7 +164,7 @@ ssize_t rs_dir_size(const char *path)
 	return total_size;
 }
 
-ssize_t rs_dir_free(const char *dir)
+size_t rs_dir_free(const char *dir)
 {
 	int rc;
 	struct statvfs st;
@@ -172,10 +172,10 @@ ssize_t rs_dir_free(const char *dir)
 	rc = statvfs(dir, &st);
 	if (rc != 0) {
 		sc_log_error("dir : %s, statvfs : %s \n", dir, strerror(errno));
-		return -1;
+		return 0;
 	}
 
-	return ((ssize_t) (st.f_bavail) * st.f_bsize);
+	return ((size_t) (st.f_bavail) * st.f_bsize);
 }
 
 int rs_write_pid_file(char *path)

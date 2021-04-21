@@ -1259,7 +1259,7 @@ static void server_on_full_timer(struct server *s)
 	char cur[64];
 
 	size_t dir_size;
-	ssize_t ss_size;
+	size_t ss_size;
 	size_t limit = 64 * 1024 * 1024;
 
 	dir_size = rs_dir_free(s->conf.node.dir);
