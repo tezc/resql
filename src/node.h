@@ -69,6 +69,6 @@ void node_update_indexes(struct node *n, uint64_t round, uint64_t match);
 void node_clear_indexes(struct node *n, uint64_t match);
 void node_add_uris(struct node *n, struct sc_uri **uris);
 int node_try_connect(struct node *n);
-void node_set_conn(struct node *n, struct conn *conn);
+int node_set_conn(struct node *n, struct conn *conn);
 
 #endif

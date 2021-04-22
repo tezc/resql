@@ -32,7 +32,10 @@
 
 #include <inttypes.h>
 
-const char *meta_role_str[] = {"leader", "follower"};
+const char *meta_role_str[] = {
+	"leader",
+	"follower",
+};
 
 void meta_node_init(struct meta_node *n, struct sc_uri *uri)
 {

@@ -44,13 +44,13 @@ struct cmd_init cmd_decode_init(struct sc_buf *b)
 	return init;
 }
 
-void cmd_encode_term_start(struct sc_buf *b)
+void cmd_encode_term(struct sc_buf *b)
 {
 	sc_buf_put_64(b, sc_time_ms());
 	sc_buf_put_64(b, sc_time_mono_ms());
 }
 
-struct cmd_term cmd_decode_term_start(struct sc_buf *b)
+struct cmd_term cmd_decode_term(struct sc_buf *b)
 {
 	struct cmd_term start;
 
@@ -75,7 +75,7 @@ struct cmd_meta cmd_decode_meta(struct sc_buf *b)
 	return cmd;
 }
 
-void cmd_encode_client_connect(struct sc_buf *b, const char *name,
+void cmd_encode_connect(struct sc_buf *b, const char *name,
 			       const char *local, const char *remote)
 {
 	sc_buf_put_str(b, name);
@@ -83,13 +83,13 @@ void cmd_encode_client_connect(struct sc_buf *b, const char *name,
 	sc_buf_put_str(b, remote);
 }
 
-struct cmd_connect cmd_decode_client_connect(struct sc_buf *b)
+struct cmd_connect cmd_decode_connect(struct sc_buf *buf)
 {
 	struct cmd_connect cmd;
 
-	cmd.name = sc_buf_get_str(b);
-	cmd.local = sc_buf_get_str(b);
-	cmd.remote = sc_buf_get_str(b);
+	cmd.name = sc_buf_get_str(buf);
+	cmd.local = sc_buf_get_str(buf);
+	cmd.remote = sc_buf_get_str(buf);
 
 	return cmd;
 }
@@ -100,7 +100,7 @@ void cmd_encode_disconnect(struct sc_buf *b, const char *name, bool clean)
 	sc_buf_put_bool(b, clean);
 }
 
-struct cmd_disconnect cmd_decode_client_disconnect(struct sc_buf *b)
+struct cmd_disconnect cmd_decode_disconnect(struct sc_buf *b)
 {
 	struct cmd_disconnect cmd;
 

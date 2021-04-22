@@ -149,7 +149,7 @@ int state_currenttime(sqlite3_vfs *vfs, sqlite3_int64 *val)
 
 	const uint64_t unix_epoch = 24405875 * (uint64_t) 8640000;
 
-	*val = (unix_epoch + t_state->realtime);
+	*val = (int64_t) (unix_epoch + t_state->realtime);
 	return SQLITE_OK;
 }
 
@@ -1168,7 +1168,7 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 			goto error;
 		}
 
-		flag = sc_buf_get_8(req);
+		flag = (enum msg_flag) sc_buf_get_8(req);
 
 		if (rc != RS_OK || flag != MSG_FLAG_OP_END) {
 			goto error;
@@ -1250,6 +1250,8 @@ int state_on_client_request(struct state *st, uint64_t index, unsigned char *e,
 		// max-page-size config has been reached, it's safe to continue
 		rc = RS_OK;
 	}
+
+	sc_buf_shrink(&(*s)->resp, 32 * 1024);
 
 	(*s)->seq = seq;
 
@@ -1339,7 +1341,7 @@ int state_apply(struct state *st, uint64_t index, unsigned char *e,
 		rc = state_on_meta(st, index, &cmd.meta.meta);
 		break;
 	case CMD_TERM:
-		cmd.term = cmd_decode_term_start(&buf);
+		cmd.term = cmd_decode_term(&buf);
 		rc = state_on_term_start(st, index, cmd.term.realtime,
 					 cmd.term.monotonic);
 		break;
@@ -1348,13 +1350,13 @@ int state_apply(struct state *st, uint64_t index, unsigned char *e,
 		rc = state_on_client_request(st, index, e, s);
 		break;
 	case CMD_CONNECT:
-		cmd.connect = cmd_decode_client_connect(&buf);
+		cmd.connect = cmd_decode_connect(&buf);
 		rc = state_on_client_connect(st, cmd.connect.name,
 					     cmd.connect.local,
 					     cmd.connect.remote, s);
 		break;
 	case CMD_DISCONNECT:
-		cmd.disconnect = cmd_decode_client_disconnect(&buf);
+		cmd.disconnect = cmd_decode_disconnect(&buf);
 		rc = state_on_client_disconnect(st, cmd.disconnect.name,
 						cmd.disconnect.clean);
 		break;

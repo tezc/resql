@@ -81,7 +81,7 @@ int snapshot_init(struct snapshot *ss, struct server *srv)
 
 	ss->time = 0;
 	ss->size = 0;
-	ss->running = 0;
+	ss->running = false;
 
 	rc = sc_thread_start(&ss->thread, snapshot_run, ss);
 	if (rc != 0) {
@@ -309,7 +309,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 	struct state state;
 	struct session *s;
 
-	ss->running = 1;
+	ss->running = true;
 	start = sc_time_mono_ns();
 
 	first = page->prev_index + 1;
@@ -343,7 +343,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 
 	state_term(&state);
 	sc_cond_signal(&ss->cond, (void *) (uintptr_t) RS_OK);
-	ss->running = 0;
+	ss->running = false;
 
 	sc_log_info("snapshot done in : %" PRIu64 " milliseconds, for [%" PRIu64
 		    ",%" PRIu64 "] \n",
@@ -353,7 +353,7 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 error:
 	state_term(&state);
 	sc_cond_signal(&ss->cond, (void *) (uintptr_t) rc);
-	ss->running = 0;
+	ss->running = false;
 	sc_log_info("snapshot failure in : %" PRIu64
 		    " milliseconds, for [%" PRIu64 ",%" PRIu64 "] \n",
 		    ss->time / 1000 / 1000, first, last);

@@ -25,7 +25,6 @@
 #include "aux.h"
 
 #include "info.h"
-#include "rs.h"
 #include "session.h"
 #include "state.h"
 
@@ -615,7 +614,7 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
 		return RS_ERROR;
 	}
 
-	rc = sqlite3_bind_int64(stmt_tb, 1, s->id);
+	rc = sqlite3_bind_int64(stmt_tb, 1, (int64_t) s->id);
 	if (rc != SQLITE_OK) {
 		goto out;
 	}

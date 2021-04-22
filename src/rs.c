@@ -139,7 +139,7 @@ size_t rs_dir_size(const char *path)
 	d = opendir(path);
 	if (d == NULL) {
 		sc_log_error("dir : %s, opendir : %s", path, strerror(errno));
-		return -1;
+		return 0;
 	}
 
 	for (de = readdir(d); de != NULL; de = readdir(d)) {

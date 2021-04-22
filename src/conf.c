@@ -143,23 +143,6 @@ void conf_term(struct conf *c)
 	sc_str_destroy(&c->cmdline.config_file);
 }
 
-void conf_copy(struct conf *dst, struct conf *src)
-{
-	*dst = *src;
-
-	dst->node.name = sc_str_dup(src->node.name);
-	dst->node.bind_url = sc_str_dup(src->node.bind_url);
-	dst->node.ad_url = sc_str_dup(src->node.ad_url);
-	dst->node.source_addr = sc_str_dup(src->node.source_addr);
-	dst->node.source_port = sc_str_dup(src->node.source_port);
-	dst->node.log_dest = sc_str_dup(src->node.log_dest);
-	dst->node.log_level = sc_str_dup(src->node.log_level);
-	dst->node.dir = sc_str_dup(src->node.dir);
-	dst->cluster.name = sc_str_dup(src->cluster.name);
-	dst->cluster.nodes = sc_str_dup(src->cluster.nodes);
-	dst->cmdline.config_file = sc_str_dup(src->cmdline.config_file);
-}
-
 static void conf_cmdline_usage()
 {
 	printf("\n\n resql version : %s \n\n", RS_VERSION);

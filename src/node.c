@@ -83,7 +83,7 @@ void node_destroy(struct node *n)
 void node_disconnect(struct node *n)
 {
 	sc_list_del(NULL, &n->list);
-	conn_disconnect(&n->conn);
+	conn_term(&n->conn);
 	node_clear_indexes(n, n->match);
 }
 
@@ -124,8 +124,7 @@ int node_try_connect(struct node *n)
 	}
 
 	timeout = (rs_rand() % 256) + n->interval;
-	n->conn_timer =
-		sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
+	n->conn_timer = sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
 
 	if (n->conn.state == CONN_CONNECTED) {
 		n->interval = 64;
@@ -138,13 +137,19 @@ int node_try_connect(struct node *n)
 	return conn_try_connect(&n->conn, uri);
 }
 
-void node_set_conn(struct node *n, struct conn *conn)
+int node_set_conn(struct node *n, struct conn *conn)
 {
-	conn_disconnect(&n->conn);
-	conn_clear_events(conn);
+	int rc;
+
 	conn_term(&n->conn);
-	conn_move(&n->conn, conn);
+
+	rc = conn_set(&n->conn, conn);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
 	conn_set_type(&n->conn, SERVER_FD_NODE_RECV);
-	conn_allow_read(&n->conn);
 	node_clear_indexes(n, n->match);
+
+	return RS_OK;
 }

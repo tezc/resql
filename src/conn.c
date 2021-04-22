@@ -28,35 +28,50 @@
 #include "rs.h"
 #include "server.h"
 
+#include "sc/sc_log.h"
 #include "sc/sc_uri.h"
 
-#include <sc/sc_log.h>
+static int conn_established(struct conn *c)
+{
+	int rc;
+
+	c->state = CONN_CONNECTED;
+
+	rc = conn_unregister(c, false, true);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
+	rc = conn_register(c, true, false);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
+	sc_sock_local_str(&c->sock, c->local, sizeof(c->local));
+	sc_sock_remote_str(&c->sock, c->remote, sizeof(c->remote));
+
+	return RS_OK;
+}
 
 struct conn *conn_create(struct server *server, struct sc_sock *s)
 {
 	int rc;
 	struct conn *c;
-	struct sc_sock_poll *p = &server->poll;
 
 	c = rs_malloc(sizeof(*c));
 	conn_init(c, server);
 
 	c->sock = *s;
-	c->state = CONN_CONNECTED;
 	c->sock.fdt.type = SERVER_FD_WAIT_FIRST_REQ;
 
-	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
-	if (rc != 0) {
-		goto poll_err;
+	rc = conn_established(c);
+	if (rc != RS_OK) {
+		goto err;
 	}
-
-	sc_sock_local_str(s, c->local, sizeof(c->local));
-	sc_sock_remote_str(s, c->remote, sizeof(c->remote));
 
 	return c;
 
-poll_err:
-	sc_log_error("sc_sock_poll_add : %s \n", sc_sock_poll_err(p));
+err:
 	sc_sock_term(s);
 	rs_free(c);
 
@@ -82,14 +97,7 @@ void conn_init(struct conn *c, struct server *s)
 	c->out = (struct sc_buf){0};
 }
 
-void conn_clear_inbuf(struct conn *c)
-{
-	assert(sc_buf_cap(&c->in) != 0);
-	server_buf_free(c->server, c->in);
-	c->in = (struct sc_buf){0};
-}
-
-void conn_clear_bufs(struct conn *c)
+void conn_clear_buf(struct conn *c)
 {
 	if (sc_buf_cap(&c->in) != 0 && sc_buf_size(&c->in) == 0) {
 		server_buf_free(c->server, c->in);
@@ -102,7 +110,7 @@ void conn_clear_bufs(struct conn *c)
 	}
 }
 
-struct sc_buf *conn_outbuf(struct conn *c)
+struct sc_buf *conn_out(struct conn *c)
 {
 	if (sc_buf_cap(&c->out) == 0) {
 		c->out = server_buf_alloc(c->server);
@@ -115,12 +123,12 @@ static void conn_cleanup_sock(struct conn *c)
 {
 	int rc;
 	struct sc_sock *s = &c->sock;
-	struct sc_sock_poll *p = &c->server->poll;
 
-	rc = sc_sock_poll_del(p, &s->fdt, SC_SOCK_READ | SC_SOCK_WRITE, NULL);
-	if (rc != 0) {
-		sc_log_error("conn_term : %s \n", sc_sock_poll_err(p));
+	if (c->state == CONN_DISCONNECTED) {
+		return;
 	}
+
+	conn_unregister(c, true, true);
 
 	rc = sc_sock_term(s);
 	if (rc != 0) {
@@ -146,10 +154,27 @@ void conn_term(struct conn *c)
 	}
 }
 
-void conn_move(struct conn *c, struct conn *src)
+int conn_set(struct conn *c, struct conn *src)
 {
+	int rc;
+
 	*c = *src;
+
 	sc_list_init(&c->list);
+	sc_timer_cancel(&c->server->timer, &c->timer_id);
+
+	/**
+	 * Important to unregister both. Connection might be registered before
+	 * with any of the events. We move connection, so memory address will
+	 * change. Event trigger uses pointer address, so we must unregister
+	 * first.
+	 */
+	rc = conn_unregister(c, true, true);
+	if (rc != RS_OK) {
+		return rc;
+	}
+
+	return conn_register(c, true, false);
 }
 
 void conn_schedule(struct conn *c, uint32_t type, uint32_t timeout)
@@ -160,25 +185,15 @@ void conn_schedule(struct conn *c, uint32_t type, uint32_t timeout)
 	c->timer_id = sc_timer_add(t, timeout, type, c);
 }
 
-void conn_clear_timer(struct conn *c)
-{
-	struct sc_timer *t = &c->server->timer;
-
-	sc_timer_cancel(t, &c->timer_id);
-}
-
 int conn_try_connect(struct conn *c, struct sc_uri *uri)
 {
 	int rc;
-	struct sc_sock_poll *p = &c->server->poll;
 
 	if (c->state == CONN_CONNECTED) {
 		return RS_EXISTS;
 	}
 
-	if (c->state == CONN_TCP_ATTEMPT) {
-		conn_cleanup_sock(c);
-	}
+	conn_cleanup_sock(c);
 
 	c->state = CONN_TCP_ATTEMPT;
 	sc_sock_init(&c->sock, SERVER_FD_OUTGOING_CONN, false, SC_SOCK_INET);
@@ -187,17 +202,14 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 
 	switch (rc) {
 	case SC_SOCK_OK:
-		c->state = CONN_CONNECTED;
 		c->sock.fdt.type = SERVER_FD_WAIT_FIRST_RESP;
-		sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
-
-		sc_sock_local_str(&c->sock, c->local, sizeof(c->local));
-		sc_sock_remote_str(&c->sock, c->remote, sizeof(c->remote));
-		rc = RS_OK;
+		rc = conn_established(c);
 		break;
 	case SC_SOCK_WANT_WRITE:
-		sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_WRITE, &c->sock.fdt);
-		rc = RS_INPROGRESS;
+		rc = conn_register(c, false, true);
+		if (rc == RS_OK) {
+			rc = RS_INPROGRESS;
+		}
 		break;
 	default:
 		rc = RS_ERROR;
@@ -210,7 +222,6 @@ int conn_try_connect(struct conn *c, struct sc_uri *uri)
 int conn_on_out_connected(struct conn *c)
 {
 	int rc;
-	struct sc_sock_poll *p = &c->server->poll;
 
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 
@@ -219,45 +230,18 @@ int conn_on_out_connected(struct conn *c)
 		return RS_ERROR;
 	}
 
-	conn_clear_events(c);
-
-	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
-	if (rc != 0) {
-		return RS_ERROR;
-	}
-
-	c->state = CONN_CONNECTED;
 	c->sock.fdt.type = SERVER_FD_WAIT_FIRST_RESP;
 
-	sc_sock_local_str(&c->sock, c->local, sizeof(c->local));
-	sc_sock_remote_str(&c->sock, c->remote, sizeof(c->remote));
-
-	return RS_OK;
-}
-
-void conn_disconnect(struct conn *c)
-{
-	sc_timer_cancel(&c->server->timer, &c->timer_id);
-
-	if (c->state != CONN_DISCONNECTED) {
-		conn_cleanup_sock(c);
-	}
-
-	sc_buf_clear(&c->in);
-	sc_buf_clear(&c->out);
-
-	conn_clear_bufs(c);
+	return conn_established(c);
 }
 
 int conn_on_writable(struct conn *c)
 {
 	int rc;
-	struct sc_sock_fd *fdt = &c->sock.fdt;
-	struct sc_sock_poll *p = &c->server->poll;
 
-	rc = sc_sock_poll_del(p, fdt, SC_SOCK_WRITE, fdt);
+	rc = conn_unregister(c, false, true);
 	if (rc != 0) {
-		sc_log_error("sc_sock_poll_del : %s \n", sc_sock_poll_err(p));
+		return rc;
 	}
 
 	return conn_flush(c);
@@ -296,27 +280,39 @@ retry:
 	return rc != SC_SOCK_ERROR ? RS_OK : RS_ERROR;
 }
 
-void conn_allow_read(struct conn *c)
+int conn_register(struct conn *c, bool read, bool write)
 {
 	int rc;
+	enum sc_sock_ev flag = SC_SOCK_NONE;
 	struct sc_sock_poll *p = &c->server->poll;
 
-	rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_READ, &c->sock.fdt);
+	flag |= read ? SC_SOCK_READ : 0;
+	flag |= write ? SC_SOCK_WRITE : 0;
+
+	rc = sc_sock_poll_add(p, &c->sock.fdt, flag, &c->sock.fdt);
 	if (rc != 0) {
 		sc_log_error("sc_sock_poll_add : %s \n", sc_sock_poll_err(p));
+		return RS_ERROR;
 	}
+
+	return RS_OK;
 }
 
-void conn_disallow_read(struct conn *c)
+int conn_unregister(struct conn *c, bool read, bool write)
 {
-	int rc;
-	struct sc_sock_fd *fdt = &c->sock.fdt;
+	int rc, flag = 0;
 	struct sc_sock_poll *p = &c->server->poll;
 
-	rc = sc_sock_poll_del(p, fdt, SC_SOCK_READ, fdt);
+	flag |= read ? SC_SOCK_READ : 0;
+	flag |= write ? SC_SOCK_WRITE : 0;
+
+	rc = sc_sock_poll_del(p, &c->sock.fdt, flag, &c->sock.fdt);
 	if (rc != 0) {
 		sc_log_error("sc_sock_poll_del : %s \n", sc_sock_poll_err(p));
+		return RS_ERROR;
 	}
+
+	return RS_OK;
 }
 
 void conn_set_type(struct conn *c, int type)
@@ -324,23 +320,10 @@ void conn_set_type(struct conn *c, int type)
 	c->sock.fdt.type = type;
 }
 
-void conn_clear_events(struct conn *c)
-{
-	int rc;
-	struct sc_sock_fd *fdt = &c->sock.fdt;
-	struct sc_sock_poll *p = &c->server->poll;
-
-	rc = sc_sock_poll_del(p, fdt, fdt->op, fdt);
-	if (rc != 0) {
-		sc_log_error("sc_sock_poll_del : %s \n", sc_sock_poll_err(p));
-	}
-}
-
 int conn_flush(struct conn *c)
 {
 	int rc, len;
 	void *buf;
-	struct sc_sock_poll *p = &c->server->poll;
 
 	if (!sc_buf_valid(&c->out)) {
 		return RS_ERROR;
@@ -360,11 +343,9 @@ retry:
 	}
 
 	if (rc == SC_SOCK_WANT_WRITE) {
-		rc = sc_sock_poll_add(p, &c->sock.fdt, SC_SOCK_WRITE,
-				      &c->sock.fdt);
-		if (rc != 0) {
-			sc_log_error("poll_add %s \n", sc_sock_poll_err(p));
-			return RS_ERROR;
+		rc = conn_register(c, false, true);
+		if (rc != RS_OK) {
+			return rc;
 		}
 
 		goto out;
@@ -378,7 +359,7 @@ retry:
 	}
 
 out:
-	conn_clear_bufs(c);
+	conn_clear_buf(c);
 
 	return RS_OK;
 }

@@ -60,26 +60,25 @@ struct conn {
 struct conn *conn_create(struct server *server, struct sc_sock *s);
 void conn_destroy(struct conn *c);
 
-void conn_clear_inbuf(struct conn *c);
-void conn_clear_bufs(struct conn *c);
-struct sc_buf *conn_outbuf(struct conn *c);
-void conn_move(struct conn *c, struct conn *src);
 void conn_init(struct conn *c, struct server *s);
 void conn_term(struct conn *c);
 
+
+void conn_clear_buf(struct conn *c);
+struct sc_buf *conn_out(struct conn *c);
+int conn_set(struct conn *c, struct conn *src);
+void conn_set_type(struct conn *c, int type);
+
 void conn_schedule(struct conn *c, uint32_t type, uint32_t timeout);
-void conn_clear_timer(struct conn *c);
 
 int conn_try_connect(struct conn *c, struct sc_uri *uri);
-void conn_disconnect(struct conn *c);
 int conn_on_out_connected(struct conn *c);
 
 int conn_on_writable(struct conn *c);
 int conn_on_readable(struct conn *c);
-void conn_allow_read(struct conn *c);
-void conn_set_type(struct conn *c, int type);
-void conn_disallow_read(struct conn *c);
-void conn_clear_events(struct conn *c);
+int conn_register(struct conn *c, bool read, bool write);
+int conn_unregister(struct conn *c, bool read, bool write);
+
 int conn_flush(struct conn *c);
 
 #endif

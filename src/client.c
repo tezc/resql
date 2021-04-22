@@ -24,26 +24,34 @@
 
 #include "client.h"
 
-#include "rs.h"
 #include "server.h"
 
 struct client *client_create(struct conn *conn, const char *name)
 {
+	int rc;
 	struct client *c;
 
 	c = rs_calloc(1, sizeof(*c));
 
+	rc = conn_set(&c->conn, conn);
+	if (rc != RS_OK) {
+		goto err;
+	}
+
+	conn_set_type(&c->conn, SERVER_FD_CLIENT_RECV);
+
 	c->name = sc_str_create(name);
 	c->msg_wait = false;
 
-	conn_move(&c->conn, conn);
 	sc_list_init(&c->list);
 	sc_list_init(&c->read);
 
-	conn_set_type(&c->conn, SERVER_FD_CLIENT_RECV);
-	conn_disallow_read(&c->conn);
+	conn_clear_buf(&c->conn);
 
 	return c;
+err:
+	rs_free(c);
+	return NULL;
 }
 
 void client_destroy(struct client *c)
@@ -54,12 +62,13 @@ void client_destroy(struct client *c)
 	rs_free(c);
 }
 
-void client_processed(struct client *c)
+int client_processed(struct client *c)
 {
 	c->msg_wait = false;
 	sc_list_del(NULL, &c->read);
-	conn_allow_read(&c->conn);
-	conn_clear_bufs(&c->conn);
+	conn_clear_buf(&c->conn);
+
+	return conn_register(&c->conn, true, false);
 }
 
 void client_print(struct client *c, char *buf, size_t len)
