@@ -113,6 +113,7 @@ struct server {
 	bool stop_requested;
 	bool cluster_up;
 	bool full;
+	bool in_cluster;
 	int timer_rc;
 
 	// Cluster management

@@ -61,5 +61,6 @@ int file_rmdir(const char *path);
 int file_clear_dir(const char *path, const char *pattern);
 int file_copy(const char *dst, const char *src);
 int file_rename(const char *dst, const char *src);
+int file_fsync(const char* path);
 
 #endif

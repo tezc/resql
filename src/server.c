@@ -443,6 +443,11 @@ int server_write_meta(struct server *s)
 		goto cleanup_tmp;
 	}
 
+	rc = file_fsync(s->conf.node.dir);
+	if (rc != RS_OK) {
+		goto cleanup_tmp;
+	}
+
 	return RS_OK;
 
 cleanup_file:
@@ -491,6 +496,7 @@ static int server_parse_meta(struct server *s)
 
 	size = file_size(&f);
 	if (size < 0) {
+		rc = RS_ERROR;
 		goto cleanup;
 	}
 
@@ -539,6 +545,11 @@ int server_read_meta(struct server *s)
 	meta_print(&s->meta, &s->tmp);
 	sc_log_info(sc_buf_rbuf(&s->tmp));
 
+	exist = meta_exists(&s->meta, s->conf.node.name);
+	if (exist) {
+		s->in_cluster = true;
+	}
+
 	rc = state_open(&s->state, s->conf.node.in_memory);
 	if (rc != RS_OK) {
 		return rc;
@@ -568,6 +579,84 @@ int server_update_meta(struct server *s, uint64_t term, const char *voted_for)
 	return server_write_meta(s);
 }
 
+struct node* server_find_node(struct server *s, const char* name)
+{
+	struct node *n;
+
+	sc_array_foreach (s->nodes, n) {
+		if (strcmp(n->name, name) == 0) {
+			return n;
+		}
+	}
+
+	return NULL;
+}
+
+void server_add_nodes(struct server *s)
+{
+	bool b;
+	struct node *node;
+	struct meta_node n;
+
+	sc_array_foreach (s->meta.nodes, n) {
+		if (strcmp(n.name, s->conf.node.name) == 0) {
+			continue;
+		}
+
+		node = server_find_node(s, n.name);
+		if (!node) {
+			node = node_create(n.name, s, true);
+			node_add_uris(node, n.uris);
+			node_clear_indexes(node, s->store.last_index);
+			node->known = true;
+			sc_array_add(s->nodes, node);
+		}
+	}
+
+	for (size_t i = 0; i < sc_array_size(s->nodes); i++) {
+		node = s->nodes[i];
+		b = meta_exists(&s->meta, node->name);
+		if (!b) {
+			sc_array_del(s->nodes, i);
+			sc_array_add(s->nodes, node);
+
+		}
+		if (meta_exists(&s->meta, node->name))
+	}
+}
+
+void server_adjust_meta_change(struct server *s)
+{
+	bool b;
+	struct meta_node record;
+	struct node *node;
+	struct sc_list *elem, *tmp;
+
+	s->in_cluster = meta_exists(&s->meta, s->conf.node.name);
+
+	sc_array_foreach (s->meta.nodes, record) {
+		for (int i = 0; i < sc_array_size(s->nodes); i++) {
+		}
+	}
+
+	sc_list_foreach_safe (&s->connected_nodes, tmp, elem) {
+		node = sc_list_entry(elem, struct node, list);
+		b = meta_exists(&s->meta, node->name);
+		if (!b) {
+			sc_list_del(&s->connected_nodes, &node->list);
+
+			for (size_t i = 0; i < sc_array_size(s->nodes); i++) {
+				if (s->nodes[i] == node) {
+					sc_array_del(s->nodes, i);
+					break;
+				}
+			}
+
+			sc_array_add(s->unknown_nodes, node);
+		}
+	}
+}
+
 static const char *server_msg(struct server *s, struct msg *msg)
 {
 	sc_buf_clear(&s->tmp);
@@ -578,7 +667,7 @@ static const char *server_msg(struct server *s, struct msg *msg)
 	return (const char *) s->tmp.mem;
 }
 
-static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
+static int server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
 	struct sc_sock in;
@@ -588,34 +677,45 @@ static void server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
 	rc = sc_sock_accept(endp, &in);
 	if (rc != SC_SOCK_OK) {
 		sc_log_error("accept : %s \n", sc_sock_error(endp));
-		return;
+		return RS_OK;
 	}
 
 	c = conn_create(s, &in);
 	if (!c) {
-		return;
+		return RS_OK;
 	}
 
 	conn_schedule(c, SERVER_TIMER_PENDING, 50000);
 	sc_list_add_tail(&s->pending_conns, &c->list);
+
+	return RS_OK;
 }
 
-static void server_on_task(struct server *s)
+static int server_on_task(struct server *s)
 {
 	char c;
 	int size;
 
 	size = sc_sock_pipe_read(&s->efd, &c, sizeof(c));
-	rs_assert(size == 1);
+	if (size != 1) {
+		sc_log_error("pipe_read : %d \n", size);
+		return RS_ERROR;
+	}
 
 	s->stop_requested = true;
+
+	return RS_OK;
 }
 
-static void server_on_signal(struct server *s)
+static int server_on_signal(struct server *s)
 {
+	int size;
 	uint64_t val;
 
-	sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
+	size = sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
+	if (size != sizeof(val)) {
+		return RS_ERROR;
+	}
 
 	if (s->conf.cmdline.systemd) {
 		sc_sock_notify_systemd("STOPPING=1\n");
@@ -623,6 +723,8 @@ static void server_on_signal(struct server *s)
 
 	sc_log_info("Received shutdown command, shutting down. \n");
 	s->stop_requested = true;
+
+	return RS_OK;
 }
 
 static void server_on_pending_disconnect(struct server *s, struct conn *in,
@@ -709,9 +811,9 @@ retry:
 	return RS_OK;
 }
 
-static void server_log(struct server *s, const char *level, const char *fmt,
-		       ...)
+static int server_log(struct server *s, const char *level, const char *fmt, ...)
 {
+	int rc;
 	char tmp[1024];
 	va_list va;
 
@@ -721,7 +823,11 @@ static void server_log(struct server *s, const char *level, const char *fmt,
 
 	sc_buf_clear(&s->tmp);
 	cmd_encode_log(&s->tmp, level, tmp);
-	server_create_entry(s, true, 0, 0, CMD_LOG, &s->tmp);
+
+	rc = server_create_entry(s, true, 0, 0, CMD_LOG, &s->tmp);
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	sc_log_info("server_log(%s) %s \n", level, tmp);
 }
@@ -830,8 +936,7 @@ static int server_on_client_disconnect(struct server *s, struct client *c,
 	return server_create_entry(s, true, 0, 0, CMD_DISCONNECT, &s->tmp);
 }
 
-static void server_finalize_client_connection(struct server *s,
-					      struct client *c)
+static int server_finalize_client_connection(struct server *s, struct client *c)
 {
 	int rc;
 	struct sc_buf *b = conn_out(&c->conn);
@@ -840,25 +945,34 @@ static void server_finalize_client_connection(struct server *s,
 
 	rc = conn_flush(&c->conn);
 	if (rc != RS_OK) {
-		server_on_client_disconnect(s, c, MSG_ERR);
-		return;
+		goto err;
 	}
 
-	conn_register(&c->conn, true, false);
+	rc = client_processed(c);
+	if (rc != RS_OK) {
+		goto err;
+	}
 
 	sc_map_put_64v(&s->vclients, c->id, c);
 	sc_log_debug("Client connected : %s \n", c->name);
+
+	return RS_OK;
+
+err:
+	return server_on_client_disconnect(s, c, MSG_ERR);
 }
 
 static int server_on_client_connect_req(struct server *s, struct conn *in,
 					struct msg_connect_req *msg)
 {
 	bool found;
-	int rc;
+	int rc, ret = RS_OK;
+	enum msg_rc msg_rc = MSG_ERR;
 	struct client *c, *prev;
 
 	if (!s->cluster_up || s->role != SERVER_ROLE_LEADER) {
-		goto not_leader;
+		msg_rc = MSG_NOT_LEADER;
+		goto err;
 	}
 
 	if (!msg->name) {
@@ -870,7 +984,11 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 		if (prev->id == 0) {
 			goto err;
 		} else {
-			server_on_client_disconnect(s, prev, MSG_ERR);
+			rc = server_on_client_disconnect(s, prev, MSG_ERR);
+			if (rc != RS_OK) {
+				ret = rc;
+				goto err;
+			}
 		}
 	}
 
@@ -887,16 +1005,11 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 	sc_buf_clear(&s->tmp);
 	cmd_encode_connect(&s->tmp, c->name, c->conn.local, c->conn.remote);
 
-	rc = server_create_entry(s, true, 0, 0, CMD_CONNECT, &s->tmp);
+	return server_create_entry(s, true, 0, 0, CMD_CONNECT, &s->tmp);
 
-	return rc;
-
-not_leader:
-	server_on_pending_disconnect(s, in, MSG_NOT_LEADER);
-	return RS_OK;
 err:
-	server_on_pending_disconnect(s, in, MSG_ERR);
-	return RS_OK;
+	server_on_pending_disconnect(s, in, msg_rc);
+	return ret;
 }
 
 static int server_on_node_connect_req(struct server *s, struct conn *pending,
@@ -935,7 +1048,8 @@ static int server_on_node_connect_req(struct server *s, struct conn *pending,
 
 	rc = conn_flush(&n->conn);
 	if (rc != RS_OK) {
-		server_on_node_disconnect(s, n);
+		node_disconnect(n);
+		return RS_OK;
 	}
 
 	if (s->role == SERVER_ROLE_LEADER) {
@@ -981,7 +1095,7 @@ disconnect:
 	return server_on_node_disconnect(s, node);
 }
 
-static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
+static int server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
 	struct sc_sock *sock = rs_entry(fd, struct sc_sock, fdt);
@@ -993,7 +1107,7 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 	rc = conn_on_out_connected(&node->conn);
 	if (rc != RS_OK) {
 		node_disconnect(node);
-		return;
+		return RS_OK;
 	}
 
 	buf = conn_out(&node->conn);
@@ -1003,6 +1117,8 @@ static void server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 	if (rc != RS_OK) {
 		node_disconnect(node);
 	}
+
+	return RS_OK;
 }
 
 static void server_schedule_election(struct server *s)
@@ -1075,13 +1191,17 @@ static int server_check_prevote_count(struct server *s)
 	struct node *node;
 	struct sc_buf *buf;
 
-	if (s->prevote_count >= s->meta.voter / 2 + 1) {
+	if (s->prevote_count >= (s->meta.voter / 2) + 1) {
 		rc = server_update_meta(s, s->prevote_term, s->conf.node.name);
 		if (rc != RS_OK) {
 			return rc;
 		}
 
-		s->vote_count = 1;
+		s->vote_count = 0;
+
+		if (s->in_cluster) {
+			s->vote_count += 1;
+		}
 
 		sc_list_foreach_safe (&s->connected_nodes, tmp, n) {
 			node = sc_list_entry(n, struct node, list);
@@ -1099,7 +1219,7 @@ static int server_check_prevote_count(struct server *s)
 			}
 		}
 
-		if (s->vote_count >= s->meta.voter / 2 + 1) {
+		if (s->vote_count >= (s->meta.voter / 2) + 1) {
 			rc = server_become_leader(s);
 			if (rc != RS_OK) {
 				return rc;
@@ -1132,11 +1252,15 @@ static int server_on_election_timeout(struct server *s)
 		return RS_OK;
 	}
 
-	if (!meta_exists(&s->meta, s->conf.node.name)) {
+	if (!s->in_cluster && s->meta.prev == NULL) {
 		return RS_OK;
 	}
 
-	connected = sc_list_count(&s->connected_nodes) + 1;
+	connected = sc_list_count(&s->connected_nodes);
+
+	if (s->in_cluster) {
+		connected += 1;
+	}
 
 	if (connected < (s->meta.voter / 2) + 1) {
 		sc_log_info("Cluster nodes = %zu, "
@@ -1149,7 +1273,12 @@ static int server_on_election_timeout(struct server *s)
 	sc_log_info("Starting election, term[%" PRIu64 "]\n", s->meta.term + 1);
 
 	s->role = SERVER_ROLE_CANDIDATE;
-	s->prevote_count = 1;
+	s->prevote_count = 0;
+
+	if (s->in_cluster) {
+		s->prevote_count += 1;
+	}
+
 	s->prevote_term = s->meta.term + 1;
 
 	sc_list_foreach_safe (&s->connected_nodes, tmp, n) {
@@ -1160,7 +1289,10 @@ static int server_on_election_timeout(struct server *s)
 				       s->store.last_index, s->store.last_term);
 		rc = conn_flush(&node->conn);
 		if (rc != RS_OK) {
-			server_on_node_disconnect(s, node);
+			rc = server_on_node_disconnect(s, node);
+			if (rc != RS_OK) {
+				return rc;
+			}
 		}
 	}
 
@@ -1183,7 +1315,7 @@ static void server_try_connect(struct server *s, struct node *n)
 
 		rc = conn_flush(&n->conn);
 		if (rc != RS_OK) {
-			server_on_node_disconnect(s, n);
+			conn_term(&n->conn);
 		}
 	}
 }
@@ -1193,7 +1325,9 @@ static int server_on_info_timer(struct server *s)
 	int rc;
 	struct sc_list *l;
 	struct node *n;
-	struct sc_buf *buf;
+	struct sc_buf *buf, *info;
+
+	s->info_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_INFO, NULL);
 
 	sc_buf_clear(&s->own->info);
 	metric_encode(&s->metric, &s->own->info);
@@ -1211,24 +1345,19 @@ static int server_on_info_timer(struct server *s)
 					sc_buf_size(&n->info));
 		}
 
-		rc = server_create_entry(s, true, 0, 0, CMD_INFO, &s->tmp);
-		if (rc != RS_OK) {
-			return rc;
-		}
-
-	} else {
-		if (s->leader != NULL) {
-			buf = conn_out(&s->leader->conn);
-			msg_create_info_req(buf, sc_buf_rbuf(&s->own->info),
-					    sc_buf_size(&s->own->info));
-			rc = conn_flush(&s->leader->conn);
-			if (rc != RS_OK) {
-				server_on_node_disconnect(s, s->leader);
-			}
-		}
+		return server_create_entry(s, true, 0, 0, CMD_INFO, &s->tmp);
 	}
 
-	s->info_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_INFO, NULL);
+	if (s->leader != NULL) {
+		info = &s->own->info;
+		buf = conn_out(&s->leader->conn);
+		msg_create_info_req(buf, sc_buf_rbuf(info), sc_buf_size(info));
+
+		rc = conn_flush(&s->leader->conn);
+		if (rc != RS_OK) {
+			return server_on_node_disconnect(s, s->leader);
+		}
+	}
 
 	return RS_OK;
 }
@@ -1462,8 +1591,8 @@ static int server_on_prevote_resp(struct server *s, struct node *node,
 	return server_check_prevote_count(s);
 }
 
-static void server_on_applied_entry(struct server *s, unsigned char *entry,
-				    struct session *sess);
+static int server_on_applied_entry(struct server *s, unsigned char *entry,
+				   struct session *sess);
 
 static int server_update_commit(struct server *s, uint64_t commit)
 {
@@ -1484,7 +1613,10 @@ static int server_update_commit(struct server *s, uint64_t commit)
 				rs_abort("error : %d \n", rc);
 			}
 
-			server_on_applied_entry(s, entry, sess);
+			rc = server_on_applied_entry(s, entry, sess);
+			if (rc != RS_OK) {
+				return rc;
+			}
 		}
 
 		s->commit = commit;
@@ -1770,8 +1902,11 @@ int server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 
 	if (resp->done) {
 		n->next = s->ss.index + 1;
-		server_warn(s, "Snapshot[%" PRIu64 "] sent to : %s",
-			    s->ss.index, n->name);
+		rc = server_warn(s, "Snapshot[%" PRIu64 "] sent to : %s",
+				 s->ss.index, n->name);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 	return RS_OK;
@@ -1850,8 +1985,7 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 				ret = server_on_shutdown_req(s);
 				break;
 			default:
-				server_on_node_disconnect(s, node);
-				return RS_OK;
+				return server_on_node_disconnect(s, node);
 			}
 
 			if (ret != RS_OK) {
@@ -1873,8 +2007,7 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 	return RS_OK;
 
 disconnect:
-	server_on_node_disconnect(s, node);
-	return RS_OK;
+	return server_on_node_disconnect(s, node);
 }
 
 int server_on_client_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
@@ -2000,10 +2133,10 @@ static int server_prepare_start(struct server *s)
 	return RS_OK;
 }
 
-static void server_on_meta(struct server *s, struct meta *meta)
+static int server_on_meta(struct server *s, struct meta *meta)
 {
 	if (meta->index < s->meta.index) {
-		return;
+		return RS_OK;
 	}
 
 	if (meta->index == s->meta.index && s->meta.prev != NULL) {
@@ -2015,38 +2148,45 @@ static void server_on_meta(struct server *s, struct meta *meta)
 		meta_copy(&s->meta, meta);
 	}
 
-	server_write_meta(s);
+	return server_write_meta(s);
 }
 
-static void server_on_term_start(struct server *s, struct meta *meta)
+static int server_on_term_start(struct server *s, struct meta *m)
 {
-	if (meta->term != s->meta.term) {
-		return;
+	if (m->term != s->meta.term) {
+		return RS_OK;
 	}
 
-	sc_log_info("Term[%" PRIu64 "], leader[%s] \n", meta->term,
+	sc_log_info("Term[%" PRIu64 "], leader[%s] \n", m->term,
 		    s->leader->name);
 	s->cluster_up = true;
+
+	return RS_OK;
 }
 
-static void server_on_client_connect_applied(struct server *s,
-					     struct session *sess)
+static int server_on_client_connect_applied(struct server *s,
+					    struct session *sess)
 {
 	bool found;
 	struct client *c;
 
-	if (s->role == SERVER_ROLE_LEADER) {
-		found = sc_map_get_sv(&s->clients, sess->name, (void **) &c);
-		if (found) {
-			c->id = sess->id;
-			c->seq = sess->seq;
-			server_finalize_client_connection(s, c);
-		}
+	if (s->role != SERVER_ROLE_LEADER) {
+		return RS_OK;
 	}
+
+	found = sc_map_get_sv(&s->clients, sess->name, (void **) &c);
+	if (!found) {
+		return RS_OK;
+	}
+
+	c->id = sess->id;
+	c->seq = sess->seq;
+
+	return server_finalize_client_connection(s, c);
 }
 
-static void server_on_applied_client_req(struct server *s, uint64_t cid,
-					 void *resp, uint32_t len)
+static int server_on_applied_client_req(struct server *s, uint64_t cid,
+					void *resp, uint32_t len)
 {
 	int rc;
 	bool found;
@@ -2054,12 +2194,12 @@ static void server_on_applied_client_req(struct server *s, uint64_t cid,
 	struct sc_buf *b;
 
 	if (s->role != SERVER_ROLE_LEADER) {
-		return;
+		return RS_OK;
 	}
 
 	found = sc_map_get_64v(&s->vclients, cid, (void **) &c);
 	if (!found) {
-		return;
+		return RS_OK;
 	}
 
 	b = conn_out(&c->conn);
@@ -2075,31 +2215,32 @@ static void server_on_applied_client_req(struct server *s, uint64_t cid,
 		goto err;
 	}
 
-	return;
+	return RS_OK;
 err:
-	server_on_client_disconnect(s, c, MSG_ERR);
+	return server_on_client_disconnect(s, c, MSG_ERR);
 }
 
-static void server_on_applied_entry(struct server *s, unsigned char *entry,
-				    struct session *sess)
+static int server_on_applied_entry(struct server *s, unsigned char *entry,
+				   struct session *sess)
 {
+	int rc = RS_OK;
 	enum cmd_id c = (enum cmd_id) entry_flags(entry);
 
 	switch (c) {
 	case CMD_META:
-		server_on_meta(s, &s->state.meta);
+		rc = server_on_meta(s, &s->state.meta);
 		break;
 	case CMD_TERM:
-		server_on_term_start(s, &s->state.meta);
+		rc = server_on_term_start(s, &s->state.meta);
 		break;
 	case CMD_REQUEST:
-		server_on_applied_client_req(s, sess->id,
-					     sc_buf_rbuf(&sess->resp),
-					     sc_buf_size(&sess->resp));
+		rc = server_on_applied_client_req(s, sess->id,
+						  sc_buf_rbuf(&sess->resp),
+						  sc_buf_size(&sess->resp));
 		break;
 
 	case CMD_CONNECT:
-		server_on_client_connect_applied(s, sess);
+		rc = server_on_client_connect_applied(s, sess);
 		break;
 	case CMD_DISCONNECT:
 	case CMD_INIT:
@@ -2110,6 +2251,8 @@ static void server_on_applied_entry(struct server *s, unsigned char *entry,
 	default:
 		rs_abort("");
 	}
+
+	return rc;
 }
 
 static int server_sort_matches(const void *n1, const void *n2)
@@ -2128,6 +2271,37 @@ static int server_sort_rounds(const void *n1, const void *n2)
 	return node1->round > node2->round ? -1 : 1;
 }
 
+static int server_process_readonly(struct server *s, struct client *c)
+{
+	int rc;
+	struct sc_buf *buf;
+
+	buf = conn_out(&c->conn);
+	rc = state_apply_readonly(&s->state, c->id, c->msg.client_req.buf,
+				  c->msg.client_req.len, buf);
+	if (rc != RS_OK) {
+		/**
+		 * readonly requests should not fail. Even it triggers
+		 * RS_FULL, it's returned as RS_OK from state as RS_FULL
+		 * gives no harm on readonly requests.
+		 */
+		rs_abort("apply_readonly : %d.", rc);
+	}
+
+	rc = client_processed(c);
+	if (rc != RS_OK) {
+		goto err;
+	}
+
+	rc = conn_flush(&c->conn);
+	if (rc != RS_OK) {
+		goto err;
+	}
+
+	return RS_OK;
+err:
+	return server_on_client_disconnect(s, c, MSG_ERR);
+}
 static int server_check_commit(struct server *s)
 {
 	int rc;
@@ -2161,24 +2335,9 @@ static int server_check_commit(struct server *s)
 			break;
 		}
 
-		buf = conn_out(&c->conn);
-		rc = state_apply_readonly(&s->state, c->id,
-					  c->msg.client_req.buf,
-					  c->msg.client_req.len, buf);
+		rc = server_process_readonly(s, c);
 		if (rc != RS_OK) {
-			/**
-			 * readonly requests should not fail. Even it triggers
-			 * RS_FULL, it's returned as RS_OK from state as RS_FULL
-			 * gives no harm on readonly requests.
-			 */
-			rs_abort("apply_readonly : %d.", rc);
-		}
-
-		client_processed(c);
-
-		rc = conn_flush(&c->conn);
-		if (rc != RS_OK) {
-			server_on_client_disconnect(s, c, MSG_ERR);
+			return rc;
 		}
 	}
 
@@ -2216,7 +2375,7 @@ static int server_job_add_node(struct server *s, struct server_job *job)
 	goto out;
 
 err:
-	server_err(s, "Add node[%s] : %s", job->data, msg);
+	rc = server_err(s, "Add node[%s] : %s", job->data, msg);
 out:
 	sc_uri_destroy(&uri);
 	return rc;
@@ -2243,11 +2402,10 @@ static int server_job_remove_node(struct server *s, struct server_job *job)
 
 	return server_write_meta_cmd(s);
 err:
-	server_err(s, "Remove node[%s] : %s", job->data, msg);
-	return RS_OK;
+	return server_err(s, "Remove node[%s] : %s", job->data, msg);
 }
 
-static void server_job_shutdown(struct server *s, struct server_job *job)
+static int server_job_shutdown(struct server *s, struct server_job *job)
 {
 	int rc;
 	struct sc_list *l;
@@ -2264,22 +2422,29 @@ static void server_job_shutdown(struct server *s, struct server_job *job)
 
 			rc = conn_flush(&n->conn);
 			if (rc != RS_OK) {
-				server_on_node_disconnect(s, n);
+				rc = server_on_node_disconnect(s, n);
+				if (rc != RS_OK) {
+					return rc;
+				}
 			}
 		}
 	}
 
 	if (*name == '*' || strcmp(name, s->conf.node.name) == 0) {
-		server_on_shutdown_req(s);
+		return server_on_shutdown_req(s);
 	}
+
+	return RS_OK;
 }
 
 static int server_handle_jobs(struct server *s)
 {
-	int rc = RS_OK;
+	int rc;
 	struct server_job job;
 
-	sc_queue_foreach (s->jobs, job) {
+	while (sc_queue_size(s->jobs) > 0) {
+		job = sc_queue_del_first(s->jobs);
+
 		switch (job.type) {
 		case SERVER_JOB_ADD_NODE:
 			rc = server_job_add_node(s, &job);
@@ -2288,21 +2453,28 @@ static int server_handle_jobs(struct server *s)
 			rc = server_job_remove_node(s, &job);
 			break;
 		case SERVER_JOB_SHUTDOWN:
-			server_job_shutdown(s, &job);
+			rc = server_job_shutdown(s, &job);
 			break;
 		default:
 			break;
 		}
 
 		sc_str_destroy(&job.data);
+
+		/**
+		 * It's okay to return here, remaining jobs will be destroyed
+		 * on top level. If rc is not RS_OK, there is a serious problem
+		 * anyway. e.g disk is full.
+		 */
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
-	sc_queue_clear(s->jobs);
-
-	return rc;
+	return RS_OK;
 }
 
-static void server_flush_snapshot(struct server *s, struct node *n)
+static int server_flush_snapshot(struct server *s, struct node *n)
 {
 	int rc;
 	bool done;
@@ -2311,16 +2483,18 @@ static void server_flush_snapshot(struct server *s, struct node *n)
 	struct sc_buf *buf;
 
 	if (n->msg_inflight > 0) {
-		return;
+		return RS_OK;
 	}
 
 	if (n->ss_index != s->ss.index) {
 		n->ss_index = s->ss.index;
 		n->ss_pos = 0;
 
-		server_log(s, "WARNING",
-			   "Sending snapshot[%" PRIu64 "] to node : %s",
-			   n->ss_index, n->name);
+		rc = server_warn(s, "Sending snapshot[%" PRIu64 "] to : %s",
+				 n->ss_index, n->name);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 	len = (uint32_t) sc_min(MAX_SIZE, s->ss.map.len - n->ss_pos);
@@ -2341,11 +2515,13 @@ static void server_flush_snapshot(struct server *s, struct node *n)
 flush:
 	rc = conn_flush(&n->conn);
 	if (rc != RS_OK) {
-		server_on_node_disconnect(s, n);
+		return server_on_node_disconnect(s, n);
 	}
+
+	return RS_OK;
 }
 
-static void server_flush_nodes(struct server *s)
+static int server_flush_nodes(struct server *s)
 {
 	int rc;
 	uint32_t size, count;
@@ -2360,7 +2536,11 @@ static void server_flush_nodes(struct server *s)
 		n = sc_list_entry(l, struct node, list);
 
 		if (n->next <= s->store.ss_index) {
-			server_flush_snapshot(s, n);
+			rc = server_flush_snapshot(s, n);
+			if (rc != RS_OK) {
+				return rc;
+			}
+
 			continue;
 		}
 
@@ -2395,9 +2575,14 @@ flush:
 
 		rc = conn_flush(&n->conn);
 		if (rc != RS_OK) {
-			server_on_node_disconnect(s, n);
+			rc = server_on_node_disconnect(s, n);
+			if (rc != RS_OK) {
+				return rc;
+			}
 		}
 	}
+
+	return RS_OK;
 }
 
 static int server_flush(struct server *s)
@@ -2414,7 +2599,10 @@ static int server_flush(struct server *s)
 		return RS_OK;
 	}
 
-	server_flush_nodes(s);
+	rc = server_flush_nodes(s);
+	if (rc != RS_OK) {
+		return rc;
+	}
 
 	if (s->own->next <= s->store.last_index) {
 		if (s->conf.advanced.fsync) {
@@ -2568,10 +2756,10 @@ static void *server_run(void *arg)
 				rc = server_on_client_recv(s, fd, event);
 				break;
 			case SERVER_FD_INCOMING_CONN:
-				server_on_incoming_conn(s, fd);
+				rc = server_on_incoming_conn(s, fd);
 				break;
 			case SERVER_FD_OUTGOING_CONN:
-				server_on_outgoing_conn(s, fd);
+				rc = server_on_outgoing_conn(s, fd);
 				break;
 			case SERVER_FD_WAIT_FIRST_REQ:
 				rc = server_on_connect_req(s, fd);
@@ -2580,10 +2768,10 @@ static void *server_run(void *arg)
 				rc = server_on_connect_resp(s, fd);
 				break;
 			case SERVER_FD_TASK:
-				server_on_task(s);
+				rc = server_on_task(s);
 				break;
 			case SERVER_FD_SIGNAL:
-				server_on_signal(s);
+				rc = server_on_signal(s);
 				break;
 			default:
 				rs_abort("fd type : %d \n", fd->type);

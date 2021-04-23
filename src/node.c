@@ -55,8 +55,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 	sc_buf_init(&n->info, 1024);
 
 	if (connect) {
-		n->conn_timer =
-			sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
+		n->conn_timer = sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
 	}
 
 	return n;

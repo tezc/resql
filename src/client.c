@@ -41,7 +41,7 @@ struct client *client_create(struct conn *conn, const char *name)
 	conn_set_type(&c->conn, SERVER_FD_CLIENT_RECV);
 
 	c->name = sc_str_create(name);
-	c->msg_wait = false;
+	c->msg_wait = true;
 
 	sc_list_init(&c->list);
 	sc_list_init(&c->read);

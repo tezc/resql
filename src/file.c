@@ -144,13 +144,21 @@ int file_flush(struct file *f)
 
 	rc = fflush(f->fp);
 	if (rc != 0) {
-		err = strerror(errno);
-		sc_log_error("file : %s, flush : %s \n", f->path, err);
+		goto err;
+	}
 
-		return errno == ENOSPC ? RS_FULL : RS_ERROR;
+	rc = fsync(fileno(f->fp));
+	if (rc != 0) {
+		goto err;
 	}
 
 	return RS_OK;
+
+err:
+	err = strerror(errno);
+	sc_log_error("file : %s, flush : %s \n", f->path, err);
+
+	return errno == ENOSPC ? RS_FULL : RS_ERROR;
 }
 
 int file_write(struct file *f, const void *ptr, size_t size)
@@ -416,4 +424,25 @@ int file_rename(const char *dst, const char *src)
 	}
 
 	return RS_OK;
+}
+
+int file_fsync(const char *path)
+{
+	int fd, rc, ret = RS_OK;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		sc_log_error("open : %s, err : %s \n", path, strerror(errno));
+		return RS_ERROR;
+	}
+
+	rc = fsync(fd);
+	if (rc != 0) {
+		sc_log_error("fsync : %s, err : %s \n", path, strerror(errno));
+		ret = RS_ERROR;
+	}
+
+	close(fd);
+
+	return ret;
 }

@@ -105,7 +105,8 @@ bool sc_array_expand(void *a, size_t elem_size);
 		assert((i) < sc_array_meta(a)->size);                          \
 		const size_t cnt = sc_array_size(a) - (i) -1;                  \
 		if (cnt > 0) {                                                 \
-			memmove(&(a)[i], &(a)[(i) + 1], cnt * sizeof(*(a)));   \
+			memmove(&(a)[i], &(a)[(i) + 1],                        \
+				cnt *sc_array_sizeof(*(a)));                   \
 		}                                                              \
 		sc_array_meta((a))->size--;                                    \
 	} while (0)

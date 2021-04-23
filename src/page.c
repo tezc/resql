@@ -205,8 +205,7 @@ int page_reserve(struct page *p, uint32_t size)
 
 	if (prev_index != p->prev_index || last_index != page_last_index(p) ||
 	    entry_count != page_entry_count(p)) {
-		sc_log_error("Log page is corrupt : %s \n", path);
-		goto out;
+		rs_abort("Log page is corrupt : %s \n", path);
 	}
 
 out:
