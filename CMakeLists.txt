@@ -324,7 +324,7 @@ endif ()
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
     message(STATUS "CPU = aarch64, defined HAVE_CRC32C, -march=armv8.1-a")
     define_flag(C_FLAGS_COMMON -march=armv8.1-a)
-    define_flag(C_FLAGS_COMMON HAVE_CRC32C)
+    define_flag(C_FLAGS_COMMON -DHAVE_CRC32C)
 endif ()
 
 # detect software version endianness
