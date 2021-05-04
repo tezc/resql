@@ -121,6 +121,7 @@ enum rs_rc
 	RS_FATAL 	= -15,
 	RS_FAIL 	= -16,
 	RS_SQL_ERROR    = -17,
+	RS_SNAPSHOT     = -18
 };
 
 #define rs_exp(fmt, ...) fmt, __VA_ARGS__

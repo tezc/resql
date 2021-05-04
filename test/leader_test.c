@@ -136,8 +136,6 @@ void restart_test()
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	printf("Client created tables after restart \n");
-
 	for (int i = 0; i < 1000; i++) {
 		snprintf(tmp, sizeof(tmp), "%d", i);
 

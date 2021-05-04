@@ -639,7 +639,7 @@ static int server_on_task(struct server *s)
 static int server_on_signal(struct server *s)
 {
 	int size;
-	uint64_t val;
+	unsigned char val;
 
 	size = sc_sock_pipe_read(&s->sigfd, &val, sizeof(val));
 	if (size != sizeof(val)) {
@@ -1300,6 +1300,18 @@ static void server_on_full_disk(struct server *s)
 	s->full_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_FULL, NULL);
 }
 
+static int server_restart(struct server *s)
+{
+	int rc;
+
+	rc = server_close(s);
+	if (rc != RS_OK && rc != RS_FULL) {
+		rs_exit("server close : %d", rc);
+	}
+
+	return server_prepare_start(s);
+}
+
 static void server_on_full_timer(struct server *s)
 {
 	assert(s->full);
@@ -1323,13 +1335,15 @@ static void server_on_full_timer(struct server *s)
 
 	if (dir_size > limit) {
 		rc = server_prepare_start(s);
-		if (rc == RS_ERROR) {
-			rs_exit("prepare_start : %d .", rc);
-		}
 
-		if (rc == RS_OK) {
+		switch (rc) {
+		case RS_OK:
 			s->full = false;
 			return;
+		case RS_FULL:
+			break;
+		default:
+			rs_exit("prepare_start : %d .", rc);
 		}
 	}
 
@@ -1338,8 +1352,7 @@ static void server_on_full_timer(struct server *s)
 	sc_bytes_to_size(cur, sizeof(cur), dir_size);
 	sc_bytes_to_size(req, sizeof(req), limit);
 
-	sc_log_error("Free space : %s, need : %s. Retry in 10 seconds \n", cur,
-		     req);
+	sc_log_error("Free space : %s, required : %s. \n", cur, req);
 }
 
 void server_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
@@ -1804,26 +1817,6 @@ const char *server_shutdown(void *arg, const char *node)
 	return "Shutdown in progress.";
 }
 
-static void server_replace_snapshot(struct server *s)
-{
-	struct state_cb cb = {
-		.arg = s,
-		.add_node = server_add_node,
-		.remove_node = server_remove_node,
-		.shutdown = server_shutdown,
-	};
-
-	state_term(&s->state);
-	store_term(&s->store);
-
-	state_init(&s->state, cb, s->conf.node.dir, s->conf.cluster.name);
-	state_open(&s->state, s->conf.node.in_memory);
-	store_init(&s->store, s->conf.node.dir, s->state.term, s->state.index);
-	snapshot_open(&s->ss, s->state.ss_path, s->state.term, s->state.index);
-
-	s->commit = s->state.index;
-}
-
 int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 {
 	bool success = true;
@@ -1855,10 +1848,6 @@ int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 
 	rc = snapshot_recv(&s->ss, req->ss_term, req->ss_index, req->done,
 			   req->offset, req->buf, req->len);
-	if (rc == RS_DONE) {
-		server_replace_snapshot(s);
-	}
-
 	if (rc == RS_ERROR) {
 		success = false;
 	}
@@ -1866,7 +1855,7 @@ out:
 	buf = conn_out(&n->conn);
 	msg_create_snapshot_resp(buf, s->meta.term, success, req->done);
 
-	return RS_OK;
+	return rc;
 }
 
 int server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
@@ -2673,14 +2662,14 @@ static void *server_run(void *arg)
 	}
 
 	rc = server_prepare_start(s);
-	if (rc != RS_OK) {
-		if (rc == RS_ERROR) {
-			rs_exit("Failed to start server, shutting down. \n");
-		}
-
-		if (rc == RS_FULL) {
-			server_on_full_disk(s);
-		}
+	switch (rc) {
+	case RS_OK:
+		break;
+	case RS_FULL:
+		server_on_full_disk(s);
+		break;
+	default:
+		rs_exit("Failed to start server (%d), shutting down.. \n", rc);
 	}
 
 	if (conf.cmdline.systemd) {
@@ -2755,17 +2744,31 @@ static void *server_run(void *arg)
 			}
 		}
 
-		if (rc == RS_FULL) {
+		switch (rc) {
+		case RS_OK:
+			break;
+		case RS_FULL:
 			server_on_full_disk(s);
-		} else if (rc == RS_ERROR) {
-			rs_exit("failed with code : %d ", rc);
+			break;
+		case RS_SNAPSHOT:
+			rc = server_restart(s);
+			if (rc == RS_FULL) {
+				server_on_full_disk(s);
+			}
+			break;
+		default:
+			rs_exit("FATAL : err : %d ", rc);
 		}
 
 		rc = server_flush(s);
-		if (rc == RS_FULL) {
+		switch (rc) {
+		case RS_OK:
+			break;
+		case RS_FULL:
 			server_on_full_disk(s);
-		} else if (rc == RS_ERROR) {
-			rs_exit("failed with code : %d ", rc);
+			break;
+		default:
+			rs_exit("FATAL : err : %d ", rc);
 		}
 	}
 
