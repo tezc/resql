@@ -1,25 +1,32 @@
 /*
- * MIT License
+ * BSD-3-Clause
  *
- * Copyright (c) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef _GNU_SOURCE
@@ -124,7 +131,7 @@ int sc_signal_vsnprintf(char *buf, size_t sz, const char *fmt, va_list va)
 
 				} else if (*pos == 'd') {
 					i = get_int(va, pos - orig);
-					u = (uint64_t)(i < 0 ? -i : i);
+					u = (uint64_t) (i < 0 ? -i : i);
 
 					do {
 						c = (char) ('0' + (u % 10));
@@ -333,17 +340,17 @@ static void *sc_instruction(ucontext_t *uc)
 		p = (void *) arm_thread_state64_get_pc(uc->uc_mcontext->__ss);
 	#endif
 #elif defined(__linux__)
-	#if defined(__i386__) || ((defined(__x86_64__)) && defined(__ILP32__))
-		p = (void *) uc->uc_mcontext.gregs[REG_EIP];
-	#elif defined(__x86_64__)
-		p = (void *) uc->uc_mcontext.gregs[REG_RIP];
-	#elif defined(__ia64__)
-		p = (void *) uc->uc_mcontext.sc_ip;
+#if defined(__i386__) || ((defined(__x86_64__)) && defined(__ILP32__))
+	p = (void *) uc->uc_mcontext.gregs[REG_EIP];
+#elif defined(__x86_64__)
+	p = (void *) uc->uc_mcontext.gregs[REG_RIP];
+#elif defined(__ia64__)
+	p = (void *) uc->uc_mcontext.sc_ip;
 	#elif defined(__arm__)
 		p = (void *) uc->uc_mcontext.arm_pc;
 	#elif defined(__aarch64__)
 		p = (void *) uc->uc_mcontext.pc;
-	#endif
+#endif
 #elif defined(__FreeBSD__)
 	#if defined(__i386__)
 		p = (void *) uc->uc_mcontext.mc_eip;
@@ -486,7 +493,6 @@ int sc_signal_init()
 #ifdef SC_SIGNAL_TEST
 	rc &= (sigaction(SIGUSR2, &action, NULL) == 0);
 #endif
-
 	rc &= (sigemptyset(&action.sa_mask) == 0);
 	action.sa_flags = SA_NODEFER | SA_RESETHAND | SA_SIGINFO;
 	action.sa_sigaction = sc_signal_on_fatal;

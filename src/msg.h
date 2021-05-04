@@ -1,25 +1,32 @@
 /*
- * MIT License
+ * BSD-3-Clause
  *
- * Copyright (c) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef RESQL_MSG_H
@@ -47,10 +54,11 @@
 
 #define MSG_RESQL_STR "resql"
 
+extern const char *msg_rc_str[];
+
 // clang-format off
 
-enum msg_flag
-{
+enum msg_flag {
 	MSG_FLAG_OK		   = 0x00,
 	MSG_FLAG_ERROR		   = 0x01,
 	MSG_FLAG_STMT		   = 0x02,
@@ -64,8 +72,7 @@ enum msg_flag
 
 };
 
-enum msg_param
-{
+enum msg_param {
 	MSG_PARAM_INTEGER	   = 0x00,
 	MSG_PARAM_FLOAT		   = 0x01,
 	MSG_PARAM_TEXT		   = 0x02,
@@ -73,15 +80,13 @@ enum msg_param
 	MSG_PARAM_NULL		   = 0x04
 };
 
-enum msg_bind
-{
+enum msg_bind {
 	MSG_BIND_NAME		   = 0x00,
 	MSG_BIND_INDEX		   = 0x01,
 	MSG_BIND_END		   = 0x02,
 };
 
-enum msg_rc
-{
+enum msg_rc {
 	MSG_OK			   = 0x00,
 	MSG_ERR			   = 0x01,
 	MSG_CLUSTER_NAME_MISMATCH  = 0x02,
@@ -92,14 +97,12 @@ enum msg_rc
 	MSG_DISK_FULL		   = 0x07,
 };
 
-enum msg_remote
-{
+enum msg_remote {
 	MSG_CLIENT		   = 0x00u,
 	MSG_NODE		   = 0x01u
 };
 
-enum msg_type
-{
+enum msg_type {
 	MSG_CONNECT_REQ		   = 0x00,
 	MSG_CONNECT_RESP	   = 0x01,
 	MSG_DISCONNECT_REQ	   = 0x02,

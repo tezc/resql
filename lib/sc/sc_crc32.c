@@ -1,8 +1,3 @@
-/* crc32c.c
- * Copyright (C) 2013 Mark Adler
- * Version 1.1  1 Aug 2013  Mark Adler
- */
-
 /*
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the author be held liable for any damages
@@ -24,11 +19,15 @@
   madler@alumni.caltech.edu
  */
 
-/* Version history:
-   1.0  10 Feb 2013  First version
-   1.1   1 Aug 2013  Correct comments on why three crc instructions in parallel
-   1.2         2020  Added gcc intrinsics, fixed undefined behaviour
-   1.3         2021  Added big endian support, added aarch64 crc32c support
+/*
+ * 2013           Mark Adler
+ * 2020 - present Ozan Tezcan
+ *
+ * Version history:
+ * 1.0  10 Feb 2013  First version
+ * 1.1   1 Aug 2013  Correct comments on why three crc instructions in parallel
+ * 1.2         2020  added gcc intrinsics, fixed undefined behaviour
+ * 1.3         2021  Added big endian support, added aarch64 crc32c support
  */
 
 #include "sc_crc32.h"
@@ -159,7 +158,7 @@ static inline uint32_t crc32_shift(uint32_t zeros[][256], uint32_t crc)
    must both be powers of two.  The associated string constants must be
    set
    accordingly, for use in constructing the assembler instructions. */
-#define CRC32_LONG  2048
+#define CRC32_LONG 2048
 #define CRC32_SHORT 256
 
 static uint32_t crc32c_long[4][256];
@@ -426,7 +425,7 @@ uint32_t sc_crc32(uint32_t crc, const uint8_t *buf, uint32_t len)
 #ifdef HAVE_CRC32C
 	return crc32_hw(crc, buf, len);
 #else
-#ifdef HAVE_BIG_ENDIAN
+	#ifdef HAVE_BIG_ENDIAN
 	return crc32_sw_be(crc, buf, len);
 #else
 	return crc32_sw_le(crc, buf, len);
@@ -439,7 +438,7 @@ void sc_crc32_init()
 #ifdef HAVE_CRC32C
 	crc32_init_hw();
 #else
-#ifdef HAVE_BIG_ENDIAN
+	#ifdef HAVE_BIG_ENDIAN
 	crc32_init_sw_be();
 #else
 	crc32_init_sw_le();

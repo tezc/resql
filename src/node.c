@@ -1,25 +1,32 @@
 /*
- * MIT License
+ * BSD-3-Clause
  *
- * Copyright (c) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "node.h"
@@ -48,9 +55,10 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 	n->interval = 32;
 	n->ss_index = 0;
 	n->ss_pos = 0;
+	n->status = "offline";
 
 	sc_list_init(&n->list);
-	sc_queue_create(n->uris, 2);
+	sc_queue_init(&n->uris);
 	conn_init(&n->conn, server);
 	sc_buf_init(&n->info, 1024);
 
@@ -70,10 +78,10 @@ void node_destroy(struct node *n)
 	sc_str_destroy(&n->name);
 	sc_timer_cancel(n->timer, &n->conn_timer);
 
-	sc_queue_foreach (n->uris, uri) {
+	sc_queue_foreach (&n->uris, uri) {
 		sc_uri_destroy(&uri);
 	}
-	sc_queue_destroy(n->uris);
+	sc_queue_term(&n->uris);
 
 	sc_buf_term(&n->info);
 	rs_free(n);
@@ -84,6 +92,7 @@ void node_disconnect(struct node *n)
 	sc_list_del(NULL, &n->list);
 	conn_term(&n->conn);
 	node_clear_indexes(n, n->match);
+	n->status = "offline";
 }
 
 void node_update_indexes(struct node *n, uint64_t round, uint64_t match)
@@ -104,12 +113,12 @@ void node_clear_indexes(struct node *n, uint64_t match)
 	n->in_timestamp = 0;
 }
 
-void node_add_uris(struct node *n, struct sc_uri **uris)
+void node_add_uris(struct node *n, struct sc_array_ptr *uris)
 {
 	struct sc_uri *uri;
 
 	sc_array_foreach (uris, uri) {
-		sc_queue_add_last(n->uris, sc_uri_create(uri->str));
+		sc_queue_add_last(&n->uris, sc_uri_create(uri->str));
 	}
 }
 
@@ -130,8 +139,8 @@ int node_try_connect(struct node *n)
 		return RS_EXISTS;
 	}
 
-	uri = sc_queue_del_first(n->uris);
-	sc_queue_add_last(n->uris, uri);
+	uri = sc_queue_del_first(&n->uris);
+	sc_queue_add_last(&n->uris, uri);
 
 	return conn_try_connect(&n->conn, uri);
 }
@@ -149,6 +158,12 @@ int node_set_conn(struct node *n, struct conn *conn)
 
 	conn_set_type(&n->conn, SERVER_FD_NODE_RECV);
 	node_clear_indexes(n, n->match);
+	n->status = "connected";
 
 	return RS_OK;
+}
+
+bool node_connected(struct node *n)
+{
+	return n->conn.state == CONN_CONNECTED;
 }

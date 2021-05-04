@@ -49,9 +49,7 @@ add_executable(resql
         ${CMAKE_SOURCE_DIR}/lib/sc/sc.h
         ${CMAKE_SOURCE_DIR}/lib/sc/sc.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.h
-        ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_array.h
-        ${CMAKE_SOURCE_DIR}/lib/sc/sc_array.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_buf.h
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_buf.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_cond.h

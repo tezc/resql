@@ -1,25 +1,32 @@
 /*
- * MIT License
+ * BSD-3-Clause
  *
- * Copyright (c) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "meta.h"
@@ -41,10 +48,9 @@ void meta_node_init(struct meta_node *n, struct sc_uri *uri)
 {
 	n->name = sc_str_create(uri->userinfo);
 
-	sc_array_create(n->uris, 2);
-	sc_array_add(n->uris, uri);
+	sc_array_init(&n->uris);
+	sc_array_add(&n->uris, uri);
 
-	n->connected = false;
 	n->role = META_FOLLOWER;
 }
 
@@ -54,10 +60,10 @@ void meta_node_term(struct meta_node *n)
 
 	sc_str_destroy(&n->name);
 
-	sc_array_foreach (n->uris, uri) {
+	sc_array_foreach (&n->uris, uri) {
 		sc_uri_destroy(&uri);
 	}
-	sc_array_destroy(n->uris);
+	sc_array_term(&n->uris);
 }
 
 void meta_node_encode(struct meta_node *n, struct sc_buf *buf)
@@ -65,11 +71,10 @@ void meta_node_encode(struct meta_node *n, struct sc_buf *buf)
 	struct sc_uri *uri;
 
 	sc_buf_put_str(buf, n->name);
-	sc_buf_put_bool(buf, n->connected);
 	sc_buf_put_8(buf, n->role);
-	sc_buf_put_32(buf, (uint32_t) sc_array_size(n->uris));
+	sc_buf_put_32(buf, (uint32_t) sc_array_size(&n->uris));
 
-	sc_array_foreach (n->uris, uri) {
+	sc_array_foreach (&n->uris, uri) {
 		sc_buf_put_str(buf, uri->str);
 	}
 }
@@ -80,10 +85,9 @@ void meta_node_decode(struct meta_node *n, struct sc_buf *buf)
 	struct sc_uri *uri;
 
 	n->name = sc_str_create(sc_buf_get_str(buf));
-	n->connected = sc_buf_get_8(buf);
 	n->role = (enum meta_role) sc_buf_get_8(buf);
 
-	sc_array_create(n->uris, 2);
+	sc_array_init(&n->uris);
 
 	count = sc_buf_get_32(buf);
 
@@ -91,7 +95,7 @@ void meta_node_decode(struct meta_node *n, struct sc_buf *buf)
 		uri = sc_uri_create(sc_buf_get_str(buf));
 		assert(uri);
 
-		sc_array_add(n->uris, uri);
+		sc_array_add(&n->uris, uri);
 	}
 }
 
@@ -102,7 +106,7 @@ void meta_init(struct meta *m, const char *cluster_name)
 	m->name = sc_str_create(cluster_name);
 	m->uris = sc_str_create("");
 
-	sc_array_create(m->nodes, 3);
+	sc_array_init(&m->nodes);
 }
 
 void meta_term(struct meta *m)
@@ -112,10 +116,10 @@ void meta_term(struct meta *m)
 	sc_str_destroy(&m->name);
 	sc_str_destroy(&m->uris);
 
-	sc_array_foreach (m->nodes, node) {
+	sc_array_foreach (&m->nodes, node) {
 		meta_node_term(&node);
 	}
-	sc_array_destroy(m->nodes);
+	sc_array_term(&m->nodes);
 
 	if (m->prev) {
 		meta_term(m->prev);
@@ -129,13 +133,12 @@ void meta_node_copy(struct meta_node *n, struct meta_node *src)
 	struct sc_uri *uri;
 
 	n->name = sc_str_create(src->name);
-	n->connected = src->connected;
 	n->role = src->role;
 
-	sc_array_create(n->uris, 2);
+	sc_array_init(&n->uris);
 
-	sc_array_foreach (src->uris, uri) {
-		sc_array_add(n->uris, sc_uri_create(uri->str));
+	sc_array_foreach (&src->uris, uri) {
+		sc_array_add(&n->uris, sc_uri_create(uri->str));
 	}
 }
 
@@ -151,9 +154,9 @@ void meta_copy(struct meta *m, struct meta *src)
 	m->index = src->index;
 	m->voter = src->voter;
 
-	sc_array_foreach (src->nodes, other) {
+	sc_array_foreach (&src->nodes, other) {
 		meta_node_copy(&n, &other);
-		sc_array_add(m->nodes, n);
+		sc_array_add(&m->nodes, n);
 	}
 
 	if (src->prev != NULL) {
@@ -172,9 +175,9 @@ void meta_encode(struct meta *m, struct sc_buf *buf)
 	sc_buf_put_64(buf, m->term);
 	sc_buf_put_64(buf, m->index);
 	sc_buf_put_32(buf, m->voter);
-	sc_buf_put_32(buf, (uint32_t) sc_array_size(m->nodes));
+	sc_buf_put_32(buf, (uint32_t) sc_array_size(&m->nodes));
 
-	sc_array_foreach (m->nodes, n) {
+	sc_array_foreach (&m->nodes, n) {
 		meta_node_encode(&n, buf);
 	}
 
@@ -202,7 +205,7 @@ void meta_decode(struct meta *m, struct sc_buf *buf)
 	count = sc_buf_get_32(buf);
 	for (size_t i = 0; i < count; i++) {
 		meta_node_decode(&n, buf);
-		sc_array_add(m->nodes, n);
+		sc_array_add(&m->nodes, n);
 	}
 
 	prev = sc_buf_get_bool(buf);
@@ -217,28 +220,32 @@ static void meta_update(struct meta *m)
 {
 	size_t sz;
 	struct sc_buf tmp;
+	struct meta_node n;
+	struct sc_uri* uri;
 
-	m->voter = (uint32_t) sc_array_size(m->nodes);
+	m->voter = (uint32_t) sc_array_size(&m->nodes);
 
 	sc_buf_init(&tmp, 1024);
 
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (m->nodes[i].role == META_LEADER) {
-			sz = sc_array_size(m->nodes[i].uris);
+	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
+		n = sc_array_at(&m->nodes, i);
+		if (n.role == META_LEADER) {
+			sz = sc_array_size(&n.uris);
 			for (size_t j = 0; j < sz; j++) {
-				sc_buf_put_text(&tmp, "%s ",
-						m->nodes[i].uris[j]->str);
+				uri = sc_array_at(&n.uris, j);
+				sc_buf_put_text(&tmp, "%s ", uri->str);
 			}
 			break;
 		}
 	}
 
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (m->nodes[i].role != META_LEADER) {
-			sz = sc_array_size(m->nodes[i].uris);
+	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
+		n = sc_array_at(&m->nodes, i);
+		if (n.role != META_LEADER) {
+			sz = sc_array_size(&n.uris);
 			for (size_t j = 0; j < sz; j++) {
-				sc_buf_put_text(&tmp, "%s ",
-						m->nodes[i].uris[j]->str);
+				uri = sc_array_at(&n.uris, j);
+				sc_buf_put_text(&tmp, "%s ", uri->str);
 			}
 		}
 	}
@@ -251,21 +258,24 @@ static bool meta_validate(struct meta *m, struct sc_uri *uri)
 {
 	size_t n, u;
 	struct sc_uri *r;
+	struct meta_node node;
 
 	if (*uri->userinfo == '\0' || *uri->scheme == '\0' ||
 	    *uri->port == '\0') {
 		return false;
 	}
 
-	n = sc_array_size(m->nodes);
+	n = sc_array_size(&m->nodes);
 	for (size_t i = 0; i < n; i++) {
-		if (strcmp(m->nodes[i].name, uri->userinfo) == 0) {
+		node = sc_array_at(&m->nodes, i);
+		if (strcmp(node.name, uri->userinfo) == 0) {
 			return false;
 		}
 
-		u = sc_array_size(m->nodes[i].uris);
+		u = sc_array_size(&node.uris);
 		for (size_t j = 0; j < u; j++) {
-			r = m->nodes[i].uris[j];
+			r = sc_array_at(&node.uris, j);
+
 			if (strcmp(r->host, uri->host) == 0 &&
 			    strcmp(r->port, uri->port) == 0) {
 				return false;
@@ -294,7 +304,7 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
 
 	meta_node_init(&node, sc_uri_create(uri->str));
 	node.role = META_FOLLOWER;
-	sc_array_add(m->nodes, node);
+	sc_array_add(&m->nodes, node);
 
 	meta_update(m);
 
@@ -304,6 +314,7 @@ bool meta_add(struct meta *m, struct sc_uri *uri)
 bool meta_remove(struct meta *m, const char *name)
 {
 	struct meta *tmp;
+	struct meta_node n;
 
 	assert(m->prev == NULL);
 
@@ -316,10 +327,11 @@ bool meta_remove(struct meta *m, const char *name)
 	meta_copy(tmp, m);
 	m->prev = tmp;
 
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (strcmp(m->nodes[i].name, name) == 0) {
-			meta_node_term(&m->nodes[i]);
-			sc_array_del(m->nodes, i);
+	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
+		n = sc_array_at(&m->nodes, i);
+		if (strcmp(n.name, name) == 0) {
+			meta_node_term(&n);
+			sc_array_del(&m->nodes, i);
 			break;
 		}
 	}
@@ -331,8 +343,11 @@ bool meta_remove(struct meta *m, const char *name)
 
 bool meta_exists(struct meta *m, const char *name)
 {
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (strcmp(m->nodes[i].name, name) == 0) {
+	struct meta_node n;
+
+	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
+		n = sc_array_at(&m->nodes, i);
+		if (strcmp(n.name, name) == 0) {
 			return true;
 		}
 	}
@@ -376,51 +391,19 @@ void meta_replace(struct meta *m, void *data, uint32_t len)
 	meta_decode(m, &tmp);
 }
 
-void meta_set_connected(struct meta *m, const char *name)
-{
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (strcmp(m->nodes[i].name, name) == 0) {
-			m->nodes[i].connected = true;
-			break;
-		}
-	}
-}
-
-void meta_set_disconnected(struct meta *m, const char *name)
-{
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (strcmp(m->nodes[i].name, name) == 0) {
-			m->nodes[i].connected = false;
-			break;
-		}
-	}
-}
-
-void meta_clear_connection(struct meta *m)
-{
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		m->nodes[i].connected = false;
-	}
-}
-
 void meta_set_leader(struct meta *m, const char *name)
 {
-	bool found = false;
-
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-		if (strcmp(m->nodes[i].name, name) == 0) {
-			m->nodes[i].role = META_LEADER;
-			found = true;
-
+	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
+		if (strcmp(m->nodes.elems[i].name, name) == 0) {
+			m->nodes.elems[i].role = META_LEADER;
 			continue;
 		}
 
-		if (m->nodes[i].role == META_LEADER) {
-			m->nodes[i].role = META_FOLLOWER;
+		if (m->nodes.elems[i].role == META_LEADER) {
+			m->nodes.elems[i].role = META_FOLLOWER;
 		}
 	}
 
-	rs_assert(found);
 	meta_update(m);
 }
 
@@ -451,9 +434,9 @@ bool meta_parse_uris(struct meta *m, const char *addrs)
 
 		found = false;
 
-		for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
-			if (strcmp(uri->userinfo, m->nodes[i].name) == 0) {
-				sc_array_add(m->nodes[i].uris, uri);
+		for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
+			if (strcmp(uri->userinfo, m->nodes.elems[i].name) == 0) {
+				sc_array_add(&m->nodes.elems[i].uris, uri);
 				found = true;
 				break;
 			}
@@ -461,7 +444,7 @@ bool meta_parse_uris(struct meta *m, const char *addrs)
 
 		if (!found) {
 			meta_node_init(&n, uri);
-			sc_array_add(m->nodes, n);
+			sc_array_add(&m->nodes, n);
 		}
 	}
 
@@ -485,10 +468,10 @@ void meta_print(struct meta *m, struct sc_buf *buf)
 	sc_buf_put_text(buf, "| Cluster : %s \n", m->name);
 	sc_buf_put_text(buf, "| Term    : %" PRIu64 " \n", m->term);
 
-	for (size_t i = 0; i < sc_array_size(m->nodes); i++) {
+	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
 		sc_buf_put_text(buf, "| Node    : %s, Role : %s \n",
-				m->nodes[i].name,
-				meta_role_str[m->nodes[i].role]);
+				m->nodes.elems[i].name,
+				meta_role_str[m->nodes.elems[i].role]);
 	}
 	sc_buf_put_text(buf, "| -------------------------------\n");
 }

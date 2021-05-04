@@ -1,25 +1,32 @@
 /*
- * MIT License
+ * BSD-3-Clause
  *
- * Copyright (c) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "state.h"
@@ -605,29 +612,30 @@ int state_on_client_connect(struct state *st, const char *name,
 			    struct session **s)
 {
 	int rc;
-	bool found;
+	struct session *sess;
 
-	found = sc_map_get_sv(&st->names, name, (void **) s);
-	if (!found) {
-		*s = session_create(st, name, st->index);
-		sc_map_put_sv(&st->names, (*s)->name, *s);
-		sc_map_put_64v(&st->ids, (*s)->id, *s);
+	sess = sc_map_get_sv(&st->names, name);
+	if (!sc_map_found(&st->names)) {
+		sess = session_create(st, name, st->index);
+		sc_map_put_sv(&st->names, sess->name, sess);
+		sc_map_put_64v(&st->ids, sess->id, sess);
 	}
 
-	session_connected(*s, local, remote, st->realtime);
-	rc = aux_write_session(&st->aux, *s);
+	session_connected(sess, local, remote, st->realtime);
+	rc = aux_write_session(&st->aux, sess);
+
+	*s = sess;
 
 	return rc;
 }
 
 int state_on_client_disconnect(struct state *st, const char *name, bool clean)
 {
-	bool found;
 	int rc;
 	struct session *s;
 
-	found = sc_map_get_sv(&st->names, name, (void **) &s);
-	if (!found) {
+	s = sc_map_get_sv(&st->names, name);
+	if (!sc_map_found(&st->names)) {
 		return RS_OK;
 	}
 
@@ -639,8 +647,8 @@ int state_on_client_disconnect(struct state *st, const char *name, bool clean)
 			return rc;
 		}
 
-		sc_map_del_sv(&st->names, name, NULL);
-		sc_map_del_64v(&st->ids, s->id, NULL);
+		sc_map_del_sv(&st->names, name);
+		sc_map_del_64v(&st->ids, s->id);
 		session_destroy(s);
 	} else {
 		rc = aux_write_session(&st->aux, s);
@@ -655,24 +663,24 @@ int state_on_client_disconnect(struct state *st, const char *name, bool clean)
 
 static void state_update_info(struct state *st)
 {
-	bool found;
 	struct info *in;
+	struct sc_uri *uri;
 	struct meta_node n;
 
-	sc_array_foreach (st->meta.nodes, n) {
-		found = sc_map_get_sv(&st->nodes, n.name, (void **) &in);
-		if (!found) {
+	sc_array_foreach (&st->meta.nodes, n) {
+		in = sc_map_get_sv(&st->nodes, n.name);
+		if (!sc_map_found(&st->nodes)) {
 			in = info_create(n.name);
 			sc_map_put_sv(&st->nodes, in->name, in);
 		}
 
-		info_set_connected(in, n.connected);
 		info_set_role(in, meta_role_str[n.role]);
 
 		sc_buf_clear(&st->tmp);
 
-		for (size_t i = 0; i < sc_array_size(n.uris); i++) {
-			sc_buf_put_text(&st->tmp, n.uris[i]->str);
+		for (size_t i = 0; i < sc_array_size(&n.uris); i++) {
+			uri = sc_array_at(&n.uris, i);
+			sc_buf_put_text(&st->tmp, uri->str);
 		}
 		info_set_urls(in, (char *) st->tmp.mem);
 	}
@@ -684,7 +692,7 @@ int state_on_meta(struct state *st, uint64_t index, struct meta *meta)
 	int rc;
 	struct meta_node n;
 	struct info *info;
-	const char *name, *conn, *role;
+	const char *name, *role;
 
 	meta_copy(&st->meta, meta);
 	meta_term(meta);
@@ -692,7 +700,7 @@ int state_on_meta(struct state *st, uint64_t index, struct meta *meta)
 	sc_map_foreach (&st->nodes, name, info) {
 		found = false;
 
-		sc_array_foreach (st->meta.nodes, n) {
+		sc_array_foreach (&st->meta.nodes, n) {
 			if (strcmp(n.name, name) == 0) {
 				found = true;
 				break;
@@ -700,13 +708,14 @@ int state_on_meta(struct state *st, uint64_t index, struct meta *meta)
 		}
 
 		if (!found) {
-			sc_map_del_sv(&st->nodes, name, NULL);
+			sc_map_del_sv(&st->nodes, name);
 			info_destroy(info);
 			break;
 		}
 	}
 
 	state_update_info(st);
+
 	rc = state_write_infos(st, &st->aux);
 	if (rc != RS_OK) {
 		return rc;
@@ -720,10 +729,9 @@ int state_on_meta(struct state *st, uint64_t index, struct meta *meta)
 	sc_buf_clear(&st->tmp);
 	sc_buf_put_text(&st->tmp, "Term[%" PRIu64 "] : ", st->meta.term);
 
-	sc_array_foreach (st->meta.nodes, n) {
-		conn = n.connected ? "connected" : "disconnected";
+	sc_array_foreach (&st->meta.nodes, n) {
 		role = meta_role_str[n.role];
-		sc_buf_put_text(&st->tmp, "[%s:%s:%s] ", n.name, role, conn);
+		sc_buf_put_text(&st->tmp, "[%s:%s] ", n.name, role);
 	}
 
 	rc = aux_add_log(&st->aux, index, "INFO", (char *) st->tmp.mem);
@@ -754,7 +762,7 @@ int state_on_term_start(struct state *st, uint64_t index, uint64_t realtime,
 
 int state_on_info(struct state *st, struct sc_buf *buf)
 {
-	bool found;
+	bool connected;
 	uint32_t len;
 	void *ptr;
 	const char *name;
@@ -762,12 +770,16 @@ int state_on_info(struct state *st, struct sc_buf *buf)
 
 	while (sc_buf_size(buf) != 0) {
 		name = sc_buf_get_str(buf);
+		connected = sc_buf_get_bool(buf);
 		len = sc_buf_get_32(buf);
 		ptr = sc_buf_get_blob(buf, len);
 
-		found = sc_map_get_sv(&st->nodes, name, (void **) &n);
-		if (found && len != 0) {
-			info_set_stats(n, ptr, len);
+		n = sc_map_get_sv(&st->nodes, name);
+		if (sc_map_found(&st->nodes)) {
+			info_set_connected(n, connected);
+			if (len != 0) {
+				info_set_stats(n, ptr, len);
+			}
 		}
 	}
 
@@ -795,8 +807,8 @@ int state_on_timestamp(struct state *st, uint64_t realtime, uint64_t monotonic)
 				return rc;
 			}
 
-			sc_map_del_sv(&st->names, s->name, NULL);
-			sc_map_del_64v(&st->ids, s->id, NULL);
+			sc_map_del_sv(&st->names, s->name);
+			sc_map_del_64v(&st->ids, s->id);
 			session_destroy(s);
 		}
 	}
@@ -1127,7 +1139,7 @@ int state_exec_request(struct state *st, struct session *s, uint64_t index,
 	uint32_t pos, result_len;
 	enum msg_flag flag;
 
-	sc_buf_clear(&s->resp);
+	sc_buf_clear(resp);
 	msg_create_client_resp_header(resp);
 	sc_buf_put_8(resp, MSG_FLAG_OK);
 
@@ -1225,35 +1237,37 @@ error:
 int state_on_client_request(struct state *st, uint64_t index, unsigned char *e,
 			    struct session **s)
 {
-	bool found;
 	int rc;
 	uint32_t len = entry_data_len(e);
 	uint64_t client_id = entry_cid(e);
 	uint64_t seq = entry_seq(e);
 	void *data = entry_data(e);
 	struct sc_buf req = sc_buf_wrap(data, len, SC_BUF_READ);
+	struct session *sess;
 
 	st->last_err = NULL;
 
-	found = sc_map_get_64v(&st->ids, client_id, (void **) s);
-	if (!found) {
+	sess = sc_map_get_64v(&st->ids, client_id);
+	if (!sc_map_found(&st->ids)) {
 		rs_abort("Session does not exist : %" PRIu64 "\n", client_id);
 	}
 
-	if (seq == (*s)->seq) {
-		sc_buf_set_rpos(&(*s)->resp, 0);
+	*s = sess;
+
+	if (seq == sess->seq) {
+		sc_buf_set_rpos(&sess->resp, 0);
 		return RS_OK;
 	}
 
-	rc = state_exec_request(st, *s, index, false, &req, &(*s)->resp);
+	rc = state_exec_request(st, sess, index, false, &req, &sess->resp);
 	if (rc == RS_FULL && st->full) {
 		// max-page-size config has been reached, it's safe to continue
 		rc = RS_OK;
 	}
 
-	sc_buf_shrink(&(*s)->resp, 32 * 1024);
+	sc_buf_shrink(&sess->resp, 32 * 1024);
 
-	(*s)->seq = seq;
+	sess->seq = seq;
 
 	return rc;
 }
@@ -1262,7 +1276,6 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 			 uint32_t len, struct sc_buf *resp)
 {
 	int rc;
-	bool found;
 	struct session *s;
 	struct sc_buf req = sc_buf_wrap(buf, len, SC_BUF_READ);
 
@@ -1271,8 +1284,8 @@ int state_apply_readonly(struct state *st, uint64_t cid, unsigned char *buf,
 	st->readonly = true;
 	st->full = false;
 
-	found = sc_map_get_64v(&st->ids, cid, (void **) &s);
-	if (!found) {
+	s = sc_map_get_64v(&st->ids, cid);
+	if (!sc_map_found(&st->ids)) {
 		st->last_err = "Session does not exist.";
 		goto error;
 	}

@@ -1,25 +1,32 @@
 /*
- * MIT License
+ * BSD-3-Clause
  *
- * Copyright (c) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "page.h"
@@ -58,7 +65,7 @@ static void page_read(struct page *p)
 	uint32_t read_pos, remaining;
 	unsigned char *entry;
 
-	sc_array_clear(p->entries);
+	sc_array_clear(&p->entries);
 
 	while (true) {
 		remaining = sc_buf_size(&p->buf);
@@ -80,7 +87,7 @@ static void page_read(struct page *p)
 			goto out;
 		}
 
-		sc_array_add(p->entries, entry);
+		sc_array_add(&p->entries, entry);
 	}
 
 out:
@@ -119,7 +126,7 @@ int page_init(struct page *p, const char *path, int64_t len,
 	p->path = sc_str_create(path);
 	p->buf = sc_buf_wrap(p->map.ptr, (uint32_t) p->map.len, SC_BUF_REF);
 
-	sc_array_create(p->entries, 1024);
+	sc_array_init(&p->entries);
 	sc_buf_set_wpos(&p->buf, (uint32_t) p->map.len);
 
 	crc_val = sc_buf_peek_32_at(&p->buf, PAGE_CRC_OFFSET);
@@ -156,7 +163,7 @@ void page_term(struct page *p)
 
 	page_fsync(p, page_last_index(p));
 
-	sc_array_destroy(p->entries);
+	sc_array_term(&p->entries);
 	sc_str_destroy(&p->path);
 
 	rc = sc_mmap_term(&p->map);
@@ -215,7 +222,7 @@ out:
 
 bool page_isempty(struct page *p)
 {
-	return sc_array_size(p->entries) == 0;
+	return sc_array_size(&p->entries) == 0;
 }
 
 void page_clear(struct page *p, uint64_t prev_index)
@@ -227,7 +234,7 @@ void page_clear(struct page *p, uint64_t prev_index)
 	p->flush_pos = 0;
 
 	sc_buf_clear(&p->buf);
-	sc_array_clear(p->entries);
+	sc_array_clear(&p->entries);
 
 	memset(p->map.ptr, 0, PAGE_HEADER_LEN);
 
@@ -246,28 +253,28 @@ void page_clear(struct page *p, uint64_t prev_index)
 
 uint32_t page_entry_count(struct page *p)
 {
-	return (uint32_t) sc_array_size(p->entries);
+	return (uint32_t) sc_array_size(&p->entries);
 }
 
 uint64_t page_last_index(struct page *p)
 {
-	return p->prev_index + sc_array_size(p->entries);
+	return p->prev_index + sc_array_size(&p->entries);
 }
 
 uint64_t page_last_term(struct page *p)
 {
-	assert(sc_array_size(p->entries) != 0);
+	assert(sc_array_size(&p->entries) != 0);
 
-	return entry_term(sc_array_last(p->entries));
+	return entry_term(sc_array_last(&p->entries));
 }
 
 unsigned char *page_last_entry(struct page *p)
 {
-	if (sc_array_size(p->entries) == 0) {
+	if (sc_array_size(&p->entries) == 0) {
 		return NULL;
 	}
 
-	return sc_array_last(p->entries);
+	return sc_array_last(&p->entries);
 }
 
 uint32_t page_quota(struct page *p)
@@ -321,7 +328,7 @@ void page_create_entry(struct page *p, uint64_t term, uint64_t seq,
 	unsigned char *entry;
 
 	entry = sc_buf_wbuf(&p->buf);
-	sc_array_add(p->entries, entry);
+	sc_array_add(&p->entries, entry);
 
 	assert(entry_encoded_len(len) <= page_quota(p));
 
@@ -339,19 +346,21 @@ void page_put_entry(struct page *p, unsigned char *e)
 
 	rs_assert(crc0 == sc_crc32(0, d, len));
 
-	sc_array_add(p->entries, sc_buf_wbuf(&p->buf));
+	sc_array_add(&p->entries, sc_buf_wbuf(&p->buf));
 	sc_buf_put_raw(&p->buf, e, entry_len(e));
 	sc_buf_set_32(&p->buf, PAGE_END_MARK);
 }
 
 unsigned char *page_entry_at(struct page *p, uint64_t index)
 {
+	uint64_t pos = index - p->prev_index - 1;
+
 	if (index <= p->prev_index ||
-	    index > p->prev_index + sc_array_size(p->entries)) {
+	    index > p->prev_index + sc_array_size(&p->entries)) {
 		return NULL;
 	}
 
-	return p->entries[index - p->prev_index - 1];
+	return sc_array_at(&p->entries, pos);
 }
 
 void page_get_entries(struct page *p, uint64_t index, uint32_t limit,
@@ -363,7 +372,7 @@ void page_get_entries(struct page *p, uint64_t index, uint32_t limit,
 	unsigned char *head;
 
 	if (index <= p->prev_index ||
-	    index > p->prev_index + sc_array_size(p->entries)) {
+	    index > p->prev_index + sc_array_size(&p->entries)) {
 		*entries = NULL;
 		*size = 0;
 		*count = 0;
@@ -371,12 +380,12 @@ void page_get_entries(struct page *p, uint64_t index, uint32_t limit,
 	}
 
 	pos = index - p->prev_index - 1;
-	head = p->entries[pos];
+	head = sc_array_at(&p->entries, pos);
 
-	sz = sc_array_size(p->entries);
+	sz = sc_array_size(&p->entries);
 	for (; pos < sz; pos++) {
 		n++;
-		total += entry_len(p->entries[pos]);
+		total += entry_len(sc_array_at(&p->entries, pos));
 		if (total >= limit) {
 			break;
 		}
@@ -409,7 +418,7 @@ void page_remove_after(struct page *p, uint64_t index)
 	p->flush_pos = sc_min(pos - 4, p->flush_pos);
 	page_fsync(p, index);
 
-	while (p->prev_index + sc_array_size(p->entries) > index) {
-		sc_array_del_last(p->entries);
+	while (p->prev_index + sc_array_size(&p->entries) > index) {
+		sc_array_del_last(&p->entries);
 	}
 }

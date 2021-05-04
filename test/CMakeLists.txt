@@ -56,7 +56,6 @@ add_library(resql-server STATIC
         ../lib/sc/sc.h
         ../lib/sc/sc.c
         ../lib/sc/sc_array.h
-        ../lib/sc/sc_array.c
         ../lib/sc/sc_buf.h
         ../lib/sc/sc_buf.c
         ../lib/sc/sc_cond.h
@@ -76,7 +75,6 @@ add_library(resql-server STATIC
         ../lib/sc/sc_option.h
         ../lib/sc/sc_option.c
         ../lib/sc/sc_queue.h
-        ../lib/sc/sc_queue.c
         ../lib/sc/sc_signal.h
         ../lib/sc/sc_signal.c
         ../lib/sc/sc_str.h
@@ -126,6 +124,7 @@ enable_testing()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/test)
 set(CTEST_BINARY_DIRECTORY ${PROJECT_BINARY_DIR}/test)
 
+resql_test(add_test.c)
 resql_test(client_test.c)
 resql_test(c_client_test.c)
 resql_test(cluster_test.c)
