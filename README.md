@@ -2,12 +2,13 @@
 
 ## Overview
 - bin/ : output dir, ./build.sh will generate server executable and cli here.  
-- c-client/ : c client
+- cresql/ : c client
 - goresql/ : go client
-- java-client/ : java client
+- jresql/ : java client
+- lib/ : dependencies
 - src/ : server source code  
-- tests/ : server tests
-- util/ : cli, docker
+- test/ : server tests
+- util/ : cli, docker, benchmark tool
 
 ## Build
 ```
@@ -34,20 +35,20 @@ cd bin/
 
 This project contains code from other open source projects :
 * **Sqlite** (http://sqlite.org/) :  
-  * Resql uses sqlite as database engine.  <br/><br/>
+  Resql uses sqlite as database engine.
   
-* **CRC32C** (https://github.com/madler/brotli/blob/master/crc32c.c) :  
-  * A modified version of CRC32C implementation.  <br/><br/>
+* **CRC32C** (https://github.com/madler/brotli/blob/master/crc32c.c)  
+ A modified version of CRC32C implementation.
   
-* **HdrHistogram** (https://github.com/HdrHistogram/HdrHistogram_c) :  
-  * Pieces from HdrHistogram library in resql_benchmark tool. <br/><br/>
+* **HdrHistogram** (https://github.com/HdrHistogram/HdrHistogram_c)  
+ Pieces from HdrHistogram library in resql_benchmark tool.
   
 * **Linenoise** (https://github.com/antirez/linenoise)  
-  * Used in resql_cli.  <br/><br/>
+  Used in resql_cli.
   
 * **Inih** (https://github.com/benhoyt/inih)  
-  * A modified version of INI parser, used for configuration file.  <br/><br/>
+ A modified version of INI parser, used for configuration file.
   
 * **Redis** (https://github.com/redis/redis/blob/unstable/src/zmalloc.c)  
-  * Functions to get RAM capacity of the machine and RSS value.  <br/><br/>
+ Functions to get RAM capacity of the machine and RSS value.
   
