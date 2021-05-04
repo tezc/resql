@@ -25,70 +25,9 @@ include(TestBigEndian)
 
 
 # -------------------- Macros start ---------------------------- #
-macro(append_property _append_to_var_property _def)
-    get_property(PROPERTY_VAR GLOBAL PROPERTY ${_append_to_var_property})
-    set_property(GLOBAL PROPERTY ${_append_to_var_property} "${PROPERTY_VAR} ${_def}")
-endmacro()
-
 macro(define_flag _append_to_var _def)
     message("Adding definition ${_def}")
     set(${_append_to_var} "${${_append_to_var}} -D${_def}")
-endmacro()
-
-macro(define_flag_if_header_avail _include _append_to_var _def)
-    check_include_file(${_include} ${_def})
-
-    if (${_def})
-        message("Setting definition ${_def}")
-        set(${_append_to_var} "${${_append_to_var}} -D${_def}")
-    endif ()
-endmacro()
-
-macro(define_flag_if_func_avail _func _append_to_var _def)
-    check_function_exists(${_func} ${_def})
-
-    if (${_def})
-        message("Setting definition ${_def}")
-        set(${_append_to_var} "${${_append_to_var}} -D${_def}")
-    endif ()
-endmacro()
-
-macro(enable_c_flag_if_avail _flag _append_to_var _set_var)
-    check_c_compiler_flag(${_flag} ${_set_var})
-
-    if (${_set_var})
-        message("Setting flag ${_flag}")
-        set(${_append_to_var} "${${_append_to_var}} ${_flag}")
-    else ()
-        message("Flag is not supported : ${_flag}")
-    endif ()
-endmacro()
-
-macro(compile_option _target _flag _var)
-    check_c_compiler_flag(${_flag} ${_var})
-
-    if (${_var})
-        message("Setting compile option : ${_flag}")
-        target_compile_options(${_target} PRIVATE ${_flag})
-    else ()
-        message("Unsupported compile option: ${_flag}")
-    endif ()
-endmacro()
-
-macro(link_option _target _flag _var)
-    check_c_compiler_flag(${_flag} ${_var})
-
-    if (${_var})
-        message("Setting link option : ${_flag}")
-        target_link_libraries(${_target} PRIVATE ${_flag})
-    else ()
-        message("Unsupported link option: ${_flag}")
-    endif ()
-endmacro()
-
-macro(enable_warning_if_supported _flag)
-    enable_c_flag_if_avail(${_flag} CMAKE_C_FLAGS_RELEASE "supports ${_flag}")
-    enable_c_flag_if_avail(${_flag} CMAKE_C_FLAGS_MINSIZEREL "supports ${_flag}")
 endmacro()
 
 macro(try_sanitizer _type)
@@ -120,6 +59,20 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 message(STATUS "Main build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "OS System is ${CMAKE_SYSTEM_NAME}")
+message(STATUS "OS Version is ${CMAKE_SYSTEM_VERSION}")
+message(STATUS "Compiler is ${CMAKE_C_COMPILER_ID}")
+message(STATUS "Compiler version is ${CMAKE_C_COMPILER_VERSION}")
+message(STATUS "Arch is ${CMAKE_SYSTEM_PROCESSOR}")
+
+if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+    message(STATUS "Target arch is 64 bit architecture")
+    define_flag(C_FLAGS_COMMON DEF_ARCH='"64"')
+else ()
+    message("Target arch is 32 bit architecture")
+    define_flag(C_FLAGS_COMMON DEF_ARCH='"32"')
+endif ()
+
 # -------------------- Build info end -------------------------- #
 
 
@@ -203,9 +156,6 @@ endif ()
 
 # -------------------- Operating System Start ------------------ #
 
-message(STATUS "OS System is ${CMAKE_SYSTEM_NAME}")
-message(STATUS "OS Version is ${CMAKE_SYSTEM_VERSION}")
-
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     define_flag(C_FLAGS_COMMON HAVE_LINUX)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Darwin")
@@ -217,18 +167,6 @@ else ()
     message(AUTHOR_WARNING "${ISSUE_REPORT_MSG}")
 endif ()
 # -------------------- Operating System End -------------------- #
-
-
-# -------------------- Compiler Start -------------------------- #
-if ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
-    define_flag(C_FLAGS_COMMON HAVE_CLANG)
-elseif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-    define_flag(C_FLAGS_COMMON HAVE_GCC)
-endif ()
-
-message(STATUS "Compiler is ${CMAKE_C_COMPILER_ID}")
-
-# -------------------- Compiler End ---------------------------- #
 
 
 # -------------------- Valgrind Start -------------------------- #
@@ -252,32 +190,11 @@ endif ()
 # -------------------- Clang Tidy Start ------------------------- #
 if (RESQL_CLANG_TIDY)
     message(STATUS "Enabled CLANG_TIDY")
-
     set(CMAKE_C_CLANG_TIDY "clang-tidy")
 endif ()
 # -------------------- Clang Tidy End --------------------------- #
 
 # -------------------- Compile Flags Start ---------------------- #
-
-define_flag_if_header_avail(sys/epoll.h C_FLAGS_COMMON HAVE_EPOLL)
-
-check_include_files("sys/time.h;sys/types.h;sys/event.h" HAVE_SYS_EVENT)
-
-if (HAVE_SYS_EVENT)
-    set(CMAKE_EXTRA_INCLUDE_FILES
-            ${CMAKE_EXTRA_INCLUDE_FILES}
-            sys/event.h
-            sys/types.h
-            sys/time.h)
-    define_flag_if_func_avail(kqueue C_FLAGS_COMMON HAVE_KQUEUE)
-endif ()
-
-define_flag_if_func_avail(posix_fallocate C_FLAGS_COMMON HAVE_POSIX_FALLOCATE)
-define_flag_if_func_avail(posix_fadvise C_FLAGS_COMMON HAVE_POSIX_FADVISE)
-
-if (NOT (HAVE_EPOLL OR HAVE_KQUEUE))
-    message(FATAL_ERROR "Cannot find epoll or kqueue, unsupported OS")
-endif ()
 
 if (NOT HAVE_CLOCK_GETTIME AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     list(APPEND ADDITIONAL_LIBRARIES rt)
@@ -303,28 +220,16 @@ set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")
 
-if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-    define_flag(C_FLAGS_COMMON DEF_ARCH='"64"')
-    MESSAGE("64 bit architecture")
-else ()
-    define_flag(C_FLAGS_COMMON DEF_ARCH='"32"')
-    MESSAGE("32 bit architecture")
-endif ()
-
-# detect x86
-enable_c_flag_if_avail(-msse4.2 C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
-if (${HAVE_CRC32_HARDWARE})
-    if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-        message(STATUS "CPU have -msse4.2, defined HAVE_CRC32C")
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "amd64.*|x86_64.*|AMD64.*")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(STATUS "CPU is x86_64, defined HAVE_CRC32C")
+        add_compile_options(-msse4.2)
         define_flag(C_FLAGS_COMMON HAVE_CRC32C)
     endif ()
-endif ()
-
-# detect aarch64
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
-    message(STATUS "CPU = aarch64, defined HAVE_CRC32C, -march=armv8.1-a")
-    define_flag(C_FLAGS_COMMON -march=armv8.1-a)
-    define_flag(C_FLAGS_COMMON -DHAVE_CRC32C)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64.*|AARCH64.*|arm64.*|ARM64.*)")
+    message(STATUS "CPU = aarch64, defined HAVE_CRC32C")
+    add_compile_options(-march=armv8.1-a)
+    define_flag(C_FLAGS_COMMON HAVE_CRC32C)
 endif ()
 
 # detect software version endianness
@@ -347,8 +252,6 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
         set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -rdynamic")
     endif ()
 endif ()
-
-enable_warning_if_supported(-Wunused-result)
 
 set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_COVERAGE} ${C_FLAGS_COMMON} ${C_FLAGS_DEB}")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${C_FLAGS_COMMON} ${C_FLAGS_DEB}")
