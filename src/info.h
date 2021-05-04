@@ -1,43 +1,53 @@
 /*
- *  Resql
+ * BSD-3-Clause
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef RESQL_INFO_H
 #define RESQL_INFO_H
 
 #include "sc/sc_buf.h"
 
-struct info
-{
-    char *name;
-    char *urls;
-    char *connected;
-    char *role;
+struct info {
+	char *name;
+	char *urls;
+	char *connected;
+	char *role;
 
-    struct sc_buf stats;
+	struct sc_buf stats;
 };
 
 struct info *info_create(const char *name);
-void info_destroy(struct info *info);
+void info_destroy(struct info *n);
 
-void info_set_connected(struct info *info, bool connected);
-void info_set_role(struct info *info, const char *role);
-void info_set_urls(struct info *info, const char *urls);
-void info_set_stats(struct info *info, struct sc_buf *buf);
-
+void info_set_connected(struct info *n, bool connected);
+void info_set_role(struct info *n, const char *role);
+void info_set_urls(struct info *n, const char *urls);
+void info_set_stats(struct info *n, void *data, uint32_t len);
 
 #endif

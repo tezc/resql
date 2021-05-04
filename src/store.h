@@ -1,22 +1,33 @@
 /*
- *  Resql
+ * BSD-3-Clause
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 #ifndef RESQL_STORE_H
 #define RESQL_STORE_H
@@ -26,42 +37,41 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct store
-{
-    char *path;
+struct store {
+	char *path;
 
-    uint64_t ss_index;
-    uint64_t ss_term;
-    bool ss_inprogress;
+	uint64_t ss_index;
+	uint64_t ss_term;
+	bool ss_inprogress;
 
-    struct page *pages[2];
-    struct page *curr;
+	struct page *pages[2];
+	struct page *curr;
 
-    uint64_t last_term;
-    uint64_t last_index;
+	uint64_t last_term;
+	uint64_t last_index;
 };
 
 int store_init(struct store *s, const char *path, uint64_t ss_term,
-               uint64_t ss_index);
-int store_term(struct store *s);
+	       uint64_t ss_index);
+void store_term(struct store *s);
 
 void store_flush(struct store *s);
 void store_snapshot_taken(struct store *s);
 
 uint64_t store_ss_index(struct store *s);
 struct page *store_ss_page(struct store *s);
-int store_expand(struct store *s);
+int store_reserve(struct store *s, uint32_t size);
 
 int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
-                       uint64_t cid, uint32_t flags, void *data, uint32_t len);
+		       uint64_t cid, uint32_t flags, void *data, uint32_t len);
 
 int store_put_entry(struct store *store, uint64_t index, unsigned char *entry);
 
 unsigned char *store_get_entry(struct store *s, uint64_t index);
-uint64_t store_prev_term_of(struct store *s, uint64_t index);
+uint64_t store_prev_term(struct store *s, uint64_t index);
 
 void store_entries(struct store *s, uint64_t index, uint32_t limit,
-                   unsigned char **entries, uint32_t *size, uint32_t *count);
+		   unsigned char **entries, uint32_t *size, uint32_t *count);
 
 void store_remove_after(struct store *s, uint64_t index);
 

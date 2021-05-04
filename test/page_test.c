@@ -1,26 +1,37 @@
 /*
- *  Resql
+ * BSD-3-Clause
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
-
-#include "page.h"
 
 #include "entry.h"
 #include "file.h"
+#include "page.h"
 #include "rs.h"
 #include "test_util.h"
 
@@ -28,137 +39,132 @@
 
 static void page_open_test(void)
 {
-    int rc;
-    size_t page_size;
-    struct page page;
+	size_t page_size;
+	struct page page;
 
-    rc = page_init(&page, test_tmp_page0, -1, 5000);
-    rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, 5000);
 
-    page_size = page.map.len;
-    rs_assert(page_fsync(&page, page_last_index(&page)) == RS_OK);
-    rs_assert(page_term(&page) == RS_OK);
+	page_size = page.map.len;
+	page_fsync(&page, page_last_index(&page));
+	page_term(&page);
 
-    rc = page_init(&page, test_tmp_page0, -1, 0);
-    rs_assert(rc == RS_OK);
-    rs_assert(page.map.len == page_size);
-    rs_assert(page.prev_index == 5000);
-    rs_assert(page_term(&page) == RS_OK);
+	page_init(&page, test_tmp_page0, -1, 0);
+	rs_assert(page.map.len == page_size);
+	rs_assert(page.prev_index == 5000);
+	page_term(&page);
 }
 
 static void page_reopen_test(void)
 {
-    int rc;
-    const int prev_index = 5000;
-    char *data = "data";
-    unsigned char *entry;
-    struct page page;
+	const int prev_index = 5000;
+	char *data = "data";
+	unsigned char *entry;
+	struct page page;
 
-    rc = page_init(&page, test_tmp_page0, -1, prev_index);
-    rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, prev_index);
 
-    for (int i = 0; i < 1000; i++) {
-        page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
+	for (int i = 0; i < 1000; i++) {
+		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
 
-        if (i % 2 == 0) {
-            page_fsync(&page, 5000 + 500);
-        }
-    }
+		if (i % 2 == 0) {
+			page_fsync(&page, 5000 + 500);
+		}
+	}
 
-    rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
+	page_init(&page, test_tmp_page0, -1, 0);
 
-    rc = page_init(&page, test_tmp_page0, -1, 0);
-    rs_assert(rc == RS_OK);
+	for (uint64_t i = 0; i < 1000; i++) {
+		entry = page_entry_at(&page, prev_index + 1 + i);
+		rs_assert(entry != NULL);
+		rs_assert(entry_term(entry) == i);
+		rs_assert(entry_flags(entry) == i);
+		rs_assert(entry_cid(entry) == i);
+		rs_assert(entry_seq(entry) == i);
+		rs_assert(strcmp(entry_data(entry), data) == 0);
+	}
 
-    for (uint64_t i = 0; i < 1000; i++) {
-        entry = page_entry_at(&page, prev_index + 1 + i);
-        rs_assert(entry != NULL);
-        rs_assert(entry_term(entry) == i);
-        rs_assert(entry_flags(entry) == i);
-        rs_assert(entry_cid(entry) == i);
-        rs_assert(entry_seq(entry) == i);
-        rs_assert(strcmp(entry_data(entry), data) == 0);
-    }
-
-    rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 }
 
 static void page_expand_test(void)
 {
-    int rc;
-    const int prev_index = 5000;
-    char *data = "data";
-    unsigned char *entry;
-    struct page page;
+	const int prev_index = 5000;
+	char *data = "data";
+	unsigned char *entry;
+	struct page page;
+	uint32_t size;
 
-    rc = page_init(&page, test_tmp_page0, -1, prev_index);
-    rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, prev_index);
 
-    for (int i = 0; i < 1000; i++) {
-        page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
+	for (int i = 0; i < 4000; i++) {
+		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
 
-        if (i % 2 == 0) {
-            page_fsync(&page, 5000 + 500);
-        }
-    }
+		if (i % 2 == 0) {
+			page_fsync(&page, 5000 + 500);
+		}
+	}
 
-    rs_assert(page_expand(&page) == RS_OK);
+	size = page_quota(&page);
+	rs_assert(size < 50000000);
 
-    for (uint64_t i = 0; i < 1000; i++) {
-        entry = page_entry_at(&page, prev_index + 1 + i);
-        rs_assert(entry != NULL);
-        rs_assert(entry_term(entry) == i);
-        rs_assert(entry_flags(entry) == i);
-        rs_assert(entry_cid(entry) == i);
-        rs_assert(entry_seq(entry) == i);
-        rs_assert(strcmp(entry_data(entry), data) == 0);
-    }
+	rs_assert(page_reserve(&page, 50000000) == RS_OK);
+	rs_assert(page_quota(&page) >= 50000000);
 
-    rs_assert(page_term(&page) == RS_OK);
+	rs_assert(page_reserve(&page, 2 *1024 *1024 * 1024ull) != RS_OK);
+
+	for (uint64_t i = 0; i < 4000; i++) {
+		entry = page_entry_at(&page, prev_index + 1 + i);
+		rs_assert(entry != NULL);
+		rs_assert(entry_term(entry) == i);
+		rs_assert(entry_flags(entry) == i);
+		rs_assert(entry_cid(entry) == i);
+		rs_assert(entry_seq(entry) == i);
+		rs_assert(strcmp(entry_data(entry), data) == 0);
+	}
+
+	page_term(&page);
 }
 
 static void page_remove_after_test(void)
 {
-    int rc;
-    const int prev_index = 5000;
-    char *data = "data";
-    unsigned char *entry;
-    struct page page;
+	const int prev_index = 5000;
+	char *data = "data";
+	unsigned char *entry;
+	struct page page;
 
-    rc = page_init(&page, test_tmp_page0, -1, prev_index);
-    rs_assert(rc == RS_OK);
+	page_init(&page, test_tmp_page0, -1, prev_index);
 
-    for (int i = 0; i < 1000; i++) {
-        page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
-    }
+	for (int i = 0; i < 1000; i++) {
+		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
+	}
 
-    page_remove_after(&page, prev_index + 501);
+	page_remove_after(&page, prev_index + 501);
 
-    rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 
-    rc = page_init(&page, test_tmp_page0, -1, 0);
-    rs_assert(rc == RS_OK);
-    rs_assert(page_entry_count(&page) == 501);
+	page_init(&page, test_tmp_page0, -1, 0);
+	rs_assert(page_entry_count(&page) == 501);
 
-    for (uint64_t i = 0; i < 501; i++) {
-        entry = page_entry_at(&page, prev_index + 1 + i);
-        rs_assert(entry != NULL);
-        rs_assert(entry_term(entry) == i);
-        rs_assert(entry_flags(entry) == i);
-        rs_assert(entry_cid(entry) == i);
-        rs_assert(entry_seq(entry) == i);
-        rs_assert(strcmp(entry_data(entry), data) == 0);
-    }
+	for (uint64_t i = 0; i < 501; i++) {
+		entry = page_entry_at(&page, prev_index + 1 + i);
+		rs_assert(entry != NULL);
+		rs_assert(entry_term(entry) == i);
+		rs_assert(entry_flags(entry) == i);
+		rs_assert(entry_cid(entry) == i);
+		rs_assert(entry_seq(entry) == i);
+		rs_assert(strcmp(entry_data(entry), data) == 0);
+	}
 
-    rs_assert(page_term(&page) == RS_OK);
+	page_term(&page);
 }
 
 int main(void)
 {
-    test_execute(page_open_test);
-    test_execute(page_reopen_test);
-    test_execute(page_remove_after_test);
-    test_execute(page_expand_test);
+	test_execute(page_open_test);
+	test_execute(page_reopen_test);
+	test_execute(page_remove_after_test);
+	test_execute(page_expand_test);
 
-    return 0;
+	return 0;
 }

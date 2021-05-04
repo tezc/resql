@@ -1,13 +1,12 @@
 set(CMAKE_C_STANDARD 11)
 
 macro(resql_test name)
-    add_executable(${name} ${name} test_util.c test_util.h)
+    add_executable(${name} ${name})
     target_link_libraries(${name} ${PROJECT_LIBS} resql-test)
     add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}>)
 endmacro()
 
-add_compile_options(-DSC_HAVE_CONFIG_H -g -fno-omit-frame-pointer -DRS_ENABLE_ASSERT)
-include_directories(../src)
+add_compile_options(-g -fno-omit-frame-pointer -DRS_ENABLE_ASSERT)
 
 add_library(resql-server STATIC
         ../src/aux.h
@@ -48,56 +47,55 @@ add_library(resql-server STATIC
         ../src/msg.c
         ../src/rs.h
         ../src/rs.c
-        ../src/sqlite/sqlite3ext.h
-        ../src/sqlite/sqlite3.h
-        ../src/sqlite/sqlite3.c
-        ../src/sqlite/completion.c
-        ../src/sc/config.h
-        ../src/sc/sc.h
-        ../src/sc/sc.c
-        ../src/sc/sc_array.h
-        ../src/sc/sc_array.c
-        ../src/sc/sc_buf.h
-        ../src/sc/sc_buf.c
-        ../src/sc/sc_cond.h
-        ../src/sc/sc_cond.c
-        ../src/sc/sc_crc32.h
-        ../src/sc/sc_crc32.c
-        ../src/sc/sc_ini.h
-        ../src/sc/sc_ini.c
-        ../src/sc/sc_map.h
-        ../src/sc/sc_map.c
-        ../src/sc/sc_mmap.h
-        ../src/sc/sc_mmap.c
-        ../src/sc/sc_log.h
-        ../src/sc/sc_log.c
-        ../src/sc/sc_list.h
-        ../src/sc/sc_list.c
-        ../src/sc/sc_option.h
-        ../src/sc/sc_option.c
-        ../src/sc/sc_queue.h
-        ../src/sc/sc_queue.c
-        ../src/sc/sc_signal.h
-        ../src/sc/sc_signal.c
-        ../src/sc/sc_str.h
-        ../src/sc/sc_str.c
-        ../src/sc/sc_sock.h
-        ../src/sc/sc_sock.c
-        ../src/sc/sc_time.h
-        ../src/sc/sc_time.c
-        ../src/sc/sc_timer.h
-        ../src/sc/sc_timer.c
-        ../src/sc/sc_thread.h
-        ../src/sc/sc_thread.c
-        ../src/sc/sc_uri.h
-        ../src/sc/sc_uri.c)
+        ../cresql/resql.h
+        ../cresql/resql.c
+        ../lib/sqlite/sqlite3ext.h
+        ../lib/sqlite/sqlite3.h
+        ../lib/sqlite/sqlite3.c
+        ../lib/sqlite/completion.c
+        ../lib/sc/sc.h
+        ../lib/sc/sc.c
+        ../lib/sc/sc_array.h
+        ../lib/sc/sc_buf.h
+        ../lib/sc/sc_buf.c
+        ../lib/sc/sc_cond.h
+        ../lib/sc/sc_cond.c
+        ../lib/sc/sc_crc32.h
+        ../lib/sc/sc_crc32.c
+        ../lib/sc/sc_ini.h
+        ../lib/sc/sc_ini.c
+        ../lib/sc/sc_map.h
+        ../lib/sc/sc_map.c
+        ../lib/sc/sc_mmap.h
+        ../lib/sc/sc_mmap.c
+        ../lib/sc/sc_log.h
+        ../lib/sc/sc_log.c
+        ../lib/sc/sc_list.h
+        ../lib/sc/sc_list.c
+        ../lib/sc/sc_option.h
+        ../lib/sc/sc_option.c
+        ../lib/sc/sc_queue.h
+        ../lib/sc/sc_signal.h
+        ../lib/sc/sc_signal.c
+        ../lib/sc/sc_str.h
+        ../lib/sc/sc_str.c
+        ../lib/sc/sc_sock.h
+        ../lib/sc/sc_sock.c
+        ../lib/sc/sc_time.h
+        ../lib/sc/sc_time.c
+        ../lib/sc/sc_timer.h
+        ../lib/sc/sc_timer.c
+        ../lib/sc/sc_thread.h
+        ../lib/sc/sc_thread.c
+        ../lib/sc/sc_uri.h
+        ../lib/sc/sc_uri.c)
 
 # -DSQLITE_THREADSAFE=0 \
 set_source_files_properties(
-        ../src/sqlite/sqlite3.h
-        ../src/sqlite/sqlite3.c
-        ../src/sqlite/sqlite3ext.h
-        ../src/sqlite/completion.c
+        ../lib/sqlite/sqlite3.h
+        ../lib/sqlite/sqlite3.c
+        ../lib/sqlite/sqlite3ext.h
+        ../lib/sqlite/completion.c
         APPEND PROPERTIES COMPILE_FLAGS
         "-w \
  -DSQLITE_OMIT_AUTOINIT \
@@ -114,11 +112,11 @@ set_source_files_properties(
  -DSQLITE_USE_ALLOCA"
 )
 
-target_link_libraries(resql-server ${ADDITIONAL_LIBRARIES})
+target_include_directories(resql-server PUBLIC ../lib)
 
-add_library(resql-test test_util.c ../c-client/resql.c)
-target_link_libraries(resql-test PUBLIC resql-server)
-target_include_directories(resql-test PUBLIC ../c-client)
+add_library(resql-test test_util.c test_util.h)
+target_link_libraries(resql-test resql-server ${ADDITIONAL_LIBRARIES})
+target_include_directories(resql-test PUBLIC ../cresql)
 target_include_directories(resql-test PUBLIC ../src)
 
 enable_testing()
@@ -126,6 +124,7 @@ enable_testing()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/test)
 set(CTEST_BINARY_DIRECTORY ${PROJECT_BINARY_DIR}/test)
 
+resql_test(add_test.c)
 resql_test(client_test.c)
 resql_test(c_client_test.c)
 resql_test(cluster_test.c)
@@ -161,10 +160,10 @@ add_custom_target(coverage)
 add_custom_command(
         TARGET coverage
         COMMAND lcov --capture --directory .
-        --output-file coverage.info --rc lcov_branch_coverage=1
-        COMMAND lcov --remove coverage.info '/usr/*' '*test*' '*/c-client/*' '*/sqlite/*' '*/sc/*'
-        --output-file coverage.info --rc lcov_branch_coverage=1
-        COMMAND lcov --list coverage.info --rc lcov_branch_coverage=1
+        --output-file coverage.info --rc lcov_branch_coverage=1 --rc lcov_excl_br_line='assert' --rc lcov_excl_line='abort'
+        COMMAND lcov --remove coverage.info '/usr/*' '*test*' '*/cresql/*' '*/sqlite/*' '*/sc/*'
+        --output-file coverage.info --rc lcov_branch_coverage=1 --rc lcov_excl_br_line='assert' --rc lcov_excl_line='abort'
+        COMMAND lcov --list coverage.info --rc lcov_branch_coverage=1 --rc lcov_excl_br_line='assert' --rc lcov_excl_line='abort'
 )
 
 add_dependencies(coverage check)

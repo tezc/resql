@@ -25,10 +25,10 @@ jobs:
           git config --global user.email tezc@users.noreply.github.com
           git config --global user.name
           git config --global user.email
-          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" c-client/resql.h)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" cresql/resql.h)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" goresql/client.go)
-          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" java-client/src/main/java/resql/Resql.java)
-          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" java-client/pom.xml)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" jresql/src/main/java/resql/Resql.java)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" jresql/pom.xml)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" src/rs.h)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/cli/resql_cli.c)
           (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/benchmark/resql_benchmark.c)
@@ -150,10 +150,10 @@ jobs:
           git config --global user.name
           git config --global user.email
           git pull
-          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" c-client/resql.h)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" cresql/resql.h)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" goresql/client.go)
-          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" java-client/src/main/java/resql/Resql.java)
-          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" java-client/pom.xml)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" jresql/src/main/java/resql/Resql.java)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" jresql/pom.xml)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" src/rs.h)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/cli/resql_cli.c)
           (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/benchmark/resql_benchmark.c)

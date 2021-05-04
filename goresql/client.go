@@ -1,26 +1,30 @@
+// BSD-3-Clause
 //
-// MIT License
+// Copyright 2021 Ozan Tezcan
+// All rights reserved.
 //
-// Copyright (c) 2021 Ozan Tezcan
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright notice,
+//    this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimer in the documentation
+//    and/or other materials provided with the distribution.
+// 3. Neither the name of the copyright holder nor the names of its contributors
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+// OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+// OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
 
 package goresql
 
@@ -45,25 +49,33 @@ const (
 	clientResp             = byte(0x05)
 	connectFlag            = uint32(0)
 	clientReqHeader        = 14
-	flagError              = byte(1)
-	flagDone               = byte(2)
-	flagStmt               = byte(3)
-	flagStmtId             = byte(4)
-	flagStmtPrepare        = byte(5)
-	flagStmtDelPrepared    = byte(6)
-	flagRow                = byte(7)
-	flagEnd                = byte(8)
 	msgOK                  = byte(0)
+	msgErr                 = byte(1)
 	msgClusterNameMismatch = byte(2)
+	msgCorrupt             = byte(3)
+	msgUnexpected          = byte(5)
+	msgTimeout             = byte(6)
+	msgNotLeader           = byte(7)
+	msgDiskFull            = byte(8)
+	flagOk                 = byte(0)
+	flagError              = byte(1)
+	flagStmt               = byte(2)
+	flagStmtId             = byte(3)
+	flagStmtPrepare        = byte(4)
+	flagStmtDelPrepared    = byte(5)
+	flagOp                 = byte(6)
+	flagOpEnd              = byte(7)
+	flagRow                = byte(8)
+	flagMsgEnd             = byte(9)
 	paramInteger           = byte(0)
 	paramFloat             = byte(1)
 	paramText              = byte(2)
 	paramBlob              = byte(3)
 	paramNull              = byte(4)
-	paramName              = byte(5)
-	paramIndex             = byte(6)
+	bindName               = byte(0)
+	bindIndex              = byte(1)
+	bindEnd                = byte(2)
 )
-
 
 var errConnFail = errors.New("resql: failed to connect")
 var errClusterNameMismatch = errors.New("resql: cluster name mismatch")
@@ -91,91 +103,90 @@ type client struct {
 
 type Config struct {
 	// client name, if not specified a random value will be assigned
-	ClientName    string
+	ClientName string
 
 	// cluster name must match with configured on the server
-	ClusterName   string
+	ClusterName string
 
 	// timeout for operations, default is infinite
 	TimeoutMillis int64
 
 	// outgoing addr and port if you want to specify
-	OutgoingAddr  string
-	OutgoingPort  string
+	OutgoingAddr string
+	OutgoingPort string
 
 	// server urls,  single url is sufficient, default is "tcp://127.0.0.1:7600"
-	Urls          []string
+	Urls []string
 }
 
 type Resql interface {
-	// prepare statement for sql statement, this is a remote call to server
+	// Prepare prepare statement for sql statement, this is a remote call to server
 	Prepare(sql string) (PreparedStatement, error)
 
-	// delete prepared statement, this is a remote call to server
+	// Delete delete prepared statement, this is a remote call to server
 	Delete(p PreparedStatement) error
 
-	// put raw sql into current batch
+	// PutStatement put raw sql into current batch
 	PutStatement(sql string)
 
-	// put prepared statement into current batch
+	// PutPrepared put prepared statement into current batch
 	PutPrepared(p PreparedStatement)
 
-	// bind parameter with placeholder to the last statement in the batch
+	// BindParam bind parameter with placeholder to the last statement in the batch
 	BindParam(param string, val interface{})
 
-	// bind parameter with index to the last statement in the batch
+	// BindIndex bind parameter with index to the last statement in the batch
 	BindIndex(index uint32, val interface{})
 
-	// execute current batch, this is a remote call to server
+	// Execute execute current batch, this is a remote call to server
 	Execute(readonly bool) (ResultSet, error)
 
-	// terminate client
+	// Shutdown terminate client
 	Shutdown() error
 
-	// cancel current batch
+	// Clear cancel current batch
 	Clear()
 }
 
-
 type PreparedStatement interface {
-	// returns prepared statement sql
+	// StatementSql returns prepared statement sql
 	StatementSql() string
 }
 
 type Row interface {
-	// get column value at index
+	// GetIndex get column value at index
 	GetIndex(index int) (interface{}, error)
 
-	// get column value with column name
+	// GetColumn get column value with column name
 	GetColumn(columnName string) (interface{}, error)
 
-	// get column name at index. index starts from zero.
+	// ColumnName get column name at index. index starts from zero.
 	ColumnName(index int) (string, error)
 
-	// column count
+	// ColumnCount column count
 	ColumnCount() int
 
-	// read row, error will be returned if attempted to read more columns than
+	// Read read row, error will be returned if attempted to read more columns than
 	// exists or when there is type mismatch
 	Read(columns ...interface{}) error
 }
 
 type ResultSet interface {
-	// advance to the next result set. false if there is no result set.
+	// NextResultSet advance to the next result set. false if there is no result set.
 	NextResultSet() bool
 
-	// next row, nil if there is no more rows.
+	// Row next row, nil if there is no more rows.
 	Row() Row
 
-	// lines changed while executing this statement. Returned value is only
+	// LinesChanged lines changed while executing this statement. Returned value is only
 	// valid if statement writes to the table. e.g if statement is SELECT,
 	// returned value is undefined.
 	LinesChanged() int
 
-	// last row id, only meaningful for INSERT statements.
+	// LastRowId last row id, only meaningful for INSERT statements.
 	LastRowId() int64
 
-	// row count in the current resultset
+	// RowCount row count in the current resultset
 	RowCount() int
 }
 
@@ -219,7 +230,7 @@ func randomName() string {
 	return string(b)
 }
 
-// create client and connect to the server.
+// Create create client and connect to the server.
 func Create(config *Config) (Resql, error) {
 	var name string
 	var clusterName string
@@ -464,20 +475,24 @@ func (c *client) connectSock() error {
 
 func (c *client) PutStatement(sql string) {
 	if c.hasStatement {
-		c.req.writeUint8(flagEnd)
+		c.req.writeUint8(bindEnd)
+		c.req.writeUint8(flagOpEnd)
 	}
 
 	c.hasStatement = true
+	c.req.writeUint8(flagOp)
 	c.req.writeUint8(flagStmt)
 	c.req.writeString(&sql)
 }
 
 func (c *client) PutPrepared(p PreparedStatement) {
 	if c.hasStatement {
-		c.req.writeUint8(flagEnd)
+		c.req.writeUint8(bindEnd)
+		c.req.writeUint8(flagOpEnd)
 	}
 
 	c.hasStatement = true
+	c.req.writeUint8(flagOp)
 	c.req.writeUint8(flagStmtId)
 	c.req.writeUint64(p.(*Prepared).id)
 }
@@ -513,7 +528,7 @@ func (c *client) BindParam(param string, val interface{}) {
 		return
 	}
 
-	c.req.writeUint8(paramName)
+	c.req.writeUint8(bindName)
 	c.req.writeString(&param)
 	c.bind(val)
 }
@@ -524,7 +539,7 @@ func (c *client) BindIndex(index uint32, val interface{}) {
 		return
 	}
 
-	c.req.writeUint8(paramIndex)
+	c.req.writeUint8(bindIndex)
 	c.req.writeUint32(index)
 	c.bind(val)
 }
@@ -535,9 +550,11 @@ func (c *client) Prepare(sql string) (PreparedStatement, error) {
 		return nil, errors.New("resql: operation must be a single operation")
 	}
 
+	c.req.writeUint8(flagOp)
 	c.req.writeUint8(flagStmtPrepare)
 	c.req.writeString(&sql)
-	c.req.writeUint8(flagEnd)
+	c.req.writeUint8(flagOpEnd)
+	c.req.writeUint8(flagMsgEnd)
 
 	c.seq++
 	encodeClientReq(&c.req, false, c.seq)
@@ -546,6 +563,13 @@ func (c *client) Prepare(sql string) (PreparedStatement, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if c.resp.readUint8() != flagOp {
+		return nil, errors.New("invalid message")
+	}
+
+	// skip response size
+	c.resp.readUint32()
 
 	return &Prepared{
 		id:  c.resp.readUint64(),
@@ -559,9 +583,11 @@ func (c *client) Delete(p PreparedStatement) error {
 		return errors.New("resql: operation must be a single operation")
 	}
 
+	c.req.writeUint8(flagOp)
 	c.req.writeUint8(flagStmtDelPrepared)
 	c.req.writeUint64(p.(*Prepared).id)
-	c.req.writeUint8(flagEnd)
+	c.req.writeUint8(flagOpEnd)
+	c.req.writeUint8(flagMsgEnd)
 
 	c.seq++
 	encodeClientReq(&c.req, false, c.seq)
@@ -569,6 +595,10 @@ func (c *client) Delete(p PreparedStatement) error {
 	err := c.send()
 	if err != nil {
 		return err
+	}
+
+	if c.resp.readUint8() != flagOp {
+		return errors.New("invalid message")
 	}
 
 	return nil
@@ -624,7 +654,7 @@ func (c *client) send() error {
 		}
 
 		rc := c.resp.readUint8()
-		if rc == flagError {
+		if rc != flagOk {
 			return fmt.Errorf("sql error : %s", *c.resp.readString())
 		}
 
@@ -640,7 +670,9 @@ func (c *client) Execute(readonly bool) (ResultSet, error) {
 		return nil, errors.New("resql: missing statement")
 	}
 
-	c.req.writeUint8(flagEnd)
+	c.req.writeUint8(bindEnd)
+	c.req.writeUint8(flagOpEnd)
+	c.req.writeUint8(flagMsgEnd)
 	c.hasStatement = false
 
 	if !readonly {
@@ -784,7 +816,7 @@ func (r *result) NextResultSet() bool {
 	r.buf.setOffset(r.nextResultSet)
 
 	flag := r.buf.readUint8()
-	if flag != flagStmt {
+	if flag != flagOp {
 		return false
 	}
 
@@ -803,7 +835,7 @@ func (r *result) NextResultSet() bool {
 
 		r.rowCount = int(r.buf.readUint32())
 		r.remainingRows = r.rowCount
-	} else if flag != flagDone {
+	} else if flag != flagOpEnd {
 		panic("Unexpected value")
 	}
 
@@ -897,6 +929,7 @@ func encodeClientReq(b *buffer, readonly bool, sequence uint64) {
 func encodeDisconnectReq(b *buffer, rc uint8, flags uint32) {
 	total := uint32Len(lenBytes) +
 		uint8Len(disconnectReq) +
+		uint8Len(rc) +
 		uint8Len(rc) +
 		uint32Len(flags)
 

@@ -4,18 +4,20 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 add_executable(resql-cli
         resql_cli.c
-        sc_option.h
-        sc_option.c
-        linenoise.h
-        linenoise.c
-        ${CMAKE_SOURCE_DIR}/c-client/resql.h
-        ${CMAKE_SOURCE_DIR}/c-client/resql.c
+        ../../cresql/resql.h
+        ../../cresql/resql.c
+        ../../lib/linenoise/linenoise.h
+        ../../lib/linenoise/linenoise.c
+        ../../lib/sc/sc_option.h
+        ../../lib/sc/sc_option.c
         )
 
-target_include_directories(resql-cli PRIVATE ${CMAKE_SOURCE_DIR}/c-client)
+target_include_directories(resql-cli PRIVATE ../../cresql)
+target_include_directories(resql-cli PRIVATE ../../lib/linenoise)
+target_include_directories(resql-cli PRIVATE ../../lib/sc)
 set_source_files_properties(
-        linenoise.h
-        linenoise.c
+        ../../lib/linenoise/linenoise.h
+        ../../lib/linenoise/linenoise.c
         PROPERTIES
         COMPILE_FLAGS "-w"
 )

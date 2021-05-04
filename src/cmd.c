@@ -1,140 +1,150 @@
 /*
- *  Resql
+ * BSD-3-Clause
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 #include "cmd.h"
 
 #include "sc/sc_time.h"
 
-void cmd_encode_init(struct sc_buf *buf, unsigned char rand[256])
+void cmd_encode_init(struct sc_buf *b, unsigned char rand[256])
 {
-    sc_buf_put_64(buf, sc_time_ms());
-    sc_buf_put_64(buf, sc_time_mono_ms());
-    sc_buf_put_raw(buf, rand, 256);
+	sc_buf_put_64(b, sc_time_ms());
+	sc_buf_put_64(b, sc_time_mono_ms());
+	sc_buf_put_raw(b, rand, 256);
 }
 
-struct cmd_init cmd_decode_init(struct sc_buf *buf)
+struct cmd_init cmd_decode_init(struct sc_buf *b)
 {
-    struct cmd_init init;
+	struct cmd_init init;
 
-    init.realtime = sc_buf_get_64(buf);
-    init.monotonic = sc_buf_get_64(buf);
-    sc_buf_get_data(buf, init.rand, sizeof(init.rand));
+	init.realtime = sc_buf_get_64(b);
+	init.monotonic = sc_buf_get_64(b);
+	sc_buf_get_data(b, init.rand, sizeof(init.rand));
 
-    return init;
+	return init;
 }
 
-void cmd_encode_term_start(struct sc_buf *buf)
+void cmd_encode_term(struct sc_buf *b)
 {
-    sc_buf_put_64(buf, sc_time_ms());
-    sc_buf_put_64(buf, sc_time_mono_ms());
+	sc_buf_put_64(b, sc_time_ms());
+	sc_buf_put_64(b, sc_time_mono_ms());
 }
 
-struct cmd_term_start cmd_decode_term_start(struct sc_buf *buf)
+struct cmd_term cmd_decode_term(struct sc_buf *b)
 {
-    struct cmd_term_start start;
+	struct cmd_term start;
 
-    start.realtime = sc_buf_get_64(buf);
-    start.monotonic = sc_buf_get_64(buf);
+	start.realtime = sc_buf_get_64(b);
+	start.monotonic = sc_buf_get_64(b);
 
-    return start;
+	return start;
 }
 
-void cmd_encode_meta(struct sc_buf *buf, struct meta *meta)
+void cmd_encode_meta(struct sc_buf *b, struct meta *meta)
 {
-    meta_encode(meta, buf);
+	meta_encode(meta, b);
 }
 
-struct cmd_meta cmd_decode_meta(struct sc_buf *buf)
+struct cmd_meta cmd_decode_meta(struct sc_buf *b)
 {
-    struct cmd_meta cmd;
+	struct cmd_meta cmd;
 
-    meta_init(&cmd.meta, "");
-    meta_decode(&cmd.meta, buf);
+	meta_init(&cmd.meta, "");
+	meta_decode(&cmd.meta, b);
 
-    return cmd;
+	return cmd;
 }
 
-void cmd_encode_client_connect(struct sc_buf *buf, const char *name,
-                               const char *local, const char *remote)
+void cmd_encode_connect(struct sc_buf *b, const char *name, const char *local,
+			const char *remote)
 {
-    sc_buf_put_str(buf, name);
-    sc_buf_put_str(buf, local);
-    sc_buf_put_str(buf, remote);
+	sc_buf_put_str(b, name);
+	sc_buf_put_str(b, local);
+	sc_buf_put_str(b, remote);
 }
 
-struct cmd_client_connect cmd_decode_client_connect(struct sc_buf *buf)
+struct cmd_connect cmd_decode_connect(struct sc_buf *buf)
 {
-    struct cmd_client_connect cmd;
+	struct cmd_connect cmd;
 
-    cmd.name = sc_buf_get_str(buf);
-    cmd.local = sc_buf_get_str(buf);
-    cmd.remote = sc_buf_get_str(buf);
+	cmd.name = sc_buf_get_str(buf);
+	cmd.local = sc_buf_get_str(buf);
+	cmd.remote = sc_buf_get_str(buf);
 
-    return cmd;
+	return cmd;
 }
 
-void cmd_encode_client_disconnect(struct sc_buf *buf, const char *name,
-                                  bool clean)
+void cmd_encode_disconnect(struct sc_buf *b, const char *name, bool clean)
 {
-    sc_buf_put_str(buf, name);
-    sc_buf_put_bool(buf, clean);
+	sc_buf_put_str(b, name);
+	sc_buf_put_bool(b, clean);
 }
 
-struct cmd_client_disconnect cmd_decode_client_disconnect(struct sc_buf *buf)
+struct cmd_disconnect cmd_decode_disconnect(struct sc_buf *b)
 {
-    struct cmd_client_disconnect cmd;
+	struct cmd_disconnect cmd;
 
-    cmd.name = sc_buf_get_str(buf);
-    cmd.clean = sc_buf_get_bool(buf);
+	cmd.name = sc_buf_get_str(b);
+	cmd.clean = sc_buf_get_bool(b);
 
-    return cmd;
+	return cmd;
 }
 
-void cmd_encode_timestamp(struct sc_buf *buf)
+void cmd_encode_timestamp(struct sc_buf *b)
 {
-    sc_buf_put_64(buf, sc_time_ms());
-    sc_buf_put_64(buf, sc_time_mono_ms());
+	sc_buf_put_64(b, sc_time_ms());
+	sc_buf_put_64(b, sc_time_mono_ms());
 }
 
-struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *buf)
+struct cmd_timestamp cmd_decode_timestamp(struct sc_buf *b)
 {
-    struct cmd_timestamp time;
+	struct cmd_timestamp time;
 
-    time.realtime = sc_buf_get_64(buf);
-    time.monotonic = sc_buf_get_64(buf);
+	time.realtime = sc_buf_get_64(b);
+	time.monotonic = sc_buf_get_64(b);
 
-    return time;
+	return time;
 }
 
-void cmd_encode_log(struct sc_buf *buf, const char *level, const char *log)
+void cmd_encode_log(struct sc_buf *b, const char *level, const char *log)
 {
-    sc_buf_put_str(buf, level);
-    sc_buf_put_str(buf, log);
+	sc_buf_put_str(b, level);
+	sc_buf_put_str(b, log);
 }
 
-struct cmd_log cmd_decode_log(struct sc_buf *buf)
+struct cmd_log cmd_decode_log(struct sc_buf *b)
 {
-    struct cmd_log log;
+	struct cmd_log log;
 
-    log.level = sc_buf_get_str(buf);
-    log.log = sc_buf_get_str(buf);
+	log.level = sc_buf_get_str(b);
+	log.log = sc_buf_get_str(b);
 
-    return log;
+	return log;
 }

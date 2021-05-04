@@ -1,22 +1,37 @@
 /*
- *  Resql
+ * BSD-3-Clause
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef __FILE_OFFSET_BITS
+#define __FILE_OFFSET_BITS 64
+#endif
 
 #include "file.h"
 
@@ -28,344 +43,413 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <ftw.h>
 
 struct file *file_create()
 {
-    struct file *file;
+	struct file *f;
 
-    file = rs_malloc(sizeof(*file));
-    file_init(file);
+	f = rs_malloc(sizeof(*f));
+	file_init(f);
 
-    return file;
+	return f;
 }
 
-void file_destroy(struct file *file)
+void file_destroy(struct file *f)
 {
-    file_term(file);
-    rs_free(file);
+	file_term(f);
+	rs_free(f);
 }
 
-void file_init(struct file *file)
+void file_init(struct file *f)
 {
-    file->path = NULL;
-    file->fp = NULL;
+	f->path = NULL;
+	f->fp = NULL;
 }
 
-void file_term(struct file *file)
+int file_term(struct file *f)
 {
-    file_close(file);
-    sc_str_destroy(file->path);
+	int rc;
+
+	rc = file_close(f);
+	sc_str_destroy(&f->path);
+
+	return rc;
 }
 
-int file_open(struct file *file, const char *path, const char *mode)
+int file_open(struct file *f, const char *path, const char *mode)
 {
-    FILE *fp;
+	FILE *fp;
 
-    fp = fopen(path, mode);
-    if (fp == NULL) {
-        return RS_ERROR;
-    }
+	fp = fopen(path, mode);
+	if (fp == NULL) {
+		sc_log_error("file : %s, fopen : %s \n", path, strerror(errno));
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
+	}
 
-    file->fp = fp;
-    sc_str_set(&file->path, path);
+	f->fp = fp;
+	sc_str_set(&f->path, path);
 
-    return RS_OK;
+	return RS_OK;
 }
 
-int file_close(struct file *file)
+int file_close(struct file *f)
 {
-    int rc;
-    FILE *fp;
+	int rc;
+	const char *err;
+	FILE *fp;
 
-    fp = file->fp;
-    if (fp != NULL) {
-        file->fp = NULL;
+	if (f->fp == NULL) {
+		return RS_OK;
+	}
 
-        rc = fclose(fp);
-        if (rc != 0) {
-            return RS_ERROR;
-        }
-    }
+	fp = f->fp;
+	f->fp = NULL;
 
-    return RS_OK;
+	rc = fclose(fp);
+	if (rc != 0) {
+		err = strerror(errno);
+		sc_log_error("file : %s, fclose : %s \n", f->path, err);
+
+		return RS_ERROR;
+	}
+
+	return RS_OK;
 }
 
-ssize_t file_size(struct file *file)
+ssize_t file_size(struct file *f)
 {
-    return file_size_at(file->path);
+	return file_size_at(f->path);
 }
 
-int64_t file_size_at(const char *path)
+ssize_t file_size_at(const char *path)
 {
-    int rc;
-    struct stat st;
+	int rc;
+	struct stat st;
 
-    rc = stat(path, &st);
-    if (rc != 0) {
-        return rc;
-    }
+	rc = stat(path, &st);
+	if (rc != 0) {
+		sc_log_warn("file : %s, stat : %s \n", path, strerror(errno));
+		return -1;
+	}
 
-    return st.st_size;
+	return st.st_size;
 }
 
-int file_remove(struct file *file)
+int file_remove(struct file *f)
 {
-    return file_remove_path(file->path);
+	return file_remove_path(f->path);
 }
 
-int file_flush(struct file *file)
+int file_flush(struct file *f)
 {
-    int rc;
+	int rc;
+	const char *err;
 
-    rc = fflush(file->fp);
-    if (rc != 0) {
-        sc_log_error("Failed to flush file at %s \n", file_path(file));
-    }
+	rc = fflush(f->fp);
+	if (rc != 0) {
+		goto err;
+	}
 
-    return rc;
+	rc = fsync(fileno(f->fp));
+	if (rc != 0) {
+		goto err;
+	}
+
+	return RS_OK;
+
+err:
+	err = strerror(errno);
+	sc_log_error("file : %s, flush : %s \n", f->path, err);
+
+	return errno == ENOSPC ? RS_FULL : RS_ERROR;
 }
 
-int file_write(struct file *file, const void *ptr, size_t size)
+int file_write(struct file *f, const void *ptr, size_t size)
 {
-    size_t wr;
+	size_t wr;
+	const char *err;
 
-    wr = fwrite(ptr, 1, size, file->fp);
-    if (wr != size) {
-        sc_log_error("Failed to write %zu bytes, written : %zu  \n", size, wr);
-        return RS_ERROR;
-    }
+	wr = fwrite(ptr, 1, size, f->fp);
+	if (wr != size) {
+		err = strerror(errno);
+		sc_log_error("file : %s, write : %s  \n", f->path, err);
 
-    return RS_OK;
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
+	}
+
+	return RS_OK;
 }
 
-int file_write_at(struct file *file, size_t off, const void *ptr, size_t size)
+int file_write_at(struct file *f, size_t off, const void *ptr, size_t size)
 {
-    int rc;
+	int rc;
 
-    rc = file_lseek(file, off);
-    if (rc != 0) {
-        return RS_ERROR;
-    }
+	rc = file_lseek(f, off);
+	if (rc != 0) {
+		sc_log_error("file : %zu, file : %s, err : %s \n", off, f->path,
+			     strerror(errno));
+		return RS_ERROR;
+	}
 
-    return file_write(file, ptr, size);
+	return file_write(f, ptr, size);
 }
 
-int file_read(struct file *file, void *ptr, size_t size)
+int file_read(struct file *f, void *ptr, size_t size)
 {
-    size_t read;
+	size_t read;
+	const char *err;
 
-    read = fread(ptr, 1, size, file->fp);
-    if (read != size) {
-        sc_log_error("Failed to read %zu bytes, written : % lu  \n", size,
-                     read);
-        return RS_ERROR;
-    }
+	read = fread(ptr, 1, size, f->fp);
+	if (read != size) {
+		err = strerror(errno);
+		sc_log_error("file : %s, read : %s \n", f->path, err);
 
-    return RS_OK;
+		return RS_ERROR;
+	}
+
+	return RS_OK;
 }
 
-int file_lseek(struct file *file, size_t offset)
+int file_lseek(struct file *f, size_t offset)
 {
-    return fseek(file->fp, offset, SEEK_SET);
+	int rc;
+	const char *err;
+
+	rc = fseek(f->fp, offset, SEEK_SET);
+	if (rc != 0) {
+		err = strerror(errno);
+		sc_log_error("file : %s, fseek : %s \n", f->path, err);
+
+		return RS_ERROR;
+	}
+
+	return RS_OK;
 }
 
-const char *file_path(struct file *file)
+const char *file_path(struct file *f)
 {
-    return file->path;
+	return f->path;
 }
 
 int file_mkdir(const char *path)
 {
-    int rc;
-    char buf[PATH_MAX];
+	int rc;
+	char buf[PATH_MAX];
 
-    strcpy(buf, path);
+	strcpy(buf, path);
 
-    for (char *p = buf + 1; *p; p++) {
-        if (*p == '/') {
-            *p = '\0';
+	for (char *p = buf + 1; *p; p++) {
+		if (*p == '/') {
+			*p = '\0';
 
-            rc = mkdir(buf, S_IRWXU);
-            if (rc != 0 && errno != EEXIST) {
-                return RS_ERROR;
-            }
+			rc = mkdir(buf, S_IRWXU);
+			if (rc != 0 && errno != EEXIST) {
+				goto err;
+			}
 
-            *p = '/';
-        }
-    }
+			*p = '/';
+		}
+	}
 
-    rc = mkdir(buf, S_IRWXU);
-    if (rc != 0 && errno != EEXIST) {
-        return RS_ERROR;
-    }
+	rc = mkdir(buf, S_IRWXU);
+	if (rc != 0 && errno != EEXIST) {
+		goto err;
+	}
 
-    return RS_OK;
+	return RS_OK;
+
+err:
+	sc_log_error("file : %s, mkdir : %s \n", buf, strerror(errno));
+	return RS_ERROR;
 }
 
 static int file_rm(const char *path, const struct stat *s, int t, struct FTW *b)
 {
-    (void) s;
-    (void) t;
-    (void) b;
+	(void) s;
+	(void) t;
+	(void) b;
 
-    return remove(path);
+	return remove(path);
 }
 
-int file_rmdir(const char* path)
+int file_rmdir(const char *path)
 {
-    return nftw(path, file_rm, 64, FTW_DEPTH | FTW_PHYS);
+	return nftw(path, file_rm, 64, FTW_DEPTH | FTW_PHYS);
 }
 
 int file_clear_dir(const char *path, const char *pattern)
 {
-    int rc;
-    int ret = RS_OK;
-    char buf[PATH_MAX];
-    DIR *dir;
-    struct dirent *next_file;
+	int rc;
+	int ret = RS_OK;
+	char buf[PATH_MAX];
+	const char *err;
+	DIR *dir;
+	struct dirent *next;
 
-    dir = opendir(path);
-    if (dir == NULL) {
-        sc_log_error("Open directory at : %s (%s) \n", path, strerror(errno));
-        return RS_ERROR;
-    }
+	dir = opendir(path);
+	if (dir == NULL) {
+		err = strerror(errno);
+		sc_log_error("file : %s, opendir : (%s) \n", path, err);
+		return RS_ERROR;
+	}
 
-    while ((next_file = readdir(dir)) != NULL) {
-        if (strstr(next_file->d_name, pattern)) {
-            rs_snprintf(buf, PATH_MAX, "%s/%s", path, next_file->d_name);
+	while ((next = readdir(dir)) != NULL) {
+		if (strstr(next->d_name, pattern)) {
+			rs_snprintf(buf, PATH_MAX, "%s/%s", path, next->d_name);
 
-            rc = remove(buf);
-            if (rc != 0) {
-                sc_log_error("Remove file at : %s, (%s) \n", buf,
-                             strerror(errno));
-                ret = RS_ERROR;
-                goto clean;
-            }
-        }
-    }
+			rc = remove(buf);
+			if (rc != 0) {
+				sc_log_error("file : %s, remove :%s \n", buf,
+					     strerror(errno));
+				ret = RS_ERROR;
+				goto clean;
+			}
+		}
+	}
 
 clean:
-    rc = closedir(dir);
-    if (rc != 0) {
-        sc_log_error("Close dir at : %s, err : %s \n", path, strerror(errno));
-        return RS_ERROR;
-    }
+	rc = closedir(dir);
+	if (rc != 0) {
+		err = strerror(errno);
+		sc_log_error("file : %s, closedir : %s \n", path, err);
 
-    return ret;
+		return RS_ERROR;
+	}
+
+	return ret;
 }
 
 int file_remove_path(const char *path)
 {
-    int rc;
+	int rc;
+	const char *err;
 
-    rc = remove(path);
-    if (rc != 0) {
-        return RS_ERROR;
-    }
+	rc = remove(path);
+	if (rc != 0 && errno != ENOENT) {
+		err = strerror(errno);
+		sc_log_error("file : %s, remove : %s \n", path, err);
 
-    return RS_OK;
+		return RS_ERROR;
+	}
+
+	return RS_OK;
+}
+
+int file_unlink(const char *path)
+{
+	int rc;
+	const char *err;
+
+	rc = unlink(path);
+	if (rc != 0) {
+		err = strerror(errno);
+		sc_log_error("file : %s, unlink : %s \n", path, err);
+		return RS_ERROR;
+	}
+
+	return RS_OK;
 }
 
 bool file_exists_at(const char *path)
 {
-    return access(path, F_OK) != -1;
-}
-
-int file_remove_if_exists(const char *path)
-{
-    bool exists;
-
-    exists = file_exists_at(path);
-    if (exists) {
-        return file_remove_path(path);
-    }
-
-    return RS_OK;
-}
-
-char *file_full_path(const char *path, char *resolved)
-{
-    return realpath(path, resolved);
+	return access(path, F_OK) != -1;
 }
 
 int file_copy(const char *dst, const char *src)
 {
-    int rc = RS_OK, fd_src, fd_dest;
-    ssize_t n_read, n_written;
-    char *out;
-    char buf[4096 * 8];
+	int rc = RS_OK, fd_src, fd_dest;
+	ssize_t n_read, n_written;
+	char *out;
+	char buf[4096 * 8];
 
-    fd_src = open(src, O_RDONLY);
-    if (fd_src < 0) {
-        rc = RS_ERROR;
-        goto cleanup_src;
-    }
+	fd_src = open(src, O_RDONLY);
+	if (fd_src < 0) {
+		rc = RS_ERROR;
+		goto cleanup_src;
+	}
 
-    fd_dest = open(dst, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    if (fd_dest < 0) {
-        rc = RS_ERROR;
-        goto cleanup_dest;
-    }
+	fd_dest = open(dst, O_RDWR | O_CREAT | O_TRUNC, 0666);
+	if (fd_dest < 0) {
+		rc = RS_ERROR;
+		goto cleanup_dest;
+	}
 
-    while (true) {
-        n_read = read(fd_src, buf, sizeof(buf));
-        if (n_read == 0) {
-            break;
-        }
-        if (n_read < 0) {
-            rc = RS_ERROR;
-            goto cleanup_dest;
-        }
+	while (true) {
+		n_read = read(fd_src, buf, sizeof(buf));
+		if (n_read == 0) {
+			break;
+		}
+		if (n_read < 0) {
+			rc = RS_ERROR;
+			goto cleanup_dest;
+		}
 
-        out = buf;
+		out = buf;
 
-        do {
-            n_written = write(fd_dest, out, (size_t) n_read);
-            if (n_written < 0) {
-                if (errno == EINTR) {
-                    continue;
-                } else {
-                    rc = RS_ERROR;
-                    goto cleanup_dest;
-                }
-            }
+		do {
+			n_written = write(fd_dest, out, (size_t) n_read);
+			if (n_written < 0) {
+				if (errno == EINTR) {
+					continue;
+				}
 
-            n_read -= n_written;
-            out += n_written;
+				rc = errno == ENOSPC ? RS_FULL : RS_ERROR;
+				goto cleanup_dest;
+			}
 
-        } while (n_read > 0);
-    }
+			n_read -= n_written;
+			out += n_written;
+
+		} while (n_read > 0);
+	}
 
 cleanup_dest:
-    close(fd_dest);
+	close(fd_dest);
 cleanup_src:
-    close(fd_src);
+	close(fd_src);
 
-    return rc;
+	if (rc != RS_OK) {
+		remove(dst);
+	}
+
+	return rc;
 }
 
-void file_random(void *buf, size_t size)
+int file_rename(const char *dst, const char *src)
 {
-    int fd;
-    ssize_t sz;
+	int rc;
 
-    memset(buf, 0, size);
+	rc = rename(src, dst);
+	if (rc != 0) {
+		sc_log_error("rename : %s to %s : %s \n", src, dst,
+			     strerror(errno));
+		return errno == ENOSPC ? RS_FULL : RS_ERROR;
+	}
 
-    fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
-        sc_log_error("Failed to open /dev/urandom :%s \n", strerror(errno));
-        return;
-    }
+	return RS_OK;
+}
 
-retry:
-    sz = read(fd, buf, size);
-    if (sz < 0 && errno == EINTR) {
-        goto retry;
-    }
+int file_fsync(const char *path)
+{
+	int fd, rc, ret = RS_OK;
 
-    close(fd);
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		sc_log_error("open : %s, err : %s \n", path, strerror(errno));
+		return RS_ERROR;
+	}
+
+	rc = fsync(fd);
+	if (rc != 0) {
+		sc_log_error("fsync : %s, err : %s \n", path, strerror(errno));
+		ret = RS_ERROR;
+	}
+
+	close(fd);
+
+	return ret;
 }

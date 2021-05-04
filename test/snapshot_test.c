@@ -1,20 +1,32 @@
 /*
- *  Resql
+ * BSD-3-Clause
  *
- *  Copyright (C) 2021 Ozan Tezcan
+ * Copyright 2021 Ozan Tezcan
+ * All rights reserved.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU Affero General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU Affero General Public License for more details.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *  You should have received a copy of the GNU Affero General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "file.h"
@@ -29,64 +41,68 @@
 
 static void snapshot_simple()
 {
-    file_clear_dir("/tmp/node0", ".resql");
+	int rc, x;
+	char tmp[32];
+	resql *c;
+	struct resql_column *row;
+	struct resql_result *rs = NULL;
 
-    int rc, x;
-    char tmp[32];
-    resql *c;
-    struct resql_column *row;
-    struct resql_result *rs = NULL;
+	test_server_create(0, 3);
+	test_server_create(1, 3);
+	c = test_client_create();
 
-    test_server_create(0, 1);
-    c = test_client_create();
+	resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
 
-    resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    rc = resql_exec(c, false, &rs);
-    client_assert(c, rc == RESQL_OK);
+	for (int i = 0; i < 1000; i++) {
+		for (int j = 0; j < 1000; j++) {
+			snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
 
-    for (int i = 0; i < 1000; i++) {
-        for (int j = 0; j < 1000; j++) {
-            snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
+			resql_put_sql(
+				c,
+				"INSERT INTO snapshot VALUES(:key, 'value')");
+			resql_bind_param_text(c, ":key", tmp);
+		}
 
-            resql_put_sql(c, "INSERT INTO snapshot VALUES(:key, 'value')");
-            resql_bind_param_text(c, ":key", tmp);
-        }
+		rc = resql_exec(c, false, &rs);
+		client_assert(c, rc == RESQL_OK);
+	}
 
-        rc = resql_exec(c, false, &rs);
-        client_assert(c, rc == RESQL_OK);
-    }
+	test_server_destroy(0);
+	test_server_destroy(1);
+	test_server_start(0, 3);
+	test_server_start(1, 3);
+	test_server_start(2, 3);
 
-    test_server_destroy_all();
-    test_server_start(0, 1);
+	resql_put_sql(c, "Select count(*) from snapshot;");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    resql_put_sql(c, "Select count(*) from snapshot;");
-    rc = resql_exec(c, false, &rs);
-    client_assert(c, rc == RESQL_OK);
+	rs_assert(resql_row_count(rs) == 1);
+	rs_assert(resql_row(rs)[0].intval == 1000000);
 
-    rs_assert(resql_row_count(rs) == 1);
-    rs_assert(resql_row(rs)[0].intval == 1000000);
+	resql_put_sql(c, "Select * from snapshot LIMIT 100;");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-    resql_put_sql(c, "Select * from snapshot;");
-    rc = resql_exec(c, false, &rs);
-    client_assert(c, rc == RESQL_OK);
+	x = 0;
+	rs_assert(resql_row_count(rs) == 100);
 
-    x = 0;
-    rs_assert(resql_row_count(rs) == 1000000);
+	while ((row = resql_row(rs)) != NULL) {
+		snprintf(tmp, sizeof(tmp), "%d", x++);
 
-    while ((row = resql_row(rs)) != NULL) {
-        snprintf(tmp, sizeof(tmp), "%d", x++);
+		rs_assert(row[0].type == RESQL_TEXT);
+		rs_assert(strcmp(tmp, row[0].text) == 0);
+	}
 
-        rs_assert(row[0].type == RESQL_TEXT);
-        rs_assert(strcmp(tmp, row[0].text) == 0);
-    }
-
-    rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == false);
 }
 
 int main(void)
 {
-    test_execute(snapshot_simple);
+	test_execute(snapshot_simple);
 
-    return 0;
+	return 0;
 }

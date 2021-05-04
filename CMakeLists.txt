@@ -59,6 +59,8 @@ macro(enable_c_flag_if_avail _flag _append_to_var _set_var)
     if (${_set_var})
         message("Setting flag ${_flag}")
         set(${_append_to_var} "${${_append_to_var}} ${_flag}")
+    else ()
+        message("Flag is not supported : ${_flag}")
     endif ()
 endmacro()
 
@@ -311,9 +313,11 @@ endif ()
 
 # detect x86
 enable_c_flag_if_avail(-msse4.2 C_FLAGS_COMMON HAVE_CRC32_HARDWARE)
-if (${HAVE_CRC32_HARDWARE} AND "${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-    message(STATUS "CPU have -msse4.2, defined HAVE_CRC32C")
-    define_flag(C_FLAGS_COMMON HAVE_CRC32C)
+if (${HAVE_CRC32_HARDWARE})
+    if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+        message(STATUS "CPU have -msse4.2, defined HAVE_CRC32C")
+        define_flag(C_FLAGS_COMMON HAVE_CRC32C)
+    endif ()
 endif ()
 
 # detect aarch64
@@ -321,7 +325,7 @@ if (CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
     message(STATUS "CPU = aarch64, defined HAVE_CRC32C, -march=armv8.1-a")
     define_flag(C_FLAGS_COMMON -march=armv8.1-a)
     define_flag(C_FLAGS_COMMON HAVE_CRC32C)
-endif()
+endif ()
 
 # detect software version endianness
 test_big_endian(HAVE_BIG_ENDIAN)
@@ -344,6 +348,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     endif ()
 endif ()
 
+enable_warning_if_supported(-Wunused-result)
 
 set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_COVERAGE} ${C_FLAGS_COMMON} ${C_FLAGS_DEB}")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${C_FLAGS_COMMON} ${C_FLAGS_DEB}")

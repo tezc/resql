@@ -11,6 +11,11 @@ add_executable(resql
         cmd.c
         conf.h
         conf.c
+        config.h
+        conn.h
+        conn.c
+        info.h
+        info.c
         meta.h
         meta.c
         node.h
@@ -37,56 +42,49 @@ add_executable(resql
         msg.c
         rs.h
         rs.c
-        sqlite/sqlite3.h
-        sqlite/sqlite3.c
-        sqlite/sqlite3ext.h
-        sqlite/completion.c
-        sc/config.h
-        sc/sc.h
-        sc/sc.c
-        sc/sc_queue.h
-        sc/sc_queue.c
-        sc/sc_array.h
-        sc/sc_array.c
-        sc/sc_buf.h
-        sc/sc_buf.c
-        sc/sc_cond.h
-        sc/sc_cond.c
-        sc/sc_crc32.h
-        sc/sc_crc32.c
-        sc/sc_ini.h
-        sc/sc_ini.c
-        sc/sc_list.h
-        sc/sc_list.c
-        sc/sc_log.h
-        sc/sc_log.c
-        sc/sc_map.h
-        sc/sc_map.c
-        sc/sc_mmap.h
-        sc/sc_mmap.c
-        sc/sc_option.h
-        sc/sc_option.c
-        sc/sc_signal.h
-        sc/sc_signal.c
-        sc/sc_sock.h
-        sc/sc_sock.c
-        sc/sc_str.h
-        sc/sc_str.c
-        sc/sc_thread.h
-        sc/sc_thread.c
-        sc/sc_time.h
-        sc/sc_time.c
-        sc/sc_timer.h
-        sc/sc_timer.c
-        sc/sc_uri.h
-        sc/sc_uri.c
-        conn.h
-        conn.c
-        info.h
-        info.c)
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_array.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_buf.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_buf.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_cond.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_cond.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_crc32.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_crc32.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_ini.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_ini.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_list.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_list.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_log.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_log.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_map.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_map.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_mmap.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_mmap.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_option.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_signal.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_signal.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_sock.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_sock.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_str.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_str.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_thread.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_thread.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_time.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_time.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_timer.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_timer.c
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_uri.h
+        ${CMAKE_SOURCE_DIR}/lib/sc/sc_uri.c)
 
-target_include_directories(resql PUBLIC src/)
-target_include_directories(resql PUBLIC ./)
+target_include_directories(resql PUBLIC ${CMAKE_SOURCE_DIR}/lib)
+target_include_directories(resql PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 set(PGO_DIR "${CMAKE_SOURCE_DIR}/bin/pgo")
 set(GCC_PGO_GEN "-fprofile-generate=${PGO_DIR}")
@@ -109,8 +107,8 @@ if (${PGO} MATCHES "generate")
         link_libraries(gcov)
     endif ()
 
-    add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/c-client/resql.c)
-    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR}/c-client)
+    add_executable(resql-trainer trainer.c ${CMAKE_SOURCE_DIR}/cresql/resql.c)
+    target_include_directories(resql-trainer PRIVATE ${CMAKE_SOURCE_DIR}/cresql)
     install(TARGETS resql-trainer RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 elseif (${PGO} MATCHES "use")
     MESSAGE("Profile will be used.")
@@ -140,10 +138,10 @@ elseif (${PGO} MATCHES "use")
 endif ()
 
 set_source_files_properties(
-        sqlite/sqlite3.h
-        sqlite/sqlite3.c
-        sqlite/sqlite3ext.h
-        sqlite/completion.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
         APPEND PROPERTIES
         COMPILE_FLAGS
         "-w \

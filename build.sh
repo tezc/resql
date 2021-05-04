@@ -26,9 +26,11 @@ fi
 cleanup() {
   cd "$cwd"
 
-  (kill -9 "$trainer_pid" || true) > /dev/null 2>&1
-  (kill -9 "$server_pid" || true) > /dev/null 2>&1
-  (kill -9 "$(jobs -p)" || true) > /dev/null 2>&1
+  echo "clean up"
+
+  (kill -9 "$trainer_pid" > /dev/null 2>&1) || true
+  (kill -9 "$server_pid" > /dev/null 2>&1) || true
+  (kill -9 "$(jobs -p)" > /dev/null 2>&1) || true
   rm -rf bin/resql-trainer bin/build/ bin/pgo/
 
   echo "Clean-up done"
@@ -52,6 +54,7 @@ trap 'trap - TERM; cleanup SIGTERM; kill -TERM $$' TERM
 echo "$cwd"
 cd bin
 rm -rf resql resql-cli resql-benchmark build pgo
+rm -rf *.resql
 mkdir build pgo
 cd build
 cmake ../.. -DPGO=generate
@@ -59,7 +62,7 @@ make -j 1 && make install
 echo "First step has been completed successfully."
 cd ..
 
-./resql -e --node-bind-url=tcp://127.0.0.1:9717 &
+./resql --node-bind-url=tcp://127.0.0.1:9717 &
 server_pid=$!
 echo "Server has been started successfully."
 

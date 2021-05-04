@@ -22,5 +22,5 @@ jobs:
           cd bin
           ./resql &
           cd ..
-          cd java-client
+          cd jresql
           mvn test
