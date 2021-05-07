@@ -232,7 +232,15 @@ int server_close(struct server *s)
 
 	sc_str_destroy(&s->voted_for);
 
+	if (s->own) {
+		node_destroy(s->own);
+	}
+
 	sc_array_foreach (&s->nodes, node) {
+		if (s->own == node) {
+			continue;
+		}
+
 		node_destroy(node);
 	}
 
