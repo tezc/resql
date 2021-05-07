@@ -29,36 +29,70 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RESQL_CLIENT_H
-#define RESQL_CLIENT_H
+#include "resql.h"
+#include "test_util.h"
 
-#include "conn.h"
-#include "msg.h"
+#include <string.h>
+#include <unistd.h>
 
-#include "sc/sc_buf.h"
-#include "sc/sc_sock.h"
-#include "sc/sc_str.h"
+void test_one()
+{
+	int rc;
+	int64_t key, value;
+	char blob[64];
+	resql *c;
+	resql_result *rs;
+	struct resql_column *row;
 
-struct client {
-	bool msg_wait;         // msg in-progress
-	bool terminated;       // waiting to be deallocated
+	test_server_create(0, 2);
+	test_server_create(1, 2);
+	c = test_client_create();
 
-	char *name;
-	uint64_t id;
-	uint64_t seq;          // current sequence
-	uint64_t commit_index; // round index for read request
-	uint64_t round_index;  // round index for read request
+	resql_put_sql(c, "CREATE TABLE test (key INTEGER PRIMARY KEY, val INTEGER, blob BLOB);");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-	struct conn conn;
-	struct sc_list list;   // client list
-	struct sc_list read;   // read request list
-	struct msg msg;        // current msg
-};
+	resql_put_sql(c, "SELECT random(), random(), randomblob(64);");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-struct client *client_create(struct conn *conn, const char *name);
-void client_destroy(struct client *c);
-void client_print(struct client *c, char *buf, size_t len);
-int client_processed(struct client *c);
-bool client_pending(struct client *c);
+	resql_put_sql(c, "INSERT INTO test VALUES(random(), random(), randomblob(64));");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
 
-#endif
+	resql_put_sql(c, "SELECT * FROM test;");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
+
+	row = resql_row(rs);
+	key = row[0].intval;
+	value = row[1].intval;
+	memcpy(blob, row[2].blob, row[2].len);
+
+	test_server_add(2, 2);
+	test_server_remove(0);
+	test_server_remove(2);
+
+	resql_put_sql(c, "SELECT * FROM test;");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
+
+	rs_assert(key == row[0].intval);
+	rs_assert(value == row[1].intval);
+	rs_assert(memcmp(blob, row[2].blob, row[2].len) == 0);
+
+	resql_put_sql(c, "SELECT * FROM resql_info;");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
+
+	rs_assert(resql_row_count(rs) == 1);
+	row = resql_row(rs);
+	rs_assert(strcmp(row[0].text, "node1") == 0);
+}
+
+int main()
+{
+	test_execute(test_one);
+
+	return 0;
+}

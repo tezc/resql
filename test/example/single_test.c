@@ -36,14 +36,9 @@
 
 static void single()
 {
-	struct conf conf;
-	char* params[] = {"", "--node-directory=."};
 
-	conf_init(&conf);
-	conf_read_config(&conf, false, 2, params);
-
-	test_server_create_conf(&conf, 0);
-	sleep(60);
+	test_server_create_auto(1);
+	pause();
 }
 
 int main(void)

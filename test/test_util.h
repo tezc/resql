@@ -57,6 +57,10 @@ struct server *test_server_create(int id, int cluster_size);
 struct server *test_server_start_auto(int cluster_size);
 struct server *test_server_start(int id, int cluster_size);
 struct server *test_server_add_auto();
+
+void test_server_add(int id, int cluster_size);
+void test_server_remove(int id);
+
 void test_server_destroy(int id);
 void test_server_destroy_all();
 void test_server_destroy_leader();

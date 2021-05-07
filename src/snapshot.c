@@ -117,6 +117,8 @@ int snapshot_term(struct snapshot *ss)
 	int rc, ret = RS_OK;
 	struct snapshot_task task = {.stop = true};
 
+	snapshot_clear(ss);
+
 	if (!ss->init) {
 		return RS_OK;
 	}

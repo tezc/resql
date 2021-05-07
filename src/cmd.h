@@ -58,6 +58,7 @@ struct cmd_init {
 struct cmd_meta {
 	struct meta meta;
 };
+
 struct cmd_config {
 	bool add;
 	const char *name;

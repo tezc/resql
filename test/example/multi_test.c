@@ -38,18 +38,17 @@
 
 static void multi()
 {
+
 	test_server_create(0, 3);
 	test_server_create(1, 3);
-	// test_server_create(2, 3);
-	sleep(3);
-
-	//test_server_create(2, 3);
+	test_server_create(2, 3);
 
 	pause();
 }
 
 int main(void)
 {
+	rs_global_init();
 	test_execute(multi);
 
 	return 0;

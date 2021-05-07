@@ -295,6 +295,36 @@ struct server * test_server_add_auto()
 	return test_server_create(i, 1);
 }
 
+void test_server_add(int id, int cluster_size)
+{
+	int rc;
+	resql *c;
+	resql_result *rs;
+
+	c = test_client_create();
+	resql_put_sql(c, "SELECT resql('add-node', :url);");
+	resql_bind_param_text(c, ":url", urls[id]);
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
+
+	test_server_create(id, cluster_size);
+}
+
+void test_server_remove(int id)
+{
+	int rc;
+	resql *c;
+	resql_result *rs;
+
+	c = test_client_create();
+	resql_put_sql(c, "SELECT resql('remove-node', :name);");
+	resql_bind_param_text(c, ":name", names[id]);
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
+
+	test_server_destroy(id);
+}
+
 void test_server_destroy(int id)
 {
 	int rc;
