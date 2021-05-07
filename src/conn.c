@@ -154,6 +154,7 @@ static void conn_cleanup_sock(struct conn *c)
 
 void conn_term(struct conn *c)
 {
+	sc_list_del(NULL, &c->list);
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 	conn_cleanup_sock(c);
 
