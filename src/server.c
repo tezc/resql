@@ -287,6 +287,7 @@ int server_close(struct server *s)
 	s->cluster_up = false;
 	s->last_ts = 0;
 	s->role = SERVER_ROLE_FOLLOWER;
+	s->leader = NULL;
 
 	s->commit = 0;
 	s->round = 0;
@@ -460,6 +461,10 @@ static void server_become_follower(struct server *s, struct node *leader)
 
 	s->role = SERVER_ROLE_FOLLOWER;
 	s->leader = leader;
+	s->prevote_count = 0;
+	s->prevote_term = 0;
+	s->vote_count = 0;
+
 	snapshot_clear(&s->ss);
 
 	if (leader != NULL) {
@@ -1065,6 +1070,8 @@ static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 	conn_set_type(&node->conn, SERVER_FD_NODE_RECV);
 	sc_list_add_tail(&s->connected_nodes, &node->list);
 
+	sc_log_debug("Connected to node[%s] \n", node->name);
+
 	return RS_OK;
 
 disconnect:
@@ -1092,6 +1099,8 @@ static int server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 		return RS_OK;
 	}
 
+	sc_log_debug("TCP connection is successful to node[%s] \n", node->name);
+
 	buf = conn_out(&node->conn);
 	msg_create_connect_req(buf, MSG_NODE, c->cluster.name, c->node.name);
 
@@ -1103,10 +1112,17 @@ static int server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 	return RS_OK;
 }
 
-static void server_schedule_election(struct server *s)
+static void server_schedule_election(struct server *s, bool fast)
 {
 	const uint64_t type = SERVER_TIMER_ELECTION;
-	uint64_t t = s->conf.advanced.heartbeat + (rs_rand() % 2048);
+	uint64_t t;
+
+	if (fast) {
+		t = (rs_rand() % 256) + 50;
+	} else {
+		t = s->conf.advanced.heartbeat + ((rs_rand() % 1024) + 150);
+	}
+
 
 	s->election_timer = sc_timer_add(&s->timer, t, type, NULL);
 }
@@ -1420,7 +1436,7 @@ void server_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
 		break;
 	case SERVER_TIMER_ELECTION:
 		rc = server_on_election_timeout(s);
-		server_schedule_election(s);
+		server_schedule_election(s, false);
 		break;
 	case SERVER_TIMER_INFO:
 		rc = server_on_info_timer(s);
@@ -1493,7 +1509,8 @@ static int server_on_reqvote_resp(struct server *s, struct node *n,
 		}
 
 		s->prevote_count = 0;
-		s->role = SERVER_ROLE_FOLLOWER;
+		server_become_follower(s, NULL);
+
 		return RS_OK;
 	}
 
@@ -2025,6 +2042,7 @@ int server_on_client_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		req = &c->msg.client_req;
 
 		if (req->readonly) {
+			s->pending_readreq = true;
 			c->round_index = s->round;
 			c->commit_index = s->store.last_index;
 			sc_list_add_tail(&s->read_reqs, &c->read);
@@ -2066,7 +2084,7 @@ static int server_prepare_start(struct server *s)
 		return rc;
 	}
 
-	server_schedule_election(s);
+	server_schedule_election(s, true);
 
 	s->info_timer = sc_timer_add(&s->timer, 0, SERVER_TIMER_INFO, NULL);
 
@@ -2086,6 +2104,10 @@ static int server_on_meta(struct server *s, struct meta *meta)
 	}
 
 	server_meta_change(s);
+
+	if (!s->in_cluster && s->role == SERVER_ROLE_LEADER) {
+		server_become_follower(s, NULL);
+	}
 
 	return server_write_meta(s);
 }

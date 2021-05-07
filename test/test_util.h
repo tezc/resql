@@ -58,6 +58,7 @@ struct server *test_server_start_auto(int cluster_size);
 struct server *test_server_start(int id, int cluster_size);
 struct server *test_server_add_auto();
 
+void test_wait_until_size(int size);
 void test_server_add(int id, int cluster_size);
 void test_server_remove(int id);
 

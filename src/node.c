@@ -128,10 +128,10 @@ int node_try_connect(struct node *n)
 	struct sc_uri *uri;
 
 	if (n->conn.state != CONN_CONNECTED) {
-		n->interval = sc_min(32 * 1024, n->interval * 2);
+		n->interval = sc_min(16 * 1024, n->interval * 2);
 	}
 
-	timeout = (rs_rand() % 256) + n->interval;
+	timeout = (rs_rand() % 512) + n->interval;
 	n->conn_timer = sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
 
 	if (n->conn.state == CONN_CONNECTED) {

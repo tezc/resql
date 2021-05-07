@@ -46,7 +46,6 @@ void test_one()
 
 	test_server_create(0, 1);
 	test_server_add_auto();
-	sleep(3);
 	c = test_client_create();
 
 	resql_put_sql(c, "CREATE TABLE test (key INTEGER PRIMARY KEY, val INTEGER, blob BLOB);");

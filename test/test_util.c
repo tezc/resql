@@ -40,6 +40,7 @@
 
 #include <conf.h>
 #include <errno.h>
+#include <unistd.h>
 
 int init;
 static int count;
@@ -273,12 +274,13 @@ struct server *test_server_create(int id, int cluster_size)
 	return s;
 }
 
-struct server * test_server_add_auto()
+struct server *test_server_add_auto()
 {
 	int i;
 	int rc;
 	resql *c;
 	resql_result *rs;
+	struct server *s;
 
 	for (i = 0; i < 9; i++) {
 		if (cluster[i] == NULL) {
@@ -292,7 +294,36 @@ struct server * test_server_add_auto()
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	return test_server_create(i, 1);
+	s = test_server_create(i, 1);
+	test_wait_until_size(count);
+
+	return s;
+}
+
+void test_wait_until_size(int size)
+{
+	int i;
+	int rc;
+	resql *c;
+	struct resql_column *row;
+	resql_result *rs;
+
+	for (i = 0; i < 9; i++) {
+		if (cluster[i] == NULL) {
+			break;
+		}
+	}
+
+	c = test_client_create();
+retry:
+	resql_put_sql(c, "SELECT count(*) FROM resql_info;");
+	rc = resql_exec(c, false, &rs);
+	client_assert(c, rc == RESQL_OK);
+	row = resql_row(rs);
+	if (row[0].intval != size) {
+		sleep(1);
+		goto retry;
+	}
 }
 
 void test_server_add(int id, int cluster_size)
