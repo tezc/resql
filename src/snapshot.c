@@ -117,6 +117,8 @@ int snapshot_term(struct snapshot *ss)
 	int rc, ret = RS_OK;
 	struct snapshot_task task = {.stop = true};
 
+	snapshot_clear(ss);
+
 	if (!ss->init) {
 		return RS_OK;
 	}
@@ -239,32 +241,27 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 		ss->tmp = file_create();
 		rc = file_open(ss->tmp, ss->recv_path, "w+");
 		if (rc != RS_OK) {
-			sc_log_error("Open file failed: %s \n", ss->recv_path);
-			return RS_ERROR;
+			return rc;
 		}
 	}
 
 	rc = file_write_at(ss->tmp, offset, data, len);
 	if (rc != RS_OK) {
-		sc_log_error("snapshot_recv write_at : %s \n", strerror(errno));
 		return rc;
 	}
 
 	if (done) {
 		rc = file_flush(ss->tmp);
 		if (rc != RS_OK) {
-			sc_log_error("snapshot_recv flush : %s \n",
-				     strerror(errno));
 			return rc;
 		}
 
 		file_destroy(ss->tmp);
 		ss->tmp = NULL;
 
-		rc = rename(ss->recv_path, ss->path);
-		if (rc != 0) {
-			sc_log_error("snapshot_recv rename : %s \n",
-				     strerror(errno));
+		rc = file_rename(ss->recv_path, ss->path);
+		if (rc != RS_OK) {
+			return rc;
 		}
 
 		ss->term = 0;
@@ -272,7 +269,7 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 
 		snapshot_close(ss);
 
-		return RS_DONE;
+		return RS_SNAPSHOT;
 	}
 
 	return RS_OK;

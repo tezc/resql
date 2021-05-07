@@ -356,6 +356,7 @@ void metric_encode(struct metric *m, struct sc_buf *buf)
 	sc_buf_put_fmt(buf, "%s",
 		       sc_bytes_to_size(b, sizeof(b), (uint64_t) sz));
 
+	sc_buf_put_fmt(buf, "%" PRIu64, m->fsync_count);
 	sc_buf_put_fmt(buf, "%f", ((double) m->fsync_max) / 1000000);
 
 	div = (m->fsync_count ? m->fsync_count : 1);

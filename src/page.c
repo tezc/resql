@@ -45,6 +45,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #define PAGE_ENTRY_MAX_SIZE    (2u * 1024 * 1024 * 1024)
 #define PAGE_END_MARK	       0
@@ -309,6 +310,7 @@ void page_fsync(struct page *p, uint64_t index)
 	}
 
 	last = p->flush_pos;
+	(void) last;
 
 	ts = sc_time_mono_ns();
 	rc = sc_mmap_msync(&p->map, (last & ~(4095)), (pos - last));

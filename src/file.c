@@ -86,14 +86,17 @@ int file_open(struct file *f, const char *path, const char *mode)
 
 	fp = fopen(path, mode);
 	if (fp == NULL) {
-		sc_log_error("file : %s, fopen : %s \n", path, strerror(errno));
-		return errno == ENOSPC ? RS_FULL : RS_ERROR;
+		goto err;
 	}
 
 	f->fp = fp;
 	sc_str_set(&f->path, path);
 
 	return RS_OK;
+
+err:
+	sc_log_error("file : %s, fopen : %s \n", path, strerror(errno));
+	return errno == ENOSPC ? RS_FULL : RS_ERROR;
 }
 
 int file_close(struct file *f)

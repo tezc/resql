@@ -260,6 +260,7 @@ int aux_prepare(struct aux *aux)
 	      "total_memory TEXT,"
 	      "used_memory_bytes TEXT,"
 	      "used_memory TEXT,"
+	      "fsync_count TEXT,"
 	      "fsync_max_ms TEXT,"
 	      "fsync_average_ms TEXT,"
 	      "snapshot_success TEXT,"
@@ -328,7 +329,7 @@ int aux_prepare(struct aux *aux)
 
 	sql = "INSERT OR REPLACE INTO resql_info VALUES ("
 	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_info, NULL);
 	if (rc != SQLITE_OK) {
 		goto error;
@@ -471,6 +472,7 @@ int aux_write_info(struct aux *aux, struct info *n)
 	rc |= sqlite3_bind_text(stmt, 35, sc_buf_get_str(&n->stats), -1, NULL);
 	rc |= sqlite3_bind_text(stmt, 36, sc_buf_get_str(&n->stats), -1, NULL);
 	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&n->stats), -1, NULL);
 out:
 	if (rc != SQLITE_OK) {
 		goto cleanup;
@@ -484,8 +486,7 @@ cleanup:
 	return aux_rc(rc);
 }
 
-int aux_add_log(struct aux *aux, uint64_t id, const char *level,
-		const char *log)
+int aux_add_log(struct aux *aux, uint64_t id, const char *level, const char *log)
 {
 	assert(level != NULL);
 	assert(log != NULL);

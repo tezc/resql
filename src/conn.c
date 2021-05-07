@@ -46,6 +46,11 @@ static int conn_established(struct conn *c)
 
 	c->state = CONN_CONNECTED;
 
+	/**
+	 * Make sure socket is registered for read event and not registered for
+	 * write event. It may have registered for write event as connection
+	 * attempts are non-blocking.
+	 */
 	rc = conn_unregister(c, false, true);
 	if (rc != RS_OK) {
 		return rc;
@@ -149,6 +154,7 @@ static void conn_cleanup_sock(struct conn *c)
 
 void conn_term(struct conn *c)
 {
+	sc_list_del(NULL, &c->list);
 	sc_timer_cancel(&c->server->timer, &c->timer_id);
 	conn_cleanup_sock(c);
 
@@ -176,7 +182,7 @@ int conn_set(struct conn *c, struct conn *src)
 	 * Important to unregister both. Connection might be registered before
 	 * with any of the events. We move connection, so memory address will
 	 * change. Event trigger uses pointer address, so we must unregister
-	 * first.
+	 * first and register with new address.
 	 */
 	rc = conn_unregister(c, true, true);
 	if (rc != RS_OK) {

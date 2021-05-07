@@ -126,6 +126,7 @@ struct server {
 	bool cluster_up;
 	bool full;
 	bool in_cluster;
+	bool pending_readreq;
 	int timer_rc;
 
 	// Cluster management
@@ -139,7 +140,6 @@ struct server {
 	uint64_t vote_timestamp;
 	uint64_t prevote_term;
 	uint64_t round_match;
-	uint64_t round_prev;
 	uint64_t round;
 	uint64_t commit;
 	uint64_t timestamp;
@@ -147,6 +147,7 @@ struct server {
 	uint64_t info_timer;
 	uint64_t full_timer;
 	uint64_t last_ts;
+	uint64_t last_quorum;
 };
 
 struct server *server_start(struct conf *c);

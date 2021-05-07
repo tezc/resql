@@ -60,7 +60,6 @@ struct node {
 	uint64_t msg_inflight;
 
 	int id;
-	bool known;
 	bool voted;
 	enum meta_role role;
 	const char* status;
