@@ -359,6 +359,7 @@ retry:
 		return RS_ERROR;
 	}
 
+	sc_log_info("Sent %d bytes from %s to %s \n", rc, c->local, c->remote);
 	metric_send(rc);
 	sc_buf_mark_read(&c->out, (uint32_t) rc);
 

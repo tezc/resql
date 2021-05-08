@@ -297,10 +297,10 @@ int server_close(struct server *s)
 	s->role = SERVER_ROLE_FOLLOWER;
 	s->leader = NULL;
 	s->cluster_up = false;
-	s->pending_readreq = false;
 
 	s->commit = 0;
 	s->round = 0;
+	s->round_prev = 0;
 	s->round_match = 0;
 
 	return ret;
@@ -972,16 +972,20 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 	}
 
 	if (!msg->name) {
+		sc_log_error("Pending connection : msg name missing. \n");
 		goto err;
 	}
 
 	prev = sc_map_get_sv(&s->clients, msg->name);
 	if (sc_map_found(&s->clients)) {
 		if (prev->id == 0) {
+			sc_log_error("Pending connection : prev id zero \n");
 			goto err;
 		} else {
 			rc = server_on_client_disconnect(s, prev, MSG_ERR);
 			if (rc != RS_OK) {
+				sc_log_error(
+					"Pending connection : client disconnect. \n");
 				ret = rc;
 				goto err;
 			}
@@ -992,6 +996,7 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 
 	c = client_create(in, msg->name);
 	if (!c) {
+		sc_log_error("Pending connection : client create. \n");
 		goto err;
 	}
 
@@ -1046,6 +1051,8 @@ static int server_on_node_connect_req(struct server *s, struct conn *pending,
 		node_disconnect(n);
 	}
 
+	node_clear_indexes(n, s->store.last_index);
+
 	return RS_OK;
 err:
 	server_on_pending_disconnect(s, pending, MSG_ERR);
@@ -1083,6 +1090,7 @@ static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 
 	conn_set_type(&node->conn, SERVER_FD_NODE_RECV);
 	sc_list_add_tail(&s->connected_nodes, &node->list);
+	node_clear_indexes(node, s->store.last_index);
 
 	sc_log_debug("Connected to node[%s] \n", node->name);
 
@@ -1249,7 +1257,7 @@ static int server_on_election_timeout(struct server *s)
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
 		sc_log_debug(
-			"ElectionTimeout : Last leader message in :%" PRIu64
+			"ElectionTimeout : Last leader message in : %" PRIu64
 			", skip. \n",
 			s->timestamp - s->vote_timestamp);
 		return RS_OK;
@@ -1744,6 +1752,8 @@ int server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 	struct msg_append_req *req = &msg->append_req;
 	struct sc_buf *buf;
 
+	sc_log_info("Received appendreq from : %s \n", n->name);
+
 	if (s->meta.term > req->term) {
 		goto out;
 	}
@@ -1977,6 +1987,10 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		}
 
 		while ((rc = msg_parse(&node->conn.in, &msg)) == RS_OK) {
+			sc_buf_clear(&s->tmp);
+			msg_print(&msg, &s->tmp);
+			sc_log_info("%s \n", s->tmp.mem);
+
 			switch (msg.type) {
 			case MSG_APPEND_REQ:
 				ret = server_on_append_req(s, node, &msg);
@@ -2093,7 +2107,10 @@ int server_on_client_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		req = &c->msg.client_req;
 
 		if (req->readonly) {
-			s->pending_readreq = true;
+			if (s->round_prev == s->round) {
+				s->round++;
+			}
+
 			c->round_index = s->round;
 			c->commit_index = s->store.last_index;
 			sc_list_add_tail(&s->read_reqs, &c->read);
@@ -2136,7 +2153,6 @@ static int server_prepare_start(struct server *s)
 	}
 
 	server_schedule_election(s, true);
-
 	s->info_timer = sc_timer_add(&s->timer, 0, SERVER_TIMER_INFO, NULL);
 
 	return RS_OK;
@@ -2611,8 +2627,11 @@ static int server_flush_nodes(struct server *s)
 			continue;
 		}
 
-		if (n->msg_inflight > 0 ||
-		    (n->next > s->store.last_index && !s->pending_readreq)) {
+		if (n->msg_inflight > 0 || (n->next > s->store.last_index &&
+					    s->round == s->round_prev)) {
+			sc_log_info("node [%s] n->msg_inflight = %" PRIu64
+				    " \n",
+				    n->name, n->msg_inflight);
 			goto flush;
 		}
 
@@ -2621,6 +2640,7 @@ static int server_flush_nodes(struct server *s)
 		prev = store_prev_term(&s->store, n->next - 1);
 
 		b = conn_out(&n->conn);
+		sc_log_info("appendreq sent to node [%s], appended to [%d] \n", n->name, sc_buf_size(b));
 		msg_create_append_req(b, s->meta.term, n->next - 1, prev,
 				      s->commit, s->round, entries, size);
 		n->next += count;
@@ -2633,7 +2653,9 @@ flush:
 			index = n->next - 1;
 			prev = store_prev_term(&s->store, index);
 
+
 			b = conn_out(&n->conn);
+			sc_log_info("appendreq sent to node [%s], appended to [%d] \n", n->name, sc_buf_size(b));
 			msg_create_append_req(b, s->meta.term, index, prev,
 					      s->commit, s->round, NULL, 0);
 			n->msg_inflight++;
@@ -2646,9 +2668,22 @@ flush:
 		}
 	}
 
-	s->pending_readreq = false;
-
 	return RS_OK;
+}
+
+static void server_flush_remaining(struct server *s)
+{
+	int rc;
+	struct sc_list *l, *tmp;
+	struct node *n;
+
+	sc_list_foreach_safe (&s->connected_nodes, tmp, l) {
+		n = sc_list_entry(l, struct node, list);
+		rc = conn_flush(&n->conn);
+		if (rc != RS_OK) {
+			server_on_node_disconnect(s, n);
+		}
+	}
 }
 
 static int server_flush(struct server *s)
@@ -2662,6 +2697,7 @@ static int server_flush(struct server *s)
 	sc_array_clear(&s->term_clients);
 
 	if (s->role != SERVER_ROLE_LEADER) {
+		server_flush_remaining(s);
 		return RS_OK;
 	}
 
@@ -2675,7 +2711,7 @@ static int server_flush(struct server *s)
 		return rc;
 	}
 
-	s->round++;
+	s->round_prev = s->round;
 
 	return server_handle_jobs(s);
 }

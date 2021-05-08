@@ -93,12 +93,14 @@ static bool expand(struct sc_timer *t)
 	}
 
 	// Copy from old list to new list
-	for (uint32_t i = 0; i < WHEEL_COUNT; i++) {
-		void *dest = &alloc[(i * t->wheel * 2)];
-		void *src = &t->list[(i * t->wheel)];
-		size_t copy = sizeof(struct sc_timer_data) * t->wheel;
+	if (t->wheel != 0) {
+		for (uint32_t i = 0; i < WHEEL_COUNT; i++) {
+			void *dest = &alloc[(i * t->wheel * 2)];
+			void *src = &t->list[(i * t->wheel)];
+			size_t copy = sizeof(struct sc_timer_data) * t->wheel;
 
-		memcpy(dest, src, copy);
+			memcpy(dest, src, copy);
+		}
 	}
 
 	sc_timer_free(t->list);

@@ -39,9 +39,9 @@
 #include "store.h"
 
 #include "sc/sc_list.h"
+#include "sc/sc_queue.h"
 #include "sc/sc_sock.h"
 #include "sc/sc_timer.h"
-#include "sc/sc_queue.h"
 
 sc_array_def(struct server_endpoint, endp);
 sc_queue_def(struct server_job, jobs);
@@ -126,7 +126,6 @@ struct server {
 	bool cluster_up;
 	bool full;
 	bool in_cluster;
-	bool pending_readreq;
 	int timer_rc;
 
 	// Cluster management
@@ -139,6 +138,7 @@ struct server {
 	unsigned int vote_count;
 	uint64_t vote_timestamp;
 	uint64_t prevote_term;
+	uint64_t round_prev;
 	uint64_t round_match;
 	uint64_t round;
 	uint64_t commit;
@@ -146,6 +146,7 @@ struct server {
 	uint64_t election_timer;
 	uint64_t info_timer;
 	uint64_t full_timer;
+
 	uint64_t last_ts;
 	uint64_t last_quorum;
 };
