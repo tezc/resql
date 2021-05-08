@@ -1507,7 +1507,7 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 			     " voted_for : %s, req last log index : %" PRIu64
 			     ", index : %" PRIu64 "\n",
 			     req->term, s->meta.term, req->last_log_index,
-			     index);
+			     last_index);
 	}
 
 out:
