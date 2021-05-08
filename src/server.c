@@ -465,7 +465,8 @@ static void server_update_connections(struct server *s)
 
 static void server_become_follower(struct server *s, struct node *leader)
 {
-	if (s->role == SERVER_ROLE_FOLLOWER && s->leader == leader) {
+	if (s->role == SERVER_ROLE_FOLLOWER && leader != NULL &&
+	    s->leader == leader) {
 		return;
 	}
 
@@ -1510,6 +1511,8 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 		if (rc != RS_OK) {
 			return rc;
 		}
+
+		s->vote_timestamp = s->timestamp;
 	} else {
 		sc_log_debug("Reject ReqvoteReq : req term : %" PRIu64
 			     ", meta_term : %" PRIu64
@@ -1549,7 +1552,6 @@ static int server_on_reqvote_resp(struct server *s, struct node *n,
 			return rc;
 		}
 
-		s->prevote_count = 0;
 		server_become_follower(s, NULL);
 
 		return RS_OK;
@@ -1604,8 +1606,6 @@ static int server_on_prevote_req(struct server *s, struct node *n,
 			     req->term, s->meta.term, req->last_log_index,
 			     index);
 	}
-
-	s->vote_timestamp = s->timestamp;
 
 out:
 	buf = conn_out(&n->conn);
