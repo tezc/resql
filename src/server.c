@@ -965,27 +965,21 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 	struct client *c, *prev;
 
 	if (!s->cluster_up || s->role != SERVER_ROLE_LEADER) {
-		sc_log_debug("Not leader. Reject : %s, up:%d, role:%d \n",
-			     in->remote, s->cluster_up, s->role);
 		msg_rc = MSG_NOT_LEADER;
 		goto err;
 	}
 
 	if (!msg->name) {
-		sc_log_error("Pending connection : msg name missing. \n");
 		goto err;
 	}
 
 	prev = sc_map_get_sv(&s->clients, msg->name);
 	if (sc_map_found(&s->clients)) {
 		if (prev->id == 0) {
-			sc_log_error("Pending connection : prev id zero \n");
 			goto err;
 		} else {
 			rc = server_on_client_disconnect(s, prev, MSG_ERR);
 			if (rc != RS_OK) {
-				sc_log_error(
-					"Pending connection : client disconnect. \n");
 				ret = rc;
 				goto err;
 			}
@@ -996,7 +990,6 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 
 	c = client_create(in, msg->name);
 	if (!c) {
-		sc_log_error("Pending connection : client create. \n");
 		goto err;
 	}
 
@@ -2639,7 +2632,6 @@ static int server_flush_nodes(struct server *s)
 		prev = store_prev_term(&s->store, n->next - 1);
 
 		b = conn_out(&n->conn);
-		sc_log_info("appendreq sent to node [%s], appended to [%d] \n", n->name, sc_buf_size(b));
 		msg_create_append_req(b, s->meta.term, n->next - 1, prev,
 				      s->commit, s->round, entries, size);
 		n->next += count;
@@ -2654,7 +2646,6 @@ flush:
 
 
 			b = conn_out(&n->conn);
-			sc_log_info("appendreq sent to node [%s], appended to [%d] \n", n->name, sc_buf_size(b));
 			msg_create_append_req(b, s->meta.term, index, prev,
 					      s->commit, s->round, NULL, 0);
 			n->msg_inflight++;
