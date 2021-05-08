@@ -339,6 +339,7 @@ void test_server_add(int id, int cluster_size)
 	client_assert(c, rc == RESQL_OK);
 
 	test_server_create(id, cluster_size);
+	test_wait_until_size(cluster_size);
 }
 
 void test_server_remove(int id)

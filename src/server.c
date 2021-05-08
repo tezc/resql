@@ -961,6 +961,8 @@ static int server_on_client_connect_req(struct server *s, struct conn *in,
 	struct client *c, *prev;
 
 	if (!s->cluster_up || s->role != SERVER_ROLE_LEADER) {
+		sc_log_debug("Not leader. Reject : %s, up:%d, role:%d \n",
+			     in->remote, s->cluster_up, s->role);
 		msg_rc = MSG_NOT_LEADER;
 		goto err;
 	}
@@ -1131,7 +1133,6 @@ static void server_schedule_election(struct server *s, bool fast)
 		t = s->conf.advanced.heartbeat + ((rs_rand() % 1024) + 150);
 	}
 
-
 	s->election_timer = sc_timer_add(&s->timer, t, type, NULL);
 }
 
@@ -1170,7 +1171,7 @@ static int server_become_leader(struct server *s)
 
 	sc_buf_clear(&s->tmp);
 	meta_print(&s->meta, &s->tmp);
-	sc_log_info(sc_buf_rbuf(&s->tmp));
+	sc_log_info("Become leader : %s \n", sc_buf_rbuf(&s->tmp));
 
 	return RS_OK;
 }
@@ -2387,6 +2388,11 @@ static int server_job_add_node(struct server *s, struct server_job *job)
 		goto err;
 	}
 
+	sc_log_info("Added %s to the cluster \n", uri->str);
+	sc_buf_clear(&s->tmp);
+	meta_print(&s->meta, &s->tmp);
+	sc_log_info(sc_buf_rbuf(&s->tmp));
+
 	sc_uri_destroy(&uri);
 
 	server_update_connections(s);
@@ -2415,6 +2421,12 @@ static int server_job_remove_node(struct server *s, struct server_job *job)
 	}
 
 	meta_remove(&s->meta, name);
+
+	sc_log_info("Removed %s from the cluster \n", job->data);
+
+	sc_buf_clear(&s->tmp);
+	meta_print(&s->meta, &s->tmp);
+	sc_log_info(sc_buf_rbuf(&s->tmp));
 
 	return server_write_meta_cmd(s);
 err:
@@ -2557,8 +2569,8 @@ static int server_flush_nodes(struct server *s)
 			continue;
 		}
 
-		if (n->msg_inflight > 0 || (n->next > s->store.last_index &&
-					    !s->pending_readreq)) {
+		if (n->msg_inflight > 0 ||
+		    (n->next > s->store.last_index && !s->pending_readreq)) {
 			goto flush;
 		}
 

@@ -69,7 +69,7 @@ void test_one()
 	value = row[1].intval;
 	memcpy(blob, row[2].blob, row[2].len);
 
-	test_server_add(2, 2);
+	test_server_add(2, 3);
 	test_server_remove(0);
 	test_server_remove(2);
 
