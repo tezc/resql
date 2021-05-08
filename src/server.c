@@ -1503,8 +1503,8 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 		}
 	} else {
 		sc_log_debug("Reject ReqvoteReq : req term : %" PRIu64
-			     ", current term : %s" PRIu64
-			     " voted_for : %s, req last log index : %" PRIu64
+			     ", current term : %" PRIu64 " meta_term : %" PRIu64
+			     " , req last log index : %" PRIu64
 			     ", index : %" PRIu64 "\n",
 			     req->term, s->meta.term, req->last_log_index,
 			     last_index);
@@ -1589,8 +1589,8 @@ static int server_on_prevote_req(struct server *s, struct node *n,
 		sc_log_debug("Grant PrevoteReq to : %s \n", n->name);
 	} else {
 		sc_log_debug("Reject PrevoteReq : req term : %" PRIu64
-			     ", current term : %s" PRIu64
-			     " voted_for : %s, req last log index : %" PRIu64
+			     ", current term : %" PRIu64 " meta term : %" PRIu64
+			     " , req last log index : %" PRIu64
 			     ", index : %" PRIu64 "\n",
 			     req->term, s->meta.term, req->last_log_index,
 			     index);
