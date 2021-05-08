@@ -2631,9 +2631,6 @@ static int server_flush_nodes(struct server *s)
 
 		if (n->msg_inflight > 0 || (n->next > s->store.last_index &&
 					    s->round == s->round_prev)) {
-			sc_log_info("node [%s] n->msg_inflight = %" PRIu64
-				    " \n",
-				    n->name, n->msg_inflight);
 			goto flush;
 		}
 
