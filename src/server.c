@@ -1059,6 +1059,8 @@ err:
 	return RS_OK;
 }
 
+int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev);
+
 static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
@@ -1094,7 +1096,7 @@ static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 
 	sc_log_debug("Connected to node[%s] \n", node->name);
 
-	return RS_OK;
+	return server_on_node_recv(s, fd, SC_SOCK_READ);
 
 disconnect:
 	server_on_node_disconnect(s, node);

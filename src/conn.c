@@ -280,12 +280,17 @@ retry:
 	}
 
 	rc = sc_sock_recv(&c->sock, buf, cap, 0);
-	if (rc > 0) {
-		sc_buf_mark_write(&c->in, (uint32_t) rc);
-		metric_recv(rc);
+	if (rc <= 0) {
+		if (errno == EAGAIN) {
+			return RS_OK;
+		}
+		return RS_ERROR;
 	}
 
-	return rc > 0 ? RS_OK : RS_ERROR;
+	sc_buf_mark_write(&c->in, (uint32_t) rc);
+	metric_recv(rc);
+
+	return RS_OK;
 }
 
 int conn_register(struct conn *c, bool read, bool write)
