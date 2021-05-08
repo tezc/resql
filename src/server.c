@@ -296,6 +296,8 @@ int server_close(struct server *s)
 	s->last_ts = 0;
 	s->role = SERVER_ROLE_FOLLOWER;
 	s->leader = NULL;
+	s->cluster_up = false;
+	s->pending_readreq = false;
 
 	s->commit = 0;
 	s->round = 0;
@@ -472,6 +474,7 @@ static void server_become_follower(struct server *s, struct node *leader)
 	s->prevote_count = 0;
 	s->prevote_term = 0;
 	s->vote_count = 0;
+	s->cluster_up = false;
 
 	snapshot_clear(&s->ss);
 
@@ -1206,6 +1209,8 @@ static int server_check_prevote_count(struct server *s)
 			if (rc != RS_OK) {
 				server_on_node_disconnect(s, node);
 			}
+
+			sc_log_debug("Sent reqvote req to : %s \n", node->name);
 		}
 
 		if (s->vote_count >= (s->meta.voter / 2) + 1) {
@@ -1280,6 +1285,8 @@ static int server_on_election_timeout(struct server *s)
 		if (rc != RS_OK) {
 			server_on_node_disconnect(s, node);
 		}
+
+		sc_log_debug("Sent prevote req to : %s \n", node->name);
 	}
 
 	return server_check_prevote_count(s);
@@ -1472,19 +1479,35 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
+		sc_log_debug(
+			"Reject ReqvoteReq : Leader is %s, last msg was : %" PRIu64
+			"\n",
+			s->leader->name,
+			s->timestamp - s->leader->in_timestamp);
 		goto out;
 	}
 
 	if (req->term == s->meta.term && s->voted_for != NULL) {
+		sc_log_debug("Reject ReqvoteReq : req term : %" PRIu64
+			     ", voted_for : %s \n",
+			     req->term, s->voted_for);
 		goto out;
 	}
 
 	if (req->term > s->meta.term && req->last_log_index >= last_index) {
+		sc_log_debug("Grant ReqVoteReq to : %s \n", node->name);
 		grant = true;
 		rc = server_update_meta(s, req->term, node->name);
 		if (rc != RS_OK) {
 			return rc;
 		}
+	} else {
+		sc_log_debug("Reject ReqvoteReq : req term : %" PRIu64
+			     ", current term : %s" PRIu64
+			     " voted_for : %s, req last log index : %" PRIu64
+			     ", index : %" PRIu64 "\n",
+			     req->term, s->meta.term, req->last_log_index,
+			     index);
 	}
 
 out:
@@ -1546,15 +1569,31 @@ static int server_on_prevote_req(struct server *s, struct node *n,
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
+		sc_log_debug(
+			"Reject PrevoteReq : Leader is %s, last msg was : %" PRIu64
+			"\n",
+			s->leader->name,
+			s->timestamp - s->leader->in_timestamp);
 		goto out;
 	}
 
 	if (req->term == s->meta.term && s->voted_for != NULL) {
+		sc_log_debug("Reject PrevoteReq : req term : %" PRIu64
+			     ", voted_for : %s \n",
+			     req->term, s->voted_for);
 		goto out;
 	}
 
 	if (req->term > s->meta.term && req->last_log_index >= index) {
 		result = true;
+		sc_log_debug("Grant PrevoteReq to : %s \n", n->name);
+	} else {
+		sc_log_debug("Reject PrevoteReq : req term : %" PRIu64
+			     ", current term : %s" PRIu64
+			     " voted_for : %s, req last log index : %" PRIu64
+			     ", index : %" PRIu64 "\n",
+			     req->term, s->meta.term, req->last_log_index,
+			     index);
 	}
 
 	s->vote_timestamp = s->timestamp;
@@ -1579,8 +1618,7 @@ static int server_on_prevote_resp(struct server *s, struct node *node,
 
 	if (resp->term > s->prevote_term) {
 		server_update_meta(s, resp->term, NULL);
-		s->prevote_count = 0;
-		s->role = SERVER_ROLE_FOLLOWER;
+		server_become_follower(s, NULL);
 		return RS_OK;
 	}
 
