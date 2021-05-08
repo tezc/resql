@@ -1234,19 +1234,28 @@ static int server_on_election_timeout(struct server *s)
 	uint64_t timeout = s->conf.advanced.heartbeat;
 
 	if (s->role == SERVER_ROLE_LEADER) {
+		sc_log_debug("ElectionTimeout : Role is leader, skip. \n");
 		return RS_OK;
 	}
 
 	if (timeout > s->timestamp - s->vote_timestamp) {
+		sc_log_debug("ElectionTimeout : Last time voted in :%" PRIu64
+			     ", skip. \n",
+			     s->timestamp - s->vote_timestamp);
 		return RS_OK;
 	}
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
+		sc_log_debug(
+			"ElectionTimeout : Last leader message in :%" PRIu64
+			", skip. \n",
+			s->timestamp - s->vote_timestamp);
 		return RS_OK;
 	}
 
 	if (!s->in_cluster && s->meta.prev == NULL) {
+		sc_log_debug("ElectionTimeout : Not in the cluster \n");
 		return RS_OK;
 	}
 
@@ -1613,12 +1622,6 @@ static int server_on_prevote_resp(struct server *s, struct node *node,
 	struct msg_prevote_resp *resp = &msg->prevote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->prevote_term != resp->term) {
-		return RS_OK;
-	}
-
-	if (resp->term > s->prevote_term) {
-		server_update_meta(s, resp->term, NULL);
-		server_become_follower(s, NULL);
 		return RS_OK;
 	}
 
