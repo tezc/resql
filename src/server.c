@@ -1790,11 +1790,12 @@ int server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 	int rc;
 	struct msg_append_resp *resp = &msg->append_resp;
 
+	node->msg_inflight--;
+
 	if (s->role != SERVER_ROLE_LEADER) {
 		return RS_OK;
 	}
 
-	node->msg_inflight--;
 	if (resp->success) {
 		node_update_indexes(node, resp->round, resp->index);
 	}
