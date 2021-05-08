@@ -53,12 +53,6 @@
 #define META_FILE "meta.resql"
 #define META_TMP  "meta.tmp.resql"
 
-static const char *server_role_str[] = {
-	"FOLLOWER",
-	"CANDIDATE",
-	"LEADER",
-};
-
 const char *server_add_node(void *arg, const char *node);
 const char *server_remove_node(void *arg, const char *node);
 const char *server_shutdown(void *arg, const char *node);
@@ -695,16 +689,6 @@ int server_update_meta(struct server *s, uint64_t term, const char *voted_for)
 	return server_write_meta(s);
 }
 
-static const char *server_msg(struct server *s, struct msg *msg)
-{
-	sc_buf_clear(&s->tmp);
-	sc_buf_put_text(&s->tmp, "Current role[%s] ", server_role_str[s->role]);
-	sc_buf_put_text(&s->tmp, "Term [%" PRIu64 "] ", s->meta.term);
-	msg_print(msg, &s->tmp);
-
-	return (const char *) s->tmp.mem;
-}
-
 static int server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
@@ -735,7 +719,7 @@ static int server_on_task(struct server *s)
 	int size;
 
 	size = sc_sock_pipe_read(&s->efd, &c, sizeof(c));
-	if (size != 1) {
+	if (size != sizeof(c)) {
 		sc_log_error("pipe_read : %d \n", size);
 		return RS_ERROR;
 	}
@@ -1213,8 +1197,6 @@ static int server_check_prevote_count(struct server *s)
 			if (rc != RS_OK) {
 				server_on_node_disconnect(s, node);
 			}
-
-			sc_log_debug("Sent reqvote req to : %s \n", node->name);
 		}
 
 		if (s->vote_count >= (s->meta.voter / 2) + 1) {
@@ -1238,28 +1220,19 @@ static int server_on_election_timeout(struct server *s)
 	uint64_t timeout = s->conf.advanced.heartbeat;
 
 	if (s->role == SERVER_ROLE_LEADER) {
-		sc_log_debug("ElectionTimeout : Role is leader, skip. \n");
 		return RS_OK;
 	}
 
 	if (timeout > s->timestamp - s->vote_timestamp) {
-		sc_log_debug("ElectionTimeout : Last time voted in :%" PRIu64
-			     ", skip. \n",
-			     s->timestamp - s->vote_timestamp);
 		return RS_OK;
 	}
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
-		sc_log_debug(
-			"ElectionTimeout : Last leader message in : %" PRIu64
-			", skip. \n",
-			s->timestamp - s->vote_timestamp);
 		return RS_OK;
 	}
 
 	if (!s->in_cluster && s->meta.prev == NULL) {
-		sc_log_debug("ElectionTimeout : Not in the cluster \n");
 		return RS_OK;
 	}
 
@@ -1298,8 +1271,6 @@ static int server_on_election_timeout(struct server *s)
 		if (rc != RS_OK) {
 			server_on_node_disconnect(s, node);
 		}
-
-		sc_log_debug("Sent prevote req to : %s \n", node->name);
 	}
 
 	return server_check_prevote_count(s);
@@ -1492,23 +1463,14 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
-		sc_log_debug(
-			"Reject ReqvoteReq : Leader is %s, last msg was : %" PRIu64
-			"\n",
-			s->leader->name,
-			s->timestamp - s->leader->in_timestamp);
 		goto out;
 	}
 
 	if (req->term == s->meta.term && s->voted_for != NULL) {
-		sc_log_debug("Reject ReqvoteReq : req term : %" PRIu64
-			     ", voted_for : %s \n",
-			     req->term, s->voted_for);
 		goto out;
 	}
 
 	if (req->term > s->meta.term && req->last_log_index >= last_index) {
-		sc_log_debug("Grant ReqVoteReq to : %s \n", node->name);
 		grant = true;
 		rc = server_update_meta(s, req->term, node->name);
 		if (rc != RS_OK) {
@@ -1516,13 +1478,6 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 		}
 
 		s->vote_timestamp = s->timestamp;
-	} else {
-		sc_log_debug("Reject ReqvoteReq : req term : %" PRIu64
-			     ", meta_term : %" PRIu64
-			     " , req last log index : %" PRIu64
-			     ", index : %" PRIu64 "\n",
-			     req->term, s->meta.term, req->last_log_index,
-			     last_index);
 	}
 
 out:
@@ -1535,21 +1490,15 @@ out:
 static int server_on_reqvote_resp(struct server *s, struct node *n,
 				  struct msg *msg)
 {
+	(void) n;
 	int rc = RS_OK;
 	struct msg_reqvote_resp *resp = &msg->reqvote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->meta.term != resp->term) {
-		sc_log_debug("Unexpected msg from [%s] : %s \n", n->name,
-			     server_msg(s, msg));
 		return RS_OK;
 	}
 
 	if (resp->term > s->meta.term) {
-		sc_log_debug("Recv[reqvoteresp], node[%s] term[%" PRIu64 "], "
-			     "node's term [%" PRIu64 "], "
-			     "stepping down to follower \n",
-			     n->name, resp->term, s->meta.term);
-
 		rc = server_update_meta(s, resp->term, NULL);
 		if (rc != RS_OK) {
 			return rc;
@@ -1583,31 +1532,15 @@ static int server_on_prevote_req(struct server *s, struct node *n,
 
 	if (s->leader != NULL &&
 	    timeout > s->timestamp - s->leader->in_timestamp) {
-		sc_log_debug(
-			"Reject PrevoteReq : Leader is %s, last msg was : %" PRIu64
-			"\n",
-			s->leader->name,
-			s->timestamp - s->leader->in_timestamp);
 		goto out;
 	}
 
 	if (req->term == s->meta.term && s->voted_for != NULL) {
-		sc_log_debug("Reject PrevoteReq : req term : %" PRIu64
-			     ", voted_for : %s \n",
-			     req->term, s->voted_for);
 		goto out;
 	}
 
 	if (req->term > s->meta.term && req->last_log_index >= index) {
 		result = true;
-		sc_log_debug("Grant PrevoteReq to : %s \n", n->name);
-	} else {
-		sc_log_debug("Reject PrevoteReq : req term : %" PRIu64
-			     ", meta term : %" PRIu64
-			     " , req last log index : %" PRIu64
-			     ", index : %" PRIu64 "\n",
-			     req->term, s->meta.term, req->last_log_index,
-			     index);
 	}
 
 out:
@@ -1746,8 +1679,6 @@ int server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 	uint64_t prev;
 	struct msg_append_req *req = &msg->append_req;
 	struct sc_buf *buf;
-
-	sc_log_info("Received appendreq from : %s \n", n->name);
 
 	if (s->meta.term > req->term) {
 		goto out;
@@ -1982,9 +1913,6 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		}
 
 		while ((rc = msg_parse(&node->conn.in, &msg)) == RS_OK) {
-			sc_buf_clear(&s->tmp);
-			msg_print(&msg, &s->tmp);
-			sc_log_info("%s \n", s->tmp.mem);
 
 			switch (msg.type) {
 			case MSG_APPEND_REQ:
@@ -2027,7 +1955,6 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		}
 
 		if (rc == RS_INVALID) {
-			sc_log_warn("Invalid message, node :%s \n", node->name);
 			goto disconnect;
 		}
 	}
