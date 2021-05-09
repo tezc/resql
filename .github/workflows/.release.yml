@@ -55,7 +55,7 @@ jobs:
 
       - name: Build with Maven
         run: |
-          cd java-client
+          cd jresql
           mvn -B package -DskipTests --file pom.xml
 
       - name: Set up Apache Maven Central
@@ -70,7 +70,7 @@ jobs:
 
       - name: Publish to Apache Maven Central
         run: |
-          cd java-client
+          cd jresql
           mvn deploy --batch-mode -DskipTests --no-transfer-progress
         env:
           MAVEN_USERNAME: tezc
