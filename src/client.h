@@ -40,19 +40,18 @@
 #include "sc/sc_str.h"
 
 struct client {
-	bool msg_wait;         // msg in-progress
-	bool terminated;       // waiting to be deallocated
+	bool msg_wait;	 // msg in-progress
+	bool terminated; // waiting to be deallocated
 
 	char *name;
 	uint64_t id;
-	uint64_t seq;          // current sequence
+	uint64_t seq;	       // current sequence
 	uint64_t commit_index; // round index for read request
 	uint64_t round_index;  // round index for read request
 
 	struct conn conn;
-	struct sc_list list;   // client list
-	struct sc_list read;   // read request list
-	struct msg msg;        // current msg
+	struct sc_list read; // read request list
+	struct msg msg;	     // current msg
 };
 
 struct client *client_create(struct conn *conn, const char *name);
@@ -60,5 +59,6 @@ void client_destroy(struct client *c);
 void client_print(struct client *c, char *buf, size_t len);
 int client_processed(struct client *c);
 bool client_pending(struct client *c);
+void client_set_terminated(struct client *c);
 
 #endif

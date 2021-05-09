@@ -221,7 +221,7 @@ static void meta_update(struct meta *m)
 	size_t sz;
 	struct sc_buf tmp;
 	struct meta_node n;
-	struct sc_uri* uri;
+	struct sc_uri *uri;
 
 	m->voter = (uint32_t) sc_array_size(&m->nodes);
 
@@ -435,7 +435,8 @@ bool meta_parse_uris(struct meta *m, const char *addrs)
 		found = false;
 
 		for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
-			if (strcmp(uri->userinfo, m->nodes.elems[i].name) == 0) {
+			if (strcmp(uri->userinfo, m->nodes.elems[i].name) ==
+			    0) {
 				sc_array_add(&m->nodes.elems[i].uris, uri);
 				found = true;
 				break;

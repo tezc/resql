@@ -316,7 +316,7 @@ void test_wait_until_size(int size)
 
 	c = test_client_create();
 retry:
-	resql_put_sql(c, "SELECT count(*) FROM resql_info;");
+	resql_put_sql(c, "SELECT count(*) FROM resql_nodes;");
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 	row = resql_row(rs);
@@ -339,6 +339,7 @@ void test_server_add(int id, int cluster_size)
 	client_assert(c, rc == RESQL_OK);
 
 	test_server_create(id, cluster_size);
+	test_wait_until_size(cluster_size);
 }
 
 void test_server_remove(int id)
@@ -395,7 +396,7 @@ void test_server_destroy_leader()
 	resql_result *rs;
 
 	c = test_client_create();
-	resql_put_sql(c, "SELECT name FROM resql_info WHERE role = 'leader';");
+	resql_put_sql(c, "SELECT name FROM resql_nodes WHERE role = 'leader';");
 	rc = resql_exec(c, true, &rs);
 	client_assert(c, rc == RESQL_OK);
 

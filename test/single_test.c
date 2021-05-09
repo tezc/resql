@@ -60,7 +60,7 @@ void test_client()
 	test_server_create(0, 1);
 	c = test_client_create();
 
-	resql_put_sql(c, "SELECT * FROM resql_sessions;");
+	resql_put_sql(c, "SELECT * FROM resql_clients;");
 	rc = resql_exec(c, true, &rs);
 	client_assert(c, rc == RESQL_OK);
 }

@@ -32,8 +32,8 @@
 #ifndef RESQL_META_H
 #define RESQL_META_H
 
-#include "sc/sc_buf.h"
 #include "sc/sc_array.h"
+#include "sc/sc_buf.h"
 
 #include <stdint.h>
 

@@ -34,21 +34,11 @@ cd bin/
 ## Acknowledgements
 
 This project contains code from other open source projects :
-* **Sqlite** (http://sqlite.org/) :  
-  Resql uses sqlite as database engine.
-  
-* **CRC32C** (https://github.com/madler/brotli/blob/master/crc32c.c)  
- A modified version of CRC32C implementation.
-  
-* **HdrHistogram** (https://github.com/HdrHistogram/HdrHistogram_c)  
- Pieces from HdrHistogram library in resql_benchmark tool.
-  
-* **Linenoise** (https://github.com/antirez/linenoise)  
-  Used in resql_cli.
-  
-* **Inih** (https://github.com/benhoyt/inih)  
- A modified version of INI parser, used for configuration file.
-  
-* **Redis** (https://github.com/redis/redis/blob/unstable/src/zmalloc.c)  
- Functions to get RAM capacity of the machine and RSS value.
+
+* **[Sqlite](http://sqlite.org/)** &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; : Resql uses sqlite as database engine.
+* **[CRC32C](https://github.com/madler/brotli/blob/master/crc32c.c)** &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; : A modified version of CRC32C implementation.
+* **[HdrHistogram](https://github.com/HdrHistogram/HdrHistogram_c)** : Used in resql_benchmark tool.
+* **[Linenoise](https://github.com/antirez/linenoise)** &nbsp; &nbsp; &nbsp; &nbsp; : Used in resql_cli.
+* **[Inih](https://github.com/benhoyt/inih)** &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; : A modified version of INI parser, used for the configuration file.
+* **[Redis](https://github.com/redis/redis/blob/unstable/src/zmalloc.c)** &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; : Functions to get RAM capacity of the machine and RSS value.
   

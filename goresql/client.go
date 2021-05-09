@@ -25,7 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
 package goresql
 
 import (
@@ -53,10 +52,10 @@ const (
 	msgErr                 = byte(1)
 	msgClusterNameMismatch = byte(2)
 	msgCorrupt             = byte(3)
-	msgUnexpected          = byte(5)
-	msgTimeout             = byte(6)
-	msgNotLeader           = byte(7)
-	msgDiskFull            = byte(8)
+	msgUnexpected          = byte(4)
+	msgTimeout             = byte(5)
+	msgNotLeader           = byte(6)
+	msgDiskFull            = byte(7)
 	flagOk                 = byte(0)
 	flagError              = byte(1)
 	flagStmt               = byte(2)
@@ -79,6 +78,7 @@ const (
 
 var errConnFail = errors.New("resql: failed to connect")
 var errClusterNameMismatch = errors.New("resql: cluster name mismatch")
+var errDiskFull = errors.New("resql: disk full")
 var errSessionDoesNotExist = errors.New("resql : session does not exist on the server")
 
 // goresql version
@@ -99,6 +99,7 @@ type client struct {
 	misuse       bool
 	conn         net.Conn
 	result       result
+	lastRc       uint8
 }
 
 type Config struct {
@@ -120,31 +121,34 @@ type Config struct {
 }
 
 type Resql interface {
-	// Prepare prepare statement for sql statement, this is a remote call to server
+	// Prepare prepares statement, this is a remote call to server
 	Prepare(sql string) (PreparedStatement, error)
 
-	// Delete delete prepared statement, this is a remote call to server
+	// Delete deletes prepared statement, this is a remote call to server
 	Delete(p PreparedStatement) error
 
-	// PutStatement put raw sql into current batch
+	// PutStatement puts raw sql into current batch
 	PutStatement(sql string)
 
-	// PutPrepared put prepared statement into current batch
+	// PutPrepared puts prepared statement into current batch
 	PutPrepared(p PreparedStatement)
 
-	// BindParam bind parameter with placeholder to the last statement in the batch
+	// BindParam binds parameter with value, it applies to the last
+	// statement in the batch
 	BindParam(param string, val interface{})
 
-	// BindIndex bind parameter with index to the last statement in the batch
+	// BindIndex binds parameter index with value, it applies to the last
+	// statement in the batch
 	BindIndex(index uint32, val interface{})
 
-	// Execute execute current batch, this is a remote call to server
+	// Execute executes current batch, this is a remote call to server
+	// readonly should be set if all statements in the batch are readonly.
 	Execute(readonly bool) (ResultSet, error)
 
-	// Shutdown terminate client
+	// Shutdown terminates client
 	Shutdown() error
 
-	// Clear cancel current batch
+	// Clear clears current batch
 	Clear()
 }
 
@@ -154,39 +158,40 @@ type PreparedStatement interface {
 }
 
 type Row interface {
-	// GetIndex get column value at index
+	// GetIndex returns column value at index
 	GetIndex(index int) (interface{}, error)
 
-	// GetColumn get column value with column name
+	// GetColumn returns column value with column name
 	GetColumn(columnName string) (interface{}, error)
 
-	// ColumnName get column name at index. index starts from zero.
+	// ColumnName returns column name at index. index starts from zero.
 	ColumnName(index int) (string, error)
 
-	// ColumnCount column count
+	// ColumnCount returns column count
 	ColumnCount() int
 
-	// Read read row, error will be returned if attempted to read more columns than
-	// exists or when there is type mismatch
+	// Read returns row, error will be returned if attempted to read more
+	// columns than exists or when there is type mismatch
 	Read(columns ...interface{}) error
 }
 
 type ResultSet interface {
-	// NextResultSet advance to the next result set. false if there is no result set.
+	// NextResultSet advances to the next result set. false if there is
+	// no result set.
 	NextResultSet() bool
 
-	// Row next row, nil if there is no more rows.
+	// Row returns next row, nil if there is no more rows.
 	Row() Row
 
-	// LinesChanged lines changed while executing this statement. Returned value is only
-	// valid if statement writes to the table. e.g if statement is SELECT,
-	// returned value is undefined.
+	// LinesChanged returns lines changed while executing this statement.
+	// Returned value is only valid if statement writes to the table.
+	// e.g if statement is SELECT, returned value is undefined.
 	LinesChanged() int
 
-	// LastRowId last row id, only meaningful for INSERT statements.
+	// LastRowId returns last row id, only meaningful for INSERT statements.
 	LastRowId() int64
 
-	// RowCount row count in the current resultset
+	// RowCount returns row count in the current result set
 	RowCount() int
 }
 
@@ -406,11 +411,16 @@ retry:
 		c.urlsTerm = term
 	}
 
-	if rc == msgClusterNameMismatch {
-		return errClusterNameMismatch
-	}
+	c.lastRc = rc
 
-	if rc != msgOK {
+	switch rc {
+	case msgOK:
+		break
+	case msgClusterNameMismatch:
+		return errClusterNameMismatch
+	case msgDiskFull:
+		return errDiskFull
+	default:
 		return errConnFail
 	}
 
@@ -655,7 +665,7 @@ func (c *client) send() error {
 
 		rc := c.resp.readUint8()
 		if rc != flagOk {
-			return fmt.Errorf("sql error : %s", *c.resp.readString())
+			return fmt.Errorf("error : %s", *c.resp.readString())
 		}
 
 		return nil
@@ -721,7 +731,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(int64)
 			if !ok {
-				return errors.New("resql: parameter type mismatch")
+				return errors.New("resql: type mismatch")
 			}
 
 			*d = NullInt32{Valid: true, Int32: int32(val)}
@@ -734,7 +744,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(int64)
 			if !ok {
-				return errors.New("resql: parameter type mismatch")
+				return errors.New("resql: type mismatch")
 			}
 
 			*d = NullInt64{Valid: true, Int64: val}
@@ -746,7 +756,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(string)
 			if !ok {
-				return errors.New("resql: parameter type mismatch")
+				return errors.New("resql: type mismatch")
 			}
 
 			*d = NullString{Valid: true, String: val}
@@ -758,7 +768,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].(float64)
 			if !ok {
-				return errors.New("resql: parameter type mismatch")
+				return errors.New("resql: type mismatch")
 			}
 
 			*d = NullFloat64{Valid: true, Float64: val}
@@ -770,7 +780,7 @@ func (r *result) Read(columns ...interface{}) error {
 
 			val, ok := r.values[i].([]byte)
 			if !ok {
-				return errors.New("resql: parameter type mismatch")
+				return errors.New("resql: type mismatch")
 			}
 
 			*d = val
@@ -883,7 +893,8 @@ func (r *result) Row() Row {
 		case paramInteger:
 			r.values = append(r.values, int64(r.buf.readUint64()))
 		case paramFloat:
-			r.values = append(r.values, math.Float64frombits(r.buf.readUint64()))
+			f := math.Float64frombits(r.buf.readUint64())
+			r.values = append(r.values, f)
 		case paramText:
 			r.values = append(r.values, *r.buf.readString())
 		case paramBlob:
@@ -899,19 +910,19 @@ func (r *result) Row() Row {
 }
 
 func (c *client) encodeConnectReq(buf *buffer) {
-	x := "resql"
+	str := "resql"
 
 	total := uint32Len(lenBytes) +
 		uint8Len(connectReq) +
 		uint32Len(connectFlag) +
-		stringLen(&x) +
+		stringLen(&str) +
 		stringLen(&c.clusterName) +
 		stringLen(&c.name)
 
 	buf.writeUint32(total)
 	buf.writeUint8(connectReq)
 	buf.writeUint32(connectFlag)
-	buf.writeString(&x)
+	buf.writeString(&str)
 	buf.writeString(&c.clusterName)
 	buf.writeString(&c.name)
 }

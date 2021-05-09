@@ -63,7 +63,8 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 	sc_buf_init(&n->info, 1024);
 
 	if (connect) {
-		n->conn_timer = sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
+		n->conn_timer =
+			sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
 	}
 
 	return n;
@@ -122,17 +123,18 @@ void node_add_uris(struct node *n, struct sc_array_ptr *uris)
 	}
 }
 
-int node_try_connect(struct node *n)
+int node_try_connect(struct node *n, unsigned int randtimer)
 {
 	uint64_t timeout;
 	struct sc_uri *uri;
 
 	if (n->conn.state != CONN_CONNECTED) {
-		n->interval = sc_min(16 * 1024, n->interval * 2);
+		n->interval = sc_min(32 * 1024, n->interval * 2);
 	}
 
-	timeout = (rs_rand() % 512) + n->interval;
-	n->conn_timer = sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
+	timeout = (randtimer % 512) + n->interval + 32;
+	n->conn_timer =
+		sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
 
 	if (n->conn.state == CONN_CONNECTED) {
 		n->interval = 64;

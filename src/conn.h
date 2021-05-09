@@ -70,7 +70,6 @@ void conn_destroy(struct conn *c);
 void conn_init(struct conn *c, struct server *s);
 void conn_term(struct conn *c);
 
-
 void conn_clear_buf(struct conn *c);
 struct sc_buf *conn_out(struct conn *c);
 int conn_set(struct conn *c, struct conn *src);

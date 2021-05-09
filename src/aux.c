@@ -133,8 +133,8 @@ int aux_term(struct aux *aux)
 	sqlite3_finalize(aux->begin);
 	sqlite3_finalize(aux->commit);
 	sqlite3_finalize(aux->rollback);
-	sqlite3_finalize(aux->add_info);
-	sqlite3_finalize(aux->rm_info);
+	sqlite3_finalize(aux->add_node);
+	sqlite3_finalize(aux->rm_node);
 	sqlite3_finalize(aux->add_session);
 	sqlite3_finalize(aux->rm_session);
 	sqlite3_finalize(aux->add_stmt);
@@ -234,7 +234,7 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "CREATE TABLE IF NOT EXISTS resql_info ("
+	sql = "CREATE TABLE IF NOT EXISTS resql_nodes ("
 	      "name TEXT PRIMARY KEY,"
 	      "connected TEXT,"
 	      "role TEXT,"
@@ -278,7 +278,7 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "CREATE TABLE IF NOT EXISTS resql_sessions ("
+	sql = "CREATE TABLE IF NOT EXISTS resql_clients ("
 	      "client_name TEXT PRIMARY KEY, "
 	      "client_id INTEGER,"
 	      "sequence INTEGER,"
@@ -327,21 +327,21 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "INSERT OR REPLACE INTO resql_info VALUES ("
+	sql = "INSERT OR REPLACE INTO resql_nodes VALUES ("
 	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
 	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
-	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_info, NULL);
+	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_node, NULL);
 	if (rc != SQLITE_OK) {
 		goto error;
 	}
 
-	sql = "DELETE FROM resql_info WHERE name = (?);";
-	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->rm_info, NULL);
+	sql = "DELETE FROM resql_nodes WHERE name = (?);";
+	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->rm_node, NULL);
 	if (rc != SQLITE_OK) {
 		goto error;
 	}
 
-	sql = "INSERT OR REPLACE INTO resql_sessions VALUES "
+	sql = "INSERT OR REPLACE INTO resql_clients VALUES "
 	      "(?, ?, ?, ?, ?, ?, ?);";
 	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_session,
 				NULL);
@@ -349,7 +349,7 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "DELETE FROM resql_sessions WHERE client_name = (?);";
+	sql = "DELETE FROM resql_clients WHERE client_name = (?);";
 	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->rm_session, NULL);
 	if (rc != SQLITE_OK) {
 		goto error;
@@ -401,9 +401,9 @@ error:
 	return RS_ERROR;
 }
 
-int aux_clear_info(struct aux *aux)
+int aux_clear_nodes(struct aux *aux)
 {
-	const char *sql = "DELETE FROM resql_info";
+	const char *sql = "DELETE FROM resql_nodes";
 	const int len = (int) strlen(sql) + 1;
 
 	int rc;
@@ -425,54 +425,88 @@ out:
 	return aux_rc(rc);
 }
 
-int aux_write_info(struct aux *aux, struct info *n)
+int aux_write_node(struct aux *aux, struct info *info)
 {
 	int rc = 0;
-	sqlite3_stmt *stmt = aux->add_info;
+	sqlite3_stmt *stmt = aux->add_node;
 
-	rc |= sqlite3_bind_text(stmt, 1, n->name, -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 2, n->connected, -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 3, n->role, -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 4, n->urls, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 1, info->name, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 2, info->connected, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 3, info->role, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 4, info->urls, -1, NULL);
 
-	if (sc_buf_size(&n->stats) == 0) {
+	if (sc_buf_size(&info->stats) == 0) {
 		goto out;
 	}
 
-	rc |= sqlite3_bind_text(stmt, 5, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 6, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 7, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 8, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 9, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 10, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 11, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 12, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 13, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 14, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 15, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 16, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 17, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 18, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 19, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 20, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 21, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 22, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 23, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 24, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 25, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 26, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 27, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 28, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 29, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 30, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 31, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 32, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 33, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 34, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 35, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 36, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&n->stats), -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 5, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 6, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 7, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 8, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 9, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 10, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 11, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 12, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 13, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 14, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 15, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 16, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 17, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 18, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 19, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 20, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 21, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 22, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 23, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 24, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 25, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 26, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 27, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 28, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 29, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 30, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 31, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 32, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 33, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 34, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 35, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 36, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&info->stats), -1,
+				NULL);
+	rc |= sqlite3_bind_text(stmt, 38, sc_buf_get_str(&info->stats), -1,
+				NULL);
 out:
 	if (rc != SQLITE_OK) {
 		goto cleanup;
@@ -486,7 +520,8 @@ cleanup:
 	return aux_rc(rc);
 }
 
-int aux_add_log(struct aux *aux, uint64_t id, const char *level, const char *log)
+int aux_add_log(struct aux *aux, uint64_t id, const char *level,
+		const char *log)
 {
 	assert(level != NULL);
 	assert(log != NULL);
@@ -689,7 +724,7 @@ out:
 
 int aux_clear_sessions(struct aux *aux)
 {
-	const char *sql = "DELETE FROM resql_sessions";
+	const char *sql = "DELETE FROM resql_clients";
 	const int len = (int) strlen(sql) + 1;
 
 	int rc;

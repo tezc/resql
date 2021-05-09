@@ -53,12 +53,6 @@
 #define META_FILE "meta.resql"
 #define META_TMP  "meta.tmp.resql"
 
-static const char *server_role_str[] = {
-	"FOLLOWER",
-	"CANDIDATE",
-	"LEADER",
-};
-
 const char *server_add_node(void *arg, const char *node);
 const char *server_remove_node(void *arg, const char *node);
 const char *server_shutdown(void *arg, const char *node);
@@ -117,6 +111,7 @@ void server_init(struct server *s)
 	const char *dir = s->conf.node.dir;
 	struct sc_sock_fd *fdt;
 	struct conf *c = &s->conf;
+	unsigned char buf[256];
 
 	sc_thread_init(&s->thread);
 
@@ -134,10 +129,12 @@ void server_init(struct server *s)
 		}
 	}
 
-	rc = rs_rand_init();
+	rc = rs_urandom(buf, sizeof(buf));
 	if (rc != RS_OK) {
 		rs_exit("rand failed.");
 	}
+
+	sc_rand_init(&s->rand, buf);
 
 	rc = file_mkdir(c->node.dir);
 	if (rc != RS_OK) {
@@ -296,9 +293,11 @@ int server_close(struct server *s)
 	s->last_ts = 0;
 	s->role = SERVER_ROLE_FOLLOWER;
 	s->leader = NULL;
+	s->cluster_up = false;
 
 	s->commit = 0;
 	s->round = 0;
+	s->round_prev = 0;
 	s->round_match = 0;
 
 	return ret;
@@ -463,7 +462,8 @@ static void server_update_connections(struct server *s)
 
 static void server_become_follower(struct server *s, struct node *leader)
 {
-	if (s->role == SERVER_ROLE_FOLLOWER && s->leader == leader) {
+	if (s->role == SERVER_ROLE_FOLLOWER && leader != NULL &&
+	    s->leader == leader) {
 		return;
 	}
 
@@ -472,6 +472,7 @@ static void server_become_follower(struct server *s, struct node *leader)
 	s->prevote_count = 0;
 	s->prevote_term = 0;
 	s->vote_count = 0;
+	s->cluster_up = false;
 
 	snapshot_clear(&s->ss);
 
@@ -691,16 +692,6 @@ int server_update_meta(struct server *s, uint64_t term, const char *voted_for)
 	return server_write_meta(s);
 }
 
-static const char *server_msg(struct server *s, struct msg *msg)
-{
-	sc_buf_clear(&s->tmp);
-	sc_buf_put_text(&s->tmp, "Current role[%s] ", server_role_str[s->role]);
-	sc_buf_put_text(&s->tmp, "Term [%" PRIu64 "] ", s->meta.term);
-	msg_print(msg, &s->tmp);
-
-	return (const char *) s->tmp.mem;
-}
-
 static int server_on_incoming_conn(struct server *s, struct sc_sock_fd *fd)
 {
 	int rc;
@@ -731,7 +722,7 @@ static int server_on_task(struct server *s)
 	int size;
 
 	size = sc_sock_pipe_read(&s->efd, &c, sizeof(c));
-	if (size != 1) {
+	if (size != sizeof(c)) {
 		sc_log_error("pipe_read : %d \n", size);
 		return RS_ERROR;
 	}
@@ -933,9 +924,7 @@ static int server_write_term_start_cmd(struct server *s)
 static int server_on_client_disconnect(struct server *s, struct client *c,
 				       enum msg_rc msg_rc)
 {
-	conn_clear_buf(&c->conn);
-
-	c->terminated = true;
+	client_set_terminated(c);
 
 	sc_map_del_64v(&s->vclients, c->id);
 	sc_map_del_sv(&s->clients, c->name);
@@ -1040,11 +1029,15 @@ static int server_on_node_connect_req(struct server *s, struct conn *pending,
 		node_disconnect(n);
 	}
 
+	node_clear_indexes(n, s->store.last_index);
+
 	return RS_OK;
 err:
 	server_on_pending_disconnect(s, pending, MSG_ERR);
 	return RS_OK;
 }
+
+int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev);
 
 static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 {
@@ -1077,10 +1070,11 @@ static int server_on_connect_resp(struct server *s, struct sc_sock_fd *fd)
 
 	conn_set_type(&node->conn, SERVER_FD_NODE_RECV);
 	sc_list_add_tail(&s->connected_nodes, &node->list);
+	node_clear_indexes(node, s->store.last_index);
 
 	sc_log_debug("Connected to node[%s] \n", node->name);
 
-	return RS_OK;
+	return server_on_node_recv(s, fd, SC_SOCK_READ);
 
 disconnect:
 	server_on_node_disconnect(s, node);
@@ -1123,14 +1117,16 @@ static int server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 static void server_schedule_election(struct server *s, bool fast)
 {
 	const uint64_t type = SERVER_TIMER_ELECTION;
+	unsigned int val;
 	uint64_t t;
 
-	if (fast) {
-		t = (rs_rand() % 256) + 50;
-	} else {
-		t = s->conf.advanced.heartbeat + ((rs_rand() % 1024) + 150);
-	}
+	sc_rand_read(&s->rand, &val, sizeof(val));
 
+	if (fast) {
+		t = (val % 256) + 50;
+	} else {
+		t = s->conf.advanced.heartbeat + ((val % 512) + 50);
+	}
 
 	s->election_timer = sc_timer_add(&s->timer, t, type, NULL);
 }
@@ -1170,7 +1166,7 @@ static int server_become_leader(struct server *s)
 
 	sc_buf_clear(&s->tmp);
 	meta_print(&s->meta, &s->tmp);
-	sc_log_info(sc_buf_rbuf(&s->tmp));
+	sc_log_info("Become leader : %s \n", sc_buf_rbuf(&s->tmp));
 
 	return RS_OK;
 }
@@ -1287,11 +1283,14 @@ static int server_on_election_timeout(struct server *s)
 static void server_try_connect(struct server *s, struct node *n)
 {
 	int rc;
+	unsigned int val;
 	struct sc_buf *buf;
 	const char *node = s->conf.node.name;
 	const char *cluster = s->conf.cluster.name;
 
-	rc = node_try_connect(n);
+	sc_rand_read(&s->rand, &val, sizeof(val));
+
+	rc = node_try_connect(n, val);
 	if (rc == RS_OK) {
 		sc_log_debug("Connected to : %s \n", n->conn.remote);
 
@@ -1484,6 +1483,8 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 		if (rc != RS_OK) {
 			return rc;
 		}
+
+		s->vote_timestamp = s->timestamp;
 	}
 
 out:
@@ -1496,27 +1497,20 @@ out:
 static int server_on_reqvote_resp(struct server *s, struct node *n,
 				  struct msg *msg)
 {
+	(void) n;
 	int rc = RS_OK;
 	struct msg_reqvote_resp *resp = &msg->reqvote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->meta.term != resp->term) {
-		sc_log_debug("Unexpected msg from [%s] : %s \n", n->name,
-			     server_msg(s, msg));
 		return RS_OK;
 	}
 
 	if (resp->term > s->meta.term) {
-		sc_log_debug("Recv[reqvoteresp], node[%s] term[%" PRIu64 "], "
-			     "node's term [%" PRIu64 "], "
-			     "stepping down to follower \n",
-			     n->name, resp->term, s->meta.term);
-
 		rc = server_update_meta(s, resp->term, NULL);
 		if (rc != RS_OK) {
 			return rc;
 		}
 
-		s->prevote_count = 0;
 		server_become_follower(s, NULL);
 
 		return RS_OK;
@@ -1556,8 +1550,6 @@ static int server_on_prevote_req(struct server *s, struct node *n,
 		result = true;
 	}
 
-	s->vote_timestamp = s->timestamp;
-
 out:
 	buf = conn_out(&n->conn);
 	msg_create_prevote_resp(buf, req->term, index, result);
@@ -1573,13 +1565,6 @@ static int server_on_prevote_resp(struct server *s, struct node *node,
 	struct msg_prevote_resp *resp = &msg->prevote_resp;
 
 	if (s->role != SERVER_ROLE_CANDIDATE || s->prevote_term != resp->term) {
-		return RS_OK;
-	}
-
-	if (resp->term > s->prevote_term) {
-		server_update_meta(s, resp->term, NULL);
-		s->prevote_count = 0;
-		s->role = SERVER_ROLE_FOLLOWER;
 		return RS_OK;
 	}
 
@@ -1748,11 +1733,12 @@ int server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
 	int rc;
 	struct msg_append_resp *resp = &msg->append_resp;
 
+	node->msg_inflight--;
+
 	if (s->role != SERVER_ROLE_LEADER) {
 		return RS_OK;
 	}
 
-	node->msg_inflight--;
 	if (resp->success) {
 		node_update_indexes(node, resp->round, resp->index);
 	}
@@ -1934,6 +1920,7 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		}
 
 		while ((rc = msg_parse(&node->conn.in, &msg)) == RS_OK) {
+
 			switch (msg.type) {
 			case MSG_APPEND_REQ:
 				ret = server_on_append_req(s, node, &msg);
@@ -1975,7 +1962,6 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		}
 
 		if (rc == RS_INVALID) {
-			sc_log_warn("Invalid message, node :%s \n", node->name);
 			goto disconnect;
 		}
 	}
@@ -2050,7 +2036,10 @@ int server_on_client_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		req = &c->msg.client_req;
 
 		if (req->readonly) {
-			s->pending_readreq = true;
+			if (s->round_prev == s->round) {
+				s->round++;
+			}
+
 			c->round_index = s->round;
 			c->commit_index = s->store.last_index;
 			sc_list_add_tail(&s->read_reqs, &c->read);
@@ -2093,7 +2082,6 @@ static int server_prepare_start(struct server *s)
 	}
 
 	server_schedule_election(s, true);
-
 	s->info_timer = sc_timer_add(&s->timer, 0, SERVER_TIMER_INFO, NULL);
 
 	return RS_OK;
@@ -2387,9 +2375,13 @@ static int server_job_add_node(struct server *s, struct server_job *job)
 		goto err;
 	}
 
-	sc_uri_destroy(&uri);
+	sc_buf_clear(&s->tmp);
+	meta_print(&s->meta, &s->tmp);
+	sc_log_info(sc_buf_rbuf(&s->tmp));
 
 	server_update_connections(s);
+	server_info(s, "Adding node : [%s]", uri->str);
+	sc_uri_destroy(&uri);
 
 	return server_write_meta_cmd(s);
 err:
@@ -2415,6 +2407,12 @@ static int server_job_remove_node(struct server *s, struct server_job *job)
 	}
 
 	meta_remove(&s->meta, name);
+
+	sc_buf_clear(&s->tmp);
+	meta_print(&s->meta, &s->tmp);
+	sc_log_info(sc_buf_rbuf(&s->tmp));
+
+	server_info(s, "Node[%s] will be removed from the cluster", job->data);
 
 	return server_write_meta_cmd(s);
 err:
@@ -2503,8 +2501,10 @@ static int server_flush_snapshot(struct server *s, struct node *n)
 		n->ss_index = s->ss.index;
 		n->ss_pos = 0;
 
-		rc = server_warn(s, "Sending snapshot[%" PRIu64 "] to : %s",
-				 n->ss_index, n->name);
+		rc = server_warn(s,
+				 "Sending snapshot[%" PRIu64
+				 "], len = %zu to : %s",
+				 n->ss_index, s->ss.map.len, n->name);
 		if (rc != RS_OK) {
 			return rc;
 		}
@@ -2558,7 +2558,7 @@ static int server_flush_nodes(struct server *s)
 		}
 
 		if (n->msg_inflight > 0 || (n->next > s->store.last_index &&
-					    !s->pending_readreq)) {
+					    s->round == s->round_prev)) {
 			goto flush;
 		}
 
@@ -2592,9 +2592,22 @@ flush:
 		}
 	}
 
-	s->pending_readreq = false;
-
 	return RS_OK;
+}
+
+static void server_flush_remaining(struct server *s)
+{
+	int rc;
+	struct sc_list *l, *tmp;
+	struct node *n;
+
+	sc_list_foreach_safe (&s->connected_nodes, tmp, l) {
+		n = sc_list_entry(l, struct node, list);
+		rc = conn_flush(&n->conn);
+		if (rc != RS_OK) {
+			server_on_node_disconnect(s, n);
+		}
+	}
 }
 
 static int server_flush(struct server *s)
@@ -2608,6 +2621,7 @@ static int server_flush(struct server *s)
 	sc_array_clear(&s->term_clients);
 
 	if (s->role != SERVER_ROLE_LEADER) {
+		server_flush_remaining(s);
 		return RS_OK;
 	}
 
@@ -2621,7 +2635,7 @@ static int server_flush(struct server *s)
 		return rc;
 	}
 
-	s->round++;
+	s->round_prev = s->round;
 
 	return server_handle_jobs(s);
 }

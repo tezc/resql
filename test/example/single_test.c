@@ -29,9 +29,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "server.h"
 #include "test_util.h"
 
-#include "server.h"
 #include <unistd.h>
 
 static void single()
