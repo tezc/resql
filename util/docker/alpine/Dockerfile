@@ -2,7 +2,7 @@ FROM alpine:3.13
 
 RUN addgroup -g 11211 resql && adduser -D -u 11211 -G resql resql
 
-ENV RESQL_VERSION 0.0.17-latest
+ENV RESQL_VERSION 0.1.0
 
 RUN set -x \
 	\
