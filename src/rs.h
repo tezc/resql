@@ -40,7 +40,7 @@
 
 // clang-format off
 
-#define RS_VERSION "0.1.1-latest"
+#define RS_VERSION "0.1.1"
 
 #ifndef RESQL_FILE_NAME
 	#define RESQL_FILE_NAME "unknown file name"
