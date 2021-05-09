@@ -331,32 +331,6 @@ _Noreturn void rs_exit(const char *fmt, ...)
 	exit(EXIT_FAILURE);
 }
 
-thread_local struct sc_rand tl_rc4;
-
-int rs_rand_init()
-{
-	int rc;
-	unsigned char buf[256];
-
-	rc = rs_urandom(buf, sizeof(buf));
-	if (rc != RS_OK) {
-		return rc;
-	}
-
-	sc_rand_init(&tl_rc4, buf);
-
-	return RS_OK;
-}
-
-unsigned int rs_rand()
-{
-	unsigned int val;
-
-	sc_rand_read(&tl_rc4, &val, sizeof(val));
-
-	return val;
-}
-
 int rs_urandom(void *buf, size_t size)
 {
 	int fd;

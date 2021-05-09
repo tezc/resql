@@ -76,7 +76,7 @@ void node_disconnect(struct node *n);
 void node_update_indexes(struct node *n, uint64_t round, uint64_t match);
 void node_clear_indexes(struct node *n, uint64_t match);
 void node_add_uris(struct node *n, struct sc_array_ptr *uris);
-int node_try_connect(struct node *n);
+int node_try_connect(struct node *n, unsigned int randtimer);
 int node_set_conn(struct node *n, struct conn *conn);
 bool node_connected(struct node *n);
 

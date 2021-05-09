@@ -100,7 +100,7 @@ struct server {
 	struct sc_sock_pipe efd;
 	struct sc_sock_pipe sigfd;
 	struct sc_timer timer;
-
+	struct sc_rand rand;
 	struct sc_buf buf;
 	struct sc_map_sv clients;
 	struct sc_map_64v vclients;

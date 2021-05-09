@@ -123,7 +123,7 @@ void node_add_uris(struct node *n, struct sc_array_ptr *uris)
 	}
 }
 
-int node_try_connect(struct node *n)
+int node_try_connect(struct node *n, unsigned int randtimer)
 {
 	uint64_t timeout;
 	struct sc_uri *uri;
@@ -132,7 +132,7 @@ int node_try_connect(struct node *n)
 		n->interval = sc_min(32 * 1024, n->interval * 2);
 	}
 
-	timeout = (rs_rand() % 256) + n->interval + 100;
+	timeout = (randtimer % 512) + n->interval + 32;
 	n->conn_timer =
 		sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
 

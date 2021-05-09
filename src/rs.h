@@ -155,8 +155,6 @@ void *rs_calloc(size_t n, size_t size);
 void *rs_realloc(void *p, size_t size);
 void rs_free(void *p);
 
-int rs_rand_init();
-unsigned int rs_rand();
 int rs_urandom(void *buf, size_t size);
 
 #endif

@@ -111,6 +111,7 @@ void server_init(struct server *s)
 	const char *dir = s->conf.node.dir;
 	struct sc_sock_fd *fdt;
 	struct conf *c = &s->conf;
+	unsigned char buf[256];
 
 	sc_thread_init(&s->thread);
 
@@ -128,10 +129,12 @@ void server_init(struct server *s)
 		}
 	}
 
-	rc = rs_rand_init();
+	rc = rs_urandom(buf, sizeof(buf));
 	if (rc != RS_OK) {
 		rs_exit("rand failed.");
 	}
+
+	sc_rand_init(&s->rand, buf);
 
 	rc = file_mkdir(c->node.dir);
 	if (rc != RS_OK) {
@@ -1114,12 +1117,15 @@ static int server_on_outgoing_conn(struct server *s, struct sc_sock_fd *fd)
 static void server_schedule_election(struct server *s, bool fast)
 {
 	const uint64_t type = SERVER_TIMER_ELECTION;
+	unsigned int val;
 	uint64_t t;
 
+	sc_rand_read(&s->rand, &val, sizeof(val));
+
 	if (fast) {
-		t = (rs_rand() % 256) + 50;
+		t = (val % 256) + 50;
 	} else {
-		t = s->conf.advanced.heartbeat + ((rs_rand() % 1024) + 150);
+		t = s->conf.advanced.heartbeat + ((val % 512) + 50);
 	}
 
 	s->election_timer = sc_timer_add(&s->timer, t, type, NULL);
@@ -1277,11 +1283,14 @@ static int server_on_election_timeout(struct server *s)
 static void server_try_connect(struct server *s, struct node *n)
 {
 	int rc;
+	unsigned int val;
 	struct sc_buf *buf;
 	const char *node = s->conf.node.name;
 	const char *cluster = s->conf.cluster.name;
 
-	rc = node_try_connect(n);
+	sc_rand_read(&s->rand, &val, sizeof(val));
+
+	rc = node_try_connect(n, val);
 	if (rc == RS_OK) {
 		sc_log_debug("Connected to : %s \n", n->conn.remote);
 
