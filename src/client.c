@@ -50,9 +50,7 @@ struct client *client_create(struct conn *conn, const char *name)
 	c->name = sc_str_create(name);
 	c->msg_wait = true;
 
-	sc_list_init(&c->list);
 	sc_list_init(&c->read);
-
 	conn_clear_buf(&c->conn);
 
 	return c;
@@ -89,4 +87,11 @@ void client_print(struct client *c, char *buf, size_t len)
 bool client_pending(struct client *c)
 {
 	return c->msg_wait || sc_buf_size(&c->conn.out);
+}
+
+void client_set_terminated(struct client *c)
+{
+	c->terminated = true;
+	conn_clear_buf(&c->conn);
+	sc_list_del(NULL, &c->read);
 }

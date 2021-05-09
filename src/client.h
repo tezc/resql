@@ -50,7 +50,6 @@ struct client {
 	uint64_t round_index;  // round index for read request
 
 	struct conn conn;
-	struct sc_list list; // client list
 	struct sc_list read; // read request list
 	struct msg msg;	     // current msg
 };
@@ -60,5 +59,6 @@ void client_destroy(struct client *c);
 void client_print(struct client *c, char *buf, size_t len);
 int client_processed(struct client *c);
 bool client_pending(struct client *c);
+void client_set_terminated(struct client *c);
 
 #endif

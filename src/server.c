@@ -921,9 +921,7 @@ static int server_write_term_start_cmd(struct server *s)
 static int server_on_client_disconnect(struct server *s, struct client *c,
 				       enum msg_rc msg_rc)
 {
-	conn_clear_buf(&c->conn);
-
-	c->terminated = true;
+	client_set_terminated(c);
 
 	sc_map_del_64v(&s->vclients, c->id);
 	sc_map_del_sv(&s->clients, c->name);
@@ -2368,14 +2366,13 @@ static int server_job_add_node(struct server *s, struct server_job *job)
 		goto err;
 	}
 
-	sc_log_info("Added %s to the cluster \n", uri->str);
 	sc_buf_clear(&s->tmp);
 	meta_print(&s->meta, &s->tmp);
 	sc_log_info(sc_buf_rbuf(&s->tmp));
 
-	sc_uri_destroy(&uri);
-
 	server_update_connections(s);
+	server_info(s, "Adding node : [%s]", uri->str);
+	sc_uri_destroy(&uri);
 
 	return server_write_meta_cmd(s);
 err:
@@ -2402,11 +2399,11 @@ static int server_job_remove_node(struct server *s, struct server_job *job)
 
 	meta_remove(&s->meta, name);
 
-	sc_log_info("Removed %s from the cluster \n", job->data);
-
 	sc_buf_clear(&s->tmp);
 	meta_print(&s->meta, &s->tmp);
 	sc_log_info(sc_buf_rbuf(&s->tmp));
+
+	server_info(s, "Node[%s] will be removed from the cluster", job->data);
 
 	return server_write_meta_cmd(s);
 err:
@@ -2495,8 +2492,10 @@ static int server_flush_snapshot(struct server *s, struct node *n)
 		n->ss_index = s->ss.index;
 		n->ss_pos = 0;
 
-		rc = server_warn(s, "Sending snapshot[%" PRIu64 "] to : %s",
-				 n->ss_index, n->name);
+		rc = server_warn(s,
+				 "Sending snapshot[%" PRIu64
+				 "], len = %zu to : %s",
+				 n->ss_index, s->ss.map.len, n->name);
 		if (rc != RS_OK) {
 			return rc;
 		}
