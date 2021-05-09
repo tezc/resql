@@ -278,7 +278,7 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "CREATE TABLE IF NOT EXISTS resql_sessions ("
+	sql = "CREATE TABLE IF NOT EXISTS resql_clients ("
 	      "client_name TEXT PRIMARY KEY, "
 	      "client_id INTEGER,"
 	      "sequence INTEGER,"
@@ -341,7 +341,7 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "INSERT OR REPLACE INTO resql_sessions VALUES "
+	sql = "INSERT OR REPLACE INTO resql_clients VALUES "
 	      "(?, ?, ?, ?, ?, ?, ?);";
 	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_session,
 				NULL);
@@ -349,7 +349,7 @@ int aux_prepare(struct aux *aux)
 		goto error;
 	}
 
-	sql = "DELETE FROM resql_sessions WHERE client_name = (?);";
+	sql = "DELETE FROM resql_clients WHERE client_name = (?);";
 	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->rm_session, NULL);
 	if (rc != SQLITE_OK) {
 		goto error;
@@ -724,7 +724,7 @@ out:
 
 int aux_clear_sessions(struct aux *aux)
 {
-	const char *sql = "DELETE FROM resql_sessions";
+	const char *sql = "DELETE FROM resql_clients";
 	const int len = (int) strlen(sql) + 1;
 
 	int rc;

@@ -62,7 +62,7 @@ static void resql_cli_cmdline_usage()
 {
 	printf("\n resql-cli version : %s \n\n", RESQL_CLI_VERSION);
 	printf(" -u=<url>      --url=<url>           ex: --url=tcp://127.0.0.1:7600                     \n"
-	       " -c=<command>  --command=<command>   ex: ./resql-cli -c=\"SELECT * FROM resql_sessions\"\n"
+	       " -c=<command>  --command=<command>   ex: ./resql-cli -c=\"SELECT * FROM resql_clients\"\n"
 	       " -h            --help                Print this help and exit                           \n"
 	       " -v,           --version             Print version and exit                             \n"
 	       "\n\n");

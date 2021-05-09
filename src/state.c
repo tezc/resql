@@ -270,8 +270,8 @@ int state_authorizer(void *user, int action, const char *arg0, const char *arg1,
 
 	switch (action) {
 	case SQLITE_READ:
-		len = strlen("resql_sessions");
-		if (strncmp("resql_sessions", arg0, len) == 0 &&
+		len = strlen("resql_clients");
+		if (strncmp("resql_clients", arg0, len) == 0 &&
 		    strncmp("resp", arg1, strlen("resp")) == 0) {
 			return SQLITE_IGNORE;
 		}
@@ -373,7 +373,7 @@ int state_read_vars(struct state *st, struct aux *aux)
 	sc_buf_get_data(&st->tmp, st->wrand.init, sizeof(st->wrand.init));
 	sc_rand_init(&st->rrand, st->wrand.init);
 
-	sql = "SELECT * FROM resql_sessions";
+	sql = "SELECT * FROM resql_clients";
 	rc = sqlite3_prepare(st->aux.db, sql, -1, &sess, 0);
 	if (rc != SQLITE_OK) {
 		return RS_ERROR;
