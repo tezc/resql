@@ -48,7 +48,9 @@ void test_one()
 	test_server_create(1, 2);
 	c = test_client_create();
 
-	resql_put_sql(c, "CREATE TABLE test (key INTEGER PRIMARY KEY, val INTEGER, blob BLOB);");
+	resql_put_sql(
+		c,
+		"CREATE TABLE test (key INTEGER PRIMARY KEY, val INTEGER, blob BLOB);");
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
@@ -56,7 +58,9 @@ void test_one()
 	rc = resql_exec(c, true, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	resql_put_sql(c, "INSERT INTO test VALUES(random(), random(), randomblob(64));");
+	resql_put_sql(
+		c,
+		"INSERT INTO test VALUES(random(), random(), randomblob(64));");
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
@@ -81,7 +85,7 @@ void test_one()
 	rs_assert(value == row[1].intval);
 	rs_assert(memcmp(blob, row[2].blob, row[2].len) == 0);
 
-	resql_put_sql(c, "SELECT * FROM resql_info;");
+	resql_put_sql(c, "SELECT * FROM resql_nodes;");
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 

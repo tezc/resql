@@ -59,7 +59,7 @@
 	exit(1);
 
 const char *fsync_stmt = "SELECT name, fsync_average_ms, fsync_max_ms "
-			 "FROM resql_info;";
+			 "FROM resql_nodes;";
 const char *clear_stmt = "DROP TABLE IF EXISTS bench_resql;";
 const char *create_stmt = "CREATE TABLE bench_resql (id INTEGER PRIMARY KEY, "
 			  "col1 TEXT, col2 TEXT, col3 TEXT);";

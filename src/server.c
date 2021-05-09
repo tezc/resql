@@ -2571,7 +2571,6 @@ flush:
 			index = n->next - 1;
 			prev = store_prev_term(&s->store, index);
 
-
 			b = conn_out(&n->conn);
 			msg_create_append_req(b, s->meta.term, index, prev,
 					      s->commit, s->round, NULL, 0);

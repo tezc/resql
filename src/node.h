@@ -62,7 +62,7 @@ struct node {
 	int id;
 	bool voted;
 	enum meta_role role;
-	const char* status;
+	const char *status;
 
 	uint64_t in_timestamp;
 	uint64_t out_timestamp;

@@ -63,7 +63,8 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 	sc_buf_init(&n->info, 1024);
 
 	if (connect) {
-		n->conn_timer = sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
+		n->conn_timer =
+			sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
 	}
 
 	return n;
@@ -132,7 +133,8 @@ int node_try_connect(struct node *n)
 	}
 
 	timeout = (rs_rand() % 256) + n->interval + 100;
-	n->conn_timer = sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
+	n->conn_timer =
+		sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
 
 	if (n->conn.state == CONN_CONNECTED) {
 		n->interval = 64;

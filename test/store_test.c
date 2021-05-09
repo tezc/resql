@@ -64,7 +64,8 @@ void store_many()
 	store_init(&s1, test_tmp_dir, prev_term, prev_index);
 
 	for (i = prev_index + 1; i < 1800000; i++) {
-		rc = store_create_entry(&s1, i, i, i, i, "test", strlen("test") + 1);
+		rc = store_create_entry(&s1, i, i, i, i, "test",
+					strlen("test") + 1);
 		if (rc == RS_FULL) {
 			break;
 		}
@@ -97,7 +98,8 @@ void store_remove()
 	store_init(&s1, test_tmp_dir, prev_term, prev_index);
 
 	for (i = prev_index + 1; i < 1800000; i++) {
-		rc = store_create_entry(&s1, i, i, i, i, "test", strlen("test") + 1);
+		rc = store_create_entry(&s1, i, i, i, i, "test",
+					strlen("test") + 1);
 		if (rc == RS_FULL) {
 			break;
 		}
@@ -135,7 +137,8 @@ void store_remove_second_page()
 	store_init(&s1, test_tmp_dir, prev_term, prev_index);
 
 	for (i = prev_index + 1; i < 1800000; i++) {
-		rc = store_create_entry(&s1, i, i, i, i, "test", strlen("test") + 1);
+		rc = store_create_entry(&s1, i, i, i, i, "test",
+					strlen("test") + 1);
 		if (rc == RS_FULL) {
 			break;
 		}
@@ -191,14 +194,15 @@ void store_put_test()
 
 	int rc;
 	uint64_t i;
-	unsigned char* e;
+	unsigned char *e;
 	struct store s1, s2;
 
 	store_init(&s1, test_tmp_dir, prev_term, prev_index);
 	store_init(&s2, test_tmp_dir2, prev_term, prev_index);
 
 	for (i = prev_index + 1; i < 1800000; i++) {
-		rc = store_create_entry(&s1, i, i, i, i, "test", strlen("test") + 1);
+		rc = store_create_entry(&s1, i, i, i, i, "test",
+					strlen("test") + 1);
 		if (rc == RS_FULL) {
 			break;
 		}

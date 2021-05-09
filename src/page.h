@@ -32,9 +32,9 @@
 #ifndef RESQL_PAGE_H
 #define RESQL_PAGE_H
 
+#include "sc/sc_array.h"
 #include "sc/sc_buf.h"
 #include "sc/sc_mmap.h"
-#include "sc/sc_array.h"
 
 #include <stdint.h>
 

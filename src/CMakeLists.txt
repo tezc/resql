@@ -137,7 +137,7 @@ elseif (${PGO} MATCHES "use")
         if (HAVE_PARTIAL)
             message(STATUS "defined -fprofile-partial-training")
             target_compile_options(resql PRIVATE -fprofile-partial-training)
-        endif()
+        endif ()
     endif ()
 endif ()
 

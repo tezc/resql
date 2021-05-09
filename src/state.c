@@ -302,13 +302,13 @@ int state_write_infos(struct state *st, struct aux *aux)
 	int rc;
 	struct info *info;
 
-	rc = aux_clear_info(aux);
+	rc = aux_clear_nodes(aux);
 	if (rc != RS_OK) {
 		return rc;
 	}
 
 	sc_map_foreach_value (&st->nodes, info) {
-		rc = aux_write_info(aux, info);
+		rc = aux_write_node(aux, info);
 		if (rc != RS_OK) {
 			return rc;
 		}

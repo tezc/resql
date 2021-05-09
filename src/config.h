@@ -45,7 +45,7 @@
 #define sc_map_free   rs_free
 
 #define sc_queue_calloc rs_calloc
-#define sc_queue_free	 rs_free
+#define sc_queue_free	rs_free
 
 #define sc_str_malloc  rs_malloc
 #define sc_str_realloc rs_realloc
