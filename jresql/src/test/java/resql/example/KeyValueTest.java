@@ -40,7 +40,7 @@ public class KeyValueTest {
     public void simple() {
         Resql client = ResqlClient.create(new Config());
 
-        client.put("SELECT * FROM resql_info");
+        client.put("SELECT * FROM resql_nodes");
         ResultSet rs = client.execute(true);
 
         for (Row row : rs) {
