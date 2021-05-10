@@ -394,14 +394,12 @@ void meta_replace(struct meta *m, void *data, uint32_t len)
 void meta_set_leader(struct meta *m, const char *name)
 {
 	for (size_t i = 0; i < sc_array_size(&m->nodes); i++) {
-		if (strcmp(m->nodes.elems[i].name, name) == 0) {
+		if (name != NULL && strcmp(m->nodes.elems[i].name, name) == 0) {
 			m->nodes.elems[i].role = META_LEADER;
 			continue;
 		}
 
-		if (m->nodes.elems[i].role == META_LEADER) {
-			m->nodes.elems[i].role = META_FOLLOWER;
-		}
+		m->nodes.elems[i].role = META_FOLLOWER;
 	}
 
 	meta_update(m);

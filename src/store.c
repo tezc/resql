@@ -82,7 +82,7 @@ static int store_read(struct store *s)
 	}
 
 	if (s->pages[1]->prev_index != page_last_index(s->pages[0])) {
-		page_clear(s->pages[1], 0);
+		page_clear(s->pages[1], s->ss_index);
 	}
 
 	if (page_entry_count(s->pages[0]) == 0) {

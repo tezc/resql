@@ -460,11 +460,12 @@ static void server_update_connections(struct server *s)
 	}
 }
 
-static void server_become_follower(struct server *s, struct node *leader)
+static void server_become_follower(struct server *s, struct node *leader,
+				   uint64_t term)
 {
-	if (s->role == SERVER_ROLE_FOLLOWER && leader != NULL &&
-	    s->leader == leader) {
-		return;
+	if (s->leader != leader) {
+		s->leader = leader;
+		meta_set_leader(&s->meta, leader ? leader->name : NULL);
 	}
 
 	s->role = SERVER_ROLE_FOLLOWER;
@@ -473,12 +474,9 @@ static void server_become_follower(struct server *s, struct node *leader)
 	s->prevote_term = 0;
 	s->vote_count = 0;
 	s->cluster_up = false;
+	s->meta.term = term;
 
 	snapshot_clear(&s->ss);
-
-	if (leader != NULL) {
-		meta_set_leader(&s->meta, leader->name);
-	}
 }
 
 void server_meta_change(struct server *s)
@@ -488,7 +486,7 @@ void server_meta_change(struct server *s)
 
 	if (!s->in_cluster && s->role == SERVER_ROLE_LEADER &&
 	    s->meta.prev == NULL) {
-		server_become_follower(s, NULL);
+		server_become_follower(s, NULL, s->meta.term);
 	}
 }
 
@@ -677,6 +675,10 @@ int server_read_meta(struct server *s)
 
 	if (s->state.meta.index > s->meta.index) {
 		meta_copy(&s->meta, &s->state.meta);
+		rc = server_write_meta(s);
+		if (rc != RS_OK) {
+			return rc;
+		}
 	}
 
 	server_meta_change(s);
@@ -887,15 +889,9 @@ static int server_write_init_cmd(struct server *s)
 
 static int server_write_meta_cmd(struct server *s)
 {
-	bool b;
-
 	assert(s->role == SERVER_ROLE_LEADER);
 
-	b = meta_exists(&s->meta, s->conf.node.name);
-	if (b) {
-		meta_set_leader(&s->meta, s->conf.node.name);
-	}
-
+	meta_set_leader(&s->meta, s->conf.node.name);
 	sc_buf_clear(&s->tmp);
 	cmd_encode_meta(&s->tmp, &s->meta);
 
@@ -1174,20 +1170,22 @@ static int server_become_leader(struct server *s)
 static int server_check_prevote_count(struct server *s)
 {
 	int rc;
+	const char *vote = NULL;
 	struct sc_list *n, *tmp;
 	struct node *node;
 	struct sc_buf *buf;
 
 	if (s->prevote_count >= (s->meta.voter / 2) + 1) {
-		rc = server_update_meta(s, s->prevote_term, s->conf.node.name);
-		if (rc != RS_OK) {
-			return rc;
-		}
-
 		s->vote_count = 0;
 
 		if (s->in_cluster) {
+			vote = s->conf.node.name;
 			s->vote_count += 1;
+		}
+
+		rc = server_update_meta(s, s->prevote_term, vote);
+		if (rc != RS_OK) {
+			return rc;
 		}
 
 		sc_list_foreach_safe (&s->connected_nodes, tmp, n) {
@@ -1224,6 +1222,21 @@ static int server_on_election_timeout(struct server *s)
 	uint64_t timeout = s->conf.advanced.heartbeat;
 
 	if (s->role == SERVER_ROLE_LEADER) {
+		/**
+		 * If we can't commit for a while, we'll step down.
+		 * e.g Cluster of nodes A,B,C,D,E
+		 * - A believes it's the leader, it's connected to B
+		 * - C is down
+		 * - D and E don't have a connection to A.
+		 * - A will keep sending heartbeat to B, B will reject any
+		 *   reqvote from C and D as it believes B is leader. A won't
+		 *   commit any log and D and E can't elect leader as they can't
+		 *   get vote of B.
+		 */
+		if ((s->timestamp - s->last_quorum) > timeout * 4) {
+			server_become_follower(s, NULL, s->meta.term);
+		}
+
 		return RS_OK;
 	}
 
@@ -1458,7 +1471,7 @@ void server_timeout(void *arg, uint64_t timeout, uint64_t type, void *data)
 	s->timer_rc = rc;
 }
 
-static int server_on_reqvote_req(struct server *s, struct node *node,
+static int server_on_reqvote_req(struct server *s, struct node *n,
 				 struct msg *msg)
 {
 	bool grant = false;
@@ -1479,7 +1492,7 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 
 	if (req->term > s->meta.term && req->last_log_index >= last_index) {
 		grant = true;
-		rc = server_update_meta(s, req->term, node->name);
+		rc = server_update_meta(s, req->term, n->name);
 		if (rc != RS_OK) {
 			return rc;
 		}
@@ -1488,7 +1501,7 @@ static int server_on_reqvote_req(struct server *s, struct node *node,
 	}
 
 out:
-	buf = conn_out(&node->conn);
+	buf = conn_out(&n->conn);
 	msg_create_reqvote_resp(buf, req->term, last_index, grant);
 
 	return RS_OK;
@@ -1506,13 +1519,7 @@ static int server_on_reqvote_resp(struct server *s, struct node *n,
 	}
 
 	if (resp->term > s->meta.term) {
-		rc = server_update_meta(s, resp->term, NULL);
-		if (rc != RS_OK) {
-			return rc;
-		}
-
-		server_become_follower(s, NULL);
-
+		server_become_follower(s, NULL, resp->term);
 		return RS_OK;
 	}
 
@@ -1557,10 +1564,10 @@ out:
 	return RS_OK;
 }
 
-static int server_on_prevote_resp(struct server *s, struct node *node,
+static int server_on_prevote_resp(struct server *s, struct node *n,
 				  struct msg *msg)
 {
-	(void) node;
+	(void) n;
 
 	struct msg_prevote_resp *resp = &msg->prevote_resp;
 
@@ -1586,7 +1593,7 @@ static int server_update_commit(struct server *s, uint64_t commit)
 	unsigned char *entry;
 	struct session *sess;
 
-	if (s->commit < commit) {
+	if (commit > s->commit) {
 		uint64_t min = sc_min(commit, s->store.last_index);
 		for (uint64_t i = s->commit + 1; i <= min; i++) {
 			entry = store_get_entry(&s->store, i);
@@ -1606,6 +1613,7 @@ static int server_update_commit(struct server *s, uint64_t commit)
 		}
 
 		s->commit = min;
+		s->last_quorum = s->timestamp;
 	}
 
 	if (!s->ss_inprogress && s->commit >= store_ss_index(&s->store)) {
@@ -1693,11 +1701,7 @@ int server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 
 	if (req->term > s->meta.term ||
 	    (s->meta.term == req->term && s->leader == NULL)) {
-		server_become_follower(s, n);
-		rc = server_update_meta(s, req->term, n->name);
-		if (rc != RS_OK) {
-			return rc;
-		}
+		server_become_follower(s, n, req->term);
 	}
 
 	n->in_timestamp = s->timestamp;
@@ -1714,7 +1718,8 @@ int server_on_append_req(struct server *s, struct node *n, struct msg *msg)
 		return rc;
 	}
 
-	server_become_follower(s, n);
+	server_become_follower(s, n, s->meta.term);
+
 	rc = server_update_commit(s, req->leader_commit);
 	if (rc != RS_OK) {
 		return rc;
@@ -1728,34 +1733,25 @@ out:
 	return RS_OK;
 }
 
-int server_on_append_resp(struct server *s, struct node *node, struct msg *msg)
+int server_on_append_resp(struct server *s, struct node *n, struct msg *msg)
 {
-	int rc;
 	struct msg_append_resp *resp = &msg->append_resp;
 
-	node->msg_inflight--;
+	n->msg_inflight--;
 
 	if (s->role != SERVER_ROLE_LEADER) {
 		return RS_OK;
 	}
 
 	if (resp->success) {
-		node_update_indexes(node, resp->round, resp->index);
-	}
-
-	if (!resp->success) {
+		node_update_indexes(n, resp->round, resp->index);
+	} else {
 		if (resp->term > s->meta.term) {
-			rc = server_update_meta(s, resp->term, NULL);
-			if (rc != RS_OK) {
-				return rc;
-			}
-
-			server_become_follower(s, NULL);
+			server_become_follower(s, NULL, resp->term);
 		}
 
-		node->match = resp->index;
-		node->next = node->match + 1;
-		node->round = 0;
+		n->match = resp->index;
+		n->next = n->match + 1;
 	}
 
 	return RS_OK;
@@ -1823,12 +1819,7 @@ int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 
 	if ((s->meta.term == req->term && s->leader == NULL) ||
 	    req->term > s->meta.term) {
-		server_become_follower(s, n);
-
-		rc = server_update_meta(s, req->term, n->name);
-		if (rc != RS_OK) {
-			return rc;
-		}
+		server_become_follower(s, n, req->term);
 	}
 
 	n->in_timestamp = s->timestamp;
@@ -1840,7 +1831,7 @@ int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 
 	rc = snapshot_recv(&s->ss, req->ss_term, req->ss_index, req->done,
 			   req->offset, req->buf, req->len);
-	if (rc == RS_ERROR) {
+	if (rc != RS_OK && rc != RS_SNAPSHOT) {
 		success = false;
 	}
 out:
@@ -1858,12 +1849,7 @@ int server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 	n->msg_inflight--;
 
 	if (resp->term > s->meta.term) {
-		rc = server_update_meta(s, resp->term, NULL);
-		if (rc != RS_OK) {
-			return rc;
-		}
-
-		server_become_follower(s, NULL);
+		server_become_follower(s, NULL, resp->term);
 		return RS_OK;
 	}
 
@@ -2102,7 +2088,7 @@ static int server_on_meta(struct server *s, struct meta *meta)
 	server_meta_change(s);
 
 	if (!s->in_cluster && s->role == SERVER_ROLE_LEADER) {
-		server_become_follower(s, NULL);
+		server_become_follower(s, NULL, s->meta.term);
 	}
 
 	return server_write_meta(s);
@@ -2327,7 +2313,10 @@ static int server_check_commit(struct server *s)
 	node = sc_array_at(&s->nodes, index);
 	round_index = node->round;
 
-	s->round_match = sc_max(round_index, s->round_match);
+	if (round_index > s->round_match) {
+		s->round_match = round_index;
+		s->last_quorum = s->timestamp;
+	}
 
 	sc_list_foreach_safe (&s->read_reqs, n, it) {
 		c = sc_list_entry(it, struct client, read);
@@ -2557,8 +2546,8 @@ static int server_flush_nodes(struct server *s)
 			continue;
 		}
 
-		if (n->msg_inflight > 0 || (n->next > s->store.last_index &&
-					    s->round == s->round_prev)) {
+		if (n->msg_inflight > 0 ||
+		    (n->next > s->store.last_index && n->round == s->round)) {
 			goto flush;
 		}
 
@@ -2603,6 +2592,7 @@ static void server_flush_remaining(struct server *s)
 
 	sc_list_foreach_safe (&s->connected_nodes, tmp, l) {
 		n = sc_list_entry(l, struct node, list);
+
 		rc = conn_flush(&n->conn);
 		if (rc != RS_OK) {
 			server_on_node_disconnect(s, n);
@@ -2636,6 +2626,9 @@ static int server_flush(struct server *s)
 	}
 
 	s->round_prev = s->round;
+	if (s->timestamp - s->last_quorum > s->conf.advanced.heartbeat) {
+		s->round++;
+	}
 
 	return server_handle_jobs(s);
 }

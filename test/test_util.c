@@ -302,17 +302,10 @@ struct server *test_server_add_auto()
 
 void test_wait_until_size(int size)
 {
-	int i;
 	int rc;
 	resql *c;
 	struct resql_column *row;
 	resql_result *rs;
-
-	for (i = 0; i < 9; i++) {
-		if (cluster[i] == NULL) {
-			break;
-		}
-	}
 
 	c = test_client_create();
 retry:
@@ -426,7 +419,10 @@ resql *test_client_create()
 		}
 	}
 
-	struct resql_config conf = {.urls = url, .timeout_millis = 600000};
+	struct resql_config conf = {
+		.urls = url,
+		.timeout_millis = 600000,
+	};
 
 	rc = resql_create(&c, &conf);
 	if (rc != RESQL_OK) {
