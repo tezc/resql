@@ -2482,7 +2482,7 @@ static int server_flush_snapshot(struct server *s, struct node *n)
 	void *data;
 	struct sc_buf *buf;
 
-	if (n->msg_inflight > 0) {
+	if (n->msg_inflight > 8) {
 		return RS_OK;
 	}
 
@@ -2546,7 +2546,7 @@ static int server_flush_nodes(struct server *s)
 			continue;
 		}
 
-		if (n->msg_inflight > 0 ||
+		if (n->msg_inflight > 8 ||
 		    (n->next > s->store.last_index && n->round == s->round)) {
 			goto flush;
 		}
