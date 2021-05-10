@@ -251,6 +251,8 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 	}
 
 	if (done) {
+		snapshot_close(ss);
+
 		rc = file_flush(ss->tmp);
 		if (rc != RS_OK) {
 			return rc;
@@ -259,15 +261,13 @@ int snapshot_recv(struct snapshot *ss, uint64_t term, uint64_t index, bool done,
 		file_destroy(ss->tmp);
 		ss->tmp = NULL;
 
-		rc = file_rename(ss->recv_path, ss->path);
+		rc = file_rename(ss->path, ss->recv_path);
 		if (rc != RS_OK) {
 			return rc;
 		}
 
 		ss->term = 0;
 		ss->index = 0;
-
-		snapshot_close(ss);
 
 		return RS_SNAPSHOT;
 	}

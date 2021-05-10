@@ -853,14 +853,6 @@ static void sc_buf_put_blob(struct sc_buf *b, const void *ptr, uint32_t len)
 
 #define SC_SOCK_BUF_SIZE 32768
 
-enum sc_sock_rc
-{
-	SC_SOCK_WANT_READ = -4,
-	SC_SOCK_WANT_WRITE = -2,
-	SC_SOCK_ERROR = -1,
-	SC_SOCK_OK = 0
-};
-
 enum sc_sock_ev
 {
 	SC_SOCK_NONE = 0u,
@@ -1058,7 +1050,7 @@ static int sc_sock_set_rcvtimeo(struct sc_sock *s, int ms)
 		sc_sock_errstr(s, 0);
 	}
 
-	return rc == 0 ? SC_SOCK_OK : SC_SOCK_ERROR;
+	return rc;
 }
 
 static int sc_sock_set_sndtimeo(struct sc_sock *s, int ms)
@@ -1078,7 +1070,7 @@ static int sc_sock_set_sndtimeo(struct sc_sock *s, int ms)
 		sc_sock_errstr(s, 0);
 	}
 
-	return rc == 0 ? SC_SOCK_OK : SC_SOCK_ERROR;
+	return rc;
 }
 
 static int sc_sock_finish_connect(struct sc_sock *s)
@@ -1089,10 +1081,10 @@ static int sc_sock_finish_connect(struct sc_sock *s)
 	rc = getsockopt(s->fdt.fd, SOL_SOCKET, SO_ERROR, (void *) &ret, &len);
 	if (rc != 0 || ret != 0) {
 		sc_sock_errstr(s, 0);
-		return SC_SOCK_ERROR;
+		return -1;
 	}
 
-	return SC_SOCK_OK;
+	return 0;
 }
 
 static int sc_sock_connect_unix(struct sc_sock *s, const char *addr)
@@ -1136,13 +1128,13 @@ static int sc_sock_connect_unix(struct sc_sock *s, const char *addr)
 		goto err;
 	}
 
-	return SC_SOCK_OK;
+	return 0;
 
 err:
 	sc_sock_errstr(s, 0);
 	sc_sock_close(s);
 
-	return SC_SOCK_ERROR;
+	return -1;
 }
 
 static int sc_sock_bind_src(struct sc_sock *s, const char *addr,
@@ -1173,14 +1165,14 @@ static int sc_sock_bind_src(struct sc_sock *s, const char *addr,
 		goto err;
 	}
 
-	return SC_SOCK_OK;
+	return 0;
 
 gai_err:
 	sc_sock_errstr(s, rc);
-	return SC_SOCK_ERROR;
+	return -1;
 err:
 	sc_sock_errstr(s, 0);
-	return SC_SOCK_ERROR;
+	return -1;
 }
 
 static int sc_sock_connect(struct sc_sock *s, const char *dst_addr,
@@ -1189,7 +1181,7 @@ static int sc_sock_connect(struct sc_sock *s, const char *dst_addr,
 {
 	const int bf = SC_SOCK_BUF_SIZE;
 
-	int rc, rv = SC_SOCK_OK;
+	int rc, rv = 0;
 	sc_sock_int fd;
 	void *tmp;
 	struct addrinfo *sinfo = NULL, *p;
@@ -1248,7 +1240,7 @@ static int sc_sock_connect(struct sc_sock *s, const char *dst_addr,
 
 		if (src_addr || src_port) {
 			rc = sc_sock_bind_src(s, src_addr, src_port);
-			if (rc != SC_SOCK_OK) {
+			if (rc != 0) {
 				goto bind_error;
 			}
 		}
@@ -1257,7 +1249,8 @@ static int sc_sock_connect(struct sc_sock *s, const char *dst_addr,
 		if (rc != 0) {
 			if (!s->blocking && (sc_sock_err() == SC_EINPROGRESS ||
 					     sc_sock_err() == SC_EAGAIN)) {
-				rv = SC_SOCK_WANT_WRITE;
+				errno = EAGAIN;
+				rv = -1;
 				goto end;
 			}
 
@@ -1296,11 +1289,12 @@ retry:
 		}
 
 		if (err == SC_EAGAIN) {
-			return SC_SOCK_WANT_WRITE;
+			errno = EAGAIN;
+			return -1;
 		}
 
 		sc_sock_errstr(s, 0);
-		n = SC_SOCK_ERROR;
+		n = -1;
 	}
 
 	return n;
@@ -1317,7 +1311,8 @@ static int sc_sock_recv(struct sc_sock *s, char *buf, int len, int flags)
 retry:
 	n = (int) recv(s->fdt.fd, buf, (size_t) len, flags);
 	if (n == 0) {
-		return SC_SOCK_ERROR;
+		errno = EOF;
+		return -1;
 	} else if (n == SC_ERR) {
 		err = sc_sock_err();
 		if (err == SC_EINTR) {
@@ -1325,11 +1320,12 @@ retry:
 		}
 
 		if (err == SC_EAGAIN) {
-			return SC_SOCK_WANT_READ;
+			errno = EAGAIN;
+			return -1;
 		}
 
 		sc_sock_errstr(s, 0);
-		n = SC_SOCK_ERROR;
+		n = -1;
 	}
 
 	return n;
@@ -1924,7 +1920,7 @@ int resql_connect(struct resql *c)
 
 	rc = sc_sock_connect(&c->sock, host, uri->port, c->source_addr,
 			     c->source_port);
-	if (rc == SC_SOCK_WANT_WRITE) {
+	if (rc < 0 && errno == EAGAIN) {
 		struct pollfd fds = {
 			.fd = c->sock.fdt.fd,
 			.events = POLLOUT,
@@ -1945,17 +1941,17 @@ retry:
 	}
 
 	rc = sc_sock_set_blocking(&c->sock, true);
-	if (rc != SC_SOCK_OK) {
+	if (rc != 0) {
 		goto sock_fatal;
 	}
 
 	rc = sc_sock_set_sndtimeo(&c->sock, 3000);
-	if (rc != SC_SOCK_OK) {
+	if (rc != 0) {
 		goto sock_fatal;
 	}
 
 	rc = sc_sock_set_rcvtimeo(&c->sock, 3000);
-	if (rc != SC_SOCK_OK) {
+	if (rc != 0) {
 		goto sock_fatal;
 	}
 
