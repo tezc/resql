@@ -117,7 +117,7 @@ static void snapshot_big()
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	for (int i = 0; i < 1000; i++) {
+	for (int i = 0; i < 100; i++) {
 		for (int j = 0; j < 100; j++) {
 			snprintf(tmp, sizeof(tmp), "%d", (i * 1000) + j);
 
@@ -143,7 +143,7 @@ static void snapshot_big()
 	client_assert(c, rc == RESQL_OK);
 
 	rs_assert(resql_row_count(rs) == 1);
-	rs_assert(resql_row(rs)[0].intval == 100000);
+	rs_assert(resql_row(rs)[0].intval == 10000);
 
 	resql_put_sql(c, "Select * from snapshot LIMIT 100;");
 	rc = resql_exec(c, true, &rs);
