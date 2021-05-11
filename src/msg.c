@@ -326,19 +326,21 @@ bool msg_create_append_resp(struct sc_buf *buf, uint64_t term, uint64_t index,
 	return true;
 }
 
-bool msg_create_snapshot_req(struct sc_buf *buf, uint64_t term,
+bool msg_create_snapshot_req(struct sc_buf *buf, uint64_t term, uint64_t round,
 			     uint64_t ss_term, uint64_t ss_index,
 			     uint64_t offset, bool done, const void *data,
 			     uint32_t size)
 {
 	uint32_t head = sc_buf_wpos(buf);
 	uint32_t len = MSG_FIXED_LEN + sc_buf_64_len(term) +
-		       sc_buf_64_len(ss_term) + sc_buf_64_len(ss_index) +
-		       sc_buf_64_len(offset) + sc_buf_bool_len(done) + size;
+		       sc_buf_64_len(round) + sc_buf_64_len(ss_term) +
+		       sc_buf_64_len(ss_index) + sc_buf_64_len(offset) +
+		       sc_buf_bool_len(done) + size;
 
 	sc_buf_put_32(buf, len);
 	sc_buf_put_8(buf, MSG_SNAPSHOT_REQ);
 	sc_buf_put_64(buf, term);
+	sc_buf_put_64(buf, round);
 	sc_buf_put_64(buf, ss_term);
 	sc_buf_put_64(buf, ss_index);
 	sc_buf_put_64(buf, offset);
@@ -353,16 +355,18 @@ bool msg_create_snapshot_req(struct sc_buf *buf, uint64_t term,
 	return true;
 }
 
-bool msg_create_snapshot_resp(struct sc_buf *buf, uint64_t term, bool success,
-			      bool done)
+bool msg_create_snapshot_resp(struct sc_buf *buf, uint64_t term, uint64_t round,
+			      bool success, bool done)
 {
 	uint32_t head = sc_buf_wpos(buf);
 	uint32_t len = MSG_FIXED_LEN + sc_buf_64_len(term) +
-		       sc_buf_bool_len(success) + sc_buf_bool_len(done);
+		       sc_buf_64_len(round) + sc_buf_bool_len(success) +
+		       sc_buf_bool_len(done);
 
 	sc_buf_put_32(buf, len);
 	sc_buf_put_8(buf, MSG_SNAPSHOT_RESP);
 	sc_buf_put_64(buf, term);
+	sc_buf_put_64(buf, round);
 	sc_buf_put_bool(buf, success);
 	sc_buf_put_bool(buf, done);
 
@@ -530,6 +534,7 @@ int msg_parse(struct sc_buf *buf, struct msg *msg)
 
 	case MSG_SNAPSHOT_REQ:
 		msg->snapshot_req.term = sc_buf_get_64(&tmp);
+		msg->snapshot_req.round = sc_buf_get_64(&tmp);
 		msg->snapshot_req.ss_term = sc_buf_get_64(&tmp);
 		msg->snapshot_req.ss_index = sc_buf_get_64(&tmp);
 		msg->snapshot_req.offset = sc_buf_get_64(&tmp);
@@ -541,6 +546,7 @@ int msg_parse(struct sc_buf *buf, struct msg *msg)
 
 	case MSG_SNAPSHOT_RESP:
 		msg->snapshot_resp.term = sc_buf_get_64(&tmp);
+		msg->snapshot_resp.round = sc_buf_get_64(&tmp);
 		msg->snapshot_resp.success = sc_buf_get_bool(&tmp);
 		msg->snapshot_resp.done = sc_buf_get_bool(&tmp);
 		break;
@@ -690,6 +696,7 @@ static void msg_print_snapshot_req(struct msg *msg, struct sc_buf *buf)
 	struct msg_snapshot_req *m = &msg->snapshot_req;
 
 	sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+	sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Round", m->round);
 	sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "SS term", m->ss_term);
 	sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "SS index",
 			m->ss_index);
@@ -702,6 +709,7 @@ static void msg_print_snapshot_resp(struct msg *msg, struct sc_buf *buf)
 	struct msg_snapshot_resp *m = &msg->snapshot_resp;
 
 	sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Term", m->term);
+	sc_buf_put_text(buf, "| %-15s | %" PRIu64 " \n", "Round", m->round);
 	sc_buf_put_text(buf, "| %-15s | %s \n", "Success",
 			m->success ? "true" : "false");
 	sc_buf_put_text(buf, "| %-15s | %s \n", "Done",

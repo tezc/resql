@@ -47,7 +47,6 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#define PAGE_ENTRY_MAX_SIZE    (2u * 1024 * 1024 * 1024)
 #define PAGE_END_MARK	       0
 #define PAGE_END_MARK_LEN      4
 #define PAGE_VERSION_OFFSET    0

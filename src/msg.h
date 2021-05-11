@@ -203,6 +203,7 @@ struct msg_reqvote_resp {
 
 struct msg_snapshot_req {
 	uint64_t term;
+	uint64_t round;
 	uint64_t ss_term;
 	uint64_t ss_index;
 	uint64_t offset;
@@ -214,6 +215,7 @@ struct msg_snapshot_req {
 
 struct msg_snapshot_resp {
 	uint64_t term;
+	uint64_t round;
 	bool success;
 	bool done;
 };
@@ -290,12 +292,12 @@ bool msg_create_append_req(struct sc_buf *buf, uint64_t term,
 bool msg_create_append_resp(struct sc_buf *buf, uint64_t term, uint64_t index,
 			    uint64_t query_sequence, bool success);
 
-bool msg_create_snapshot_req(struct sc_buf *buf, uint64_t term,
+bool msg_create_snapshot_req(struct sc_buf *buf, uint64_t term, uint64_t round,
 			     uint64_t ss_term, uint64_t ss_index,
 			     uint64_t offset, bool done, const void *data,
 			     uint32_t size);
 
-bool msg_create_snapshot_resp(struct sc_buf *buf, uint64_t term, bool success,
+bool msg_create_snapshot_resp(struct sc_buf *buf, uint64_t term, uint64_t round, bool success,
 			      bool done);
 
 bool msg_create_info_req(struct sc_buf *buf, void *data, uint32_t size);
