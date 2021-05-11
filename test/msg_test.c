@@ -314,13 +314,14 @@ static void snapshotreq_test()
 	sc_buf_init(&buf, 1024);
 	sc_buf_init(&buf2, 1024);
 
-	msg_create_snapshot_req(&buf, 1, 2, 3, 4, true, "test", 5);
+	msg_create_snapshot_req(&buf, 1, 2, 3, 4, 5, true, "test", 5);
 	msg_parse(&buf, &msg);
 
 	rs_assert(msg.snapshot_req.term == 1);
-	rs_assert(msg.snapshot_req.ss_term == 2);
-	rs_assert(msg.snapshot_req.ss_index == 3);
-	rs_assert(msg.snapshot_req.offset == 4);
+	rs_assert(msg.snapshot_req.round == 2);
+	rs_assert(msg.snapshot_req.ss_term == 3);
+	rs_assert(msg.snapshot_req.ss_index == 4);
+	rs_assert(msg.snapshot_req.offset == 5);
 	rs_assert(msg.snapshot_req.done == true);
 	rs_assert(strcmp((char *) msg.snapshot_req.buf, "test") == 0);
 
@@ -339,10 +340,11 @@ static void snapshotresp_test()
 	sc_buf_init(&buf, 1024);
 	sc_buf_init(&buf2, 1024);
 
-	msg_create_snapshot_resp(&buf, 1, true, false);
+	msg_create_snapshot_resp(&buf, 1, 3, true, false);
 	msg_parse(&buf, &msg);
 
 	rs_assert(msg.snapshot_resp.term == 1);
+	rs_assert(msg.snapshot_resp.round == 3);
 	rs_assert(msg.snapshot_resp.success == true);
 	rs_assert(msg.snapshot_resp.done == false);
 
