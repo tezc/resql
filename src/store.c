@@ -102,12 +102,6 @@ static int store_read(struct store *s)
 
 	s->last_index = page_last_index(s->curr);
 
-	if (page_entry_count(s->curr)) {
-		s->last_term = page_last_term(s->curr);
-	} else {
-		s->last_term = s->ss_term;
-	}
-
 	count = page_entry_count(s->curr);
 	s->last_term = count != 0 ? page_last_term(s->curr) : s->ss_term;
 

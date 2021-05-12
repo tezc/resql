@@ -1216,12 +1216,18 @@ static int server_on_election_timeout(struct server *s)
 {
 	int rc;
 	size_t connected;
+	uint64_t diff;
 	struct sc_list *n, *tmp;
 	struct node *node = NULL;
 	struct sc_buf *buf;
 	uint64_t timeout = s->conf.advanced.heartbeat;
 
 	if (s->role == SERVER_ROLE_LEADER) {
+		diff = s->timestamp - s->last_quorum;
+		if (diff > s->conf.advanced.heartbeat) {
+			s->round++;
+		}
+
 		/**
 		 * If we can't commit for a while, we'll step down.
 		 * e.g Cluster of nodes A,B,C,D,E
@@ -1233,7 +1239,7 @@ static int server_on_election_timeout(struct server *s)
 		 *   commit any log and D and E can't elect leader as they can't
 		 *   get vote of B.
 		 */
-		if ((s->timestamp - s->last_quorum) > timeout * 4) {
+		if (diff > timeout * 4) {
 			server_become_follower(s, NULL, s->meta.term);
 		}
 
@@ -1836,7 +1842,7 @@ int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 	}
 out:
 	buf = conn_out(&n->conn);
-	msg_create_snapshot_resp(buf, s->meta.term, success, req->done);
+	msg_create_snapshot_resp(buf, s->meta.term, req->round, success, req->done);
 
 	return rc;
 }
@@ -1847,6 +1853,7 @@ int server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 	struct msg_snapshot_resp *resp = &msg->snapshot_resp;
 
 	n->msg_inflight--;
+	n->round = resp->round;
 
 	if (resp->term > s->meta.term) {
 		server_become_follower(s, NULL, resp->term);
@@ -1855,7 +1862,7 @@ int server_on_snapshot_resp(struct server *s, struct node *n, struct msg *msg)
 
 	if (resp->done) {
 		n->next = s->ss.index + 1;
-		rc = server_warn(s, "Snapshot[%" PRIu64 "] sent to : %s",
+		rc = server_info(s, "Snapshot[%" PRIu64 "] sent to : %s",
 				 s->ss.index, n->name);
 		if (rc != RS_OK) {
 			return rc;
@@ -1906,7 +1913,6 @@ int server_on_node_recv(struct server *s, struct sc_sock_fd *fd, uint32_t ev)
 		}
 
 		while ((rc = msg_parse(&node->conn.in, &msg)) == RS_OK) {
-
 			switch (msg.type) {
 			case MSG_APPEND_REQ:
 				ret = server_on_append_req(s, node, &msg);
@@ -2508,8 +2514,8 @@ static int server_flush_snapshot(struct server *s, struct node *n)
 	}
 
 	buf = conn_out(&n->conn);
-	msg_create_snapshot_req(buf, s->meta.term, s->ss.term, s->ss.index,
-				n->ss_pos, done, data, len);
+	msg_create_snapshot_req(buf, s->meta.term, s->round, s->ss.term,
+				s->ss.index, n->ss_pos, done, data, len);
 	n->ss_pos += len;
 	n->msg_inflight++;
 	n->out_timestamp = s->timestamp;
@@ -2626,9 +2632,6 @@ static int server_flush(struct server *s)
 	}
 
 	s->round_prev = s->round;
-	if (s->timestamp - s->last_quorum > s->conf.advanced.heartbeat) {
-		s->round++;
-	}
 
 	return server_handle_jobs(s);
 }
