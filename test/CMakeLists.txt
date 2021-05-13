@@ -53,6 +53,7 @@ add_library(resql-server STATIC
         ../lib/sqlite/sqlite3.h
         ../lib/sqlite/sqlite3.c
         ../lib/sqlite/completion.c
+        ../lib/sqlite/series.c
         ../lib/sc/sc.h
         ../lib/sc/sc.c
         ../lib/sc/sc_array.h
@@ -96,11 +97,14 @@ set_source_files_properties(
         ../lib/sqlite/sqlite3.c
         ../lib/sqlite/sqlite3ext.h
         ../lib/sqlite/completion.c
+        ../lib/sqlite/series.c
         APPEND PROPERTIES COMPILE_FLAGS
         "-w \
  -DSQLITE_OMIT_AUTOINIT \
  -DSQLITE_DQS=0 \
  -DSQLITE_ENABLE_JSON1 \
+ -DSQLITE_ENABLE_RTREE \
+ -DSQLITE_ENABLE_GEOPOLY \
  -DSQLITE_ENABLE_FTS5 \
  -DSQLITE_ENABLE_DBSTAT_VTAB \
  -DSQLITE_LIKE_DOESNT_MATCH_BLOBS \

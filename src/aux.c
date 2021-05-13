@@ -41,6 +41,9 @@
 int sqlite3_completion_init(sqlite3 *db, char **pzErrMsg,
 			    const sqlite3_api_routines *pApi);
 
+int sqlite3_series_init(sqlite3 *db, char **pzErrMsg,
+			const sqlite3_api_routines *pApi);
+
 void aux_random(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
 	(void) argv;
@@ -200,6 +203,11 @@ int aux_prepare(struct aux *aux)
 	const char *sql;
 
 	rc = sqlite3_completion_init(aux->db, 0, 0);
+	if (rc != SQLITE_OK) {
+		goto error;
+	}
+
+	rc = sqlite3_series_init(aux->db, 0, 0);
 	if (rc != SQLITE_OK) {
 		goto error;
 	}

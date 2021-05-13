@@ -49,7 +49,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define MAX_SIZE  (SC_SOCK_BUF_SIZE - 128)
+#define MAX_SIZE  (16 * 1024)
 #define META_FILE "meta.resql"
 #define META_TMP  "meta.tmp.resql"
 

@@ -46,6 +46,7 @@ add_executable(resql
         ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
         ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
         ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/series.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc.h
         ${CMAKE_SOURCE_DIR}/lib/sc/sc.c
         ${CMAKE_SOURCE_DIR}/lib/sc/sc_queue.h
@@ -146,6 +147,7 @@ set_source_files_properties(
         ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3.c
         ${CMAKE_SOURCE_DIR}/lib/sqlite/sqlite3ext.h
         ${CMAKE_SOURCE_DIR}/lib/sqlite/completion.c
+        ${CMAKE_SOURCE_DIR}/lib/sqlite/series.c
         APPEND PROPERTIES
         COMPILE_FLAGS
         "-w \
@@ -154,6 +156,8 @@ set_source_files_properties(
  -DSQLITE_DEFAULT_MEMSTATUS=0 \
  -DSQLITE_DQS=0 \
  -DSQLITE_ENABLE_JSON1 \
+ -DSQLITE_ENABLE_RTREE \
+ -DSQLITE_ENABLE_GEOPOLY \
  -DSQLITE_ENABLE_FTS5 \
  -DSQLITE_ENABLE_DBSTAT_VTAB \
  -DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
