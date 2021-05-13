@@ -233,7 +233,7 @@ int resql_cli_rep(struct resql_cli *cli, const char *buf)
 	int col = 120;
 	uint32_t columns;
 	struct winsize w;
-	int *p = NULL;
+	int *p;
 	struct resql_column *row;
 	struct resql_result *rs;
 	char tmp[128];
