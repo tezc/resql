@@ -463,18 +463,6 @@ func (c *client) connectSock() error {
 			return err
 		}
 
-		tcp := conn.(*net.TCPConn)
-
-		err = tcp.SetReadBuffer(32 * 1024)
-		if err != nil {
-			return err
-		}
-
-		err = tcp.SetWriteBuffer(32 * 1024)
-		if err != nil {
-			return err
-		}
-
 		c.conn = conn
 
 		return nil
