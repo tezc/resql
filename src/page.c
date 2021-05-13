@@ -314,7 +314,6 @@ void page_fsync(struct page *p, uint64_t index)
 	}
 
 	last = p->flush_pos;
-	(void) last;
 
 	ts = sc_time_mono_ns();
 	rc = sc_mmap_msync(&p->map, (last & ~(4095)), (pos - last));
