@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -433,5 +434,38 @@ public class BasicTest {
         }
 
         assert (!rs.nextResultSet());
+    }
+
+    @Test
+    public void TestLarge() {
+        client.put("DROP TABLE IF EXISTS jtest;");
+        client.put("CREATE TABLE jtest (id INTEGER PRIMARY KEY, name TEXT, " +
+                           "points FLOAT, data BLOB, date TEXT);");
+        client.execute(false);
+
+        for (int i = 0; i < 100000; i++) {
+            client.put("INSERT INTO jtest VALUES(?, ?, ?, ?, ?);");
+            client.bind(0, i);
+            client.bind(1, "jane");
+            client.bind(2, 3.22);
+            client.bind(3, "test".getBytes(StandardCharsets.UTF_8));
+            client.bind(4, null);
+        }
+
+        client.execute(false);
+
+        client.put("SELECT * FROM jtest;");
+        ResultSet rs = client.execute(true);
+
+        int i = 0;
+
+        for (Row row : rs) {
+            assert ((Long) row.get(0) == i);
+            assert (row.get(1).equals("jane"));
+            assert ((Double) row.get(2) == 3.22);
+            assert (new String((byte[]) row.get(3)).equals("test"));
+            assert (row.get(4) == null);
+            i++;
+        }
     }
 }

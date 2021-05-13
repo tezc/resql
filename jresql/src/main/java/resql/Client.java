@@ -140,8 +140,6 @@ class Client implements Resql {
         try {
             sock = SocketChannel.open();
             sock.setOption(StandardSocketOptions.TCP_NODELAY, true);
-            sock.setOption(StandardSocketOptions.SO_RCVBUF, 32 * 1024);
-            sock.setOption(StandardSocketOptions.SO_SNDBUF, 32 * 1024);
             sock.socket().setSoTimeout(3000);
         } catch (IOException e) {
             disconnect();
