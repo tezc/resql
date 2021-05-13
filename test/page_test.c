@@ -35,6 +35,8 @@
 #include "rs.h"
 #include "test_util.h"
 
+#include "sc/sc_log.h"
+
 #include <string.h>
 
 static void page_open_test(void)
@@ -96,22 +98,27 @@ static void page_expand_test(void)
 	uint32_t size;
 
 	page_init(&page, test_tmp_page0, -1, prev_index);
+	sc_log_info("Page init - 1 \n");
 
 	for (int i = 0; i < 4000; i++) {
 		page_create_entry(&page, i, i, i, i, data, strlen(data) + 1);
+		sc_log_info("Page create entry - 1 \n");
 
 		if (i % 2 == 0) {
 			page_fsync(&page, 5000 + 500);
 		}
+		sc_log_info("Page fsync - 1 \n");
 	}
 
+	sc_log_info("Page quota \n");
 	size = page_quota(&page);
 	rs_assert(size < 50000000);
 
 	rs_assert(page_reserve(&page, 50000000) == RS_OK);
 	rs_assert(page_quota(&page) >= 50000000);
-
-	rs_assert(page_reserve(&page, 3 * 1024 * 1024 * 1024ull) != RS_OK);
+	sc_log_info("Page reserve \n");
+	rs_assert(page_reserve(&page, 2 * 1024 * 1024 * 1024ull) != RS_OK);
+	sc_log_info("Page reserve 2\n");
 
 	for (uint64_t i = 0; i < 4000; i++) {
 		entry = page_entry_at(&page, prev_index + 1 + i);
