@@ -219,7 +219,7 @@ static void snapshot_two()
 
 	test_server_add_auto();
 	test_server_destroy_leader();
-	sleep(15);
+	sleep(30);
 
 	c = test_client_create();
 	resql_put_sql(c, "Select count(*) from snapshot;");
