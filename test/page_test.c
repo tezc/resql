@@ -111,7 +111,7 @@ static void page_expand_test(void)
 	rs_assert(page_reserve(&page, 50000000) == RS_OK);
 	rs_assert(page_quota(&page) >= 50000000);
 
-	rs_assert(page_reserve(&page, 2 * 1024 * 1024 * 1024ull) != RS_OK);
+	rs_assert(page_reserve(&page, 3 * 1024 * 1024 * 1024ull) != RS_OK);
 
 	for (uint64_t i = 0; i < 4000; i++) {
 		entry = page_entry_at(&page, prev_index + 1 + i);
