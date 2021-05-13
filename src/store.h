@@ -61,6 +61,7 @@ void store_snapshot_taken(struct store *s);
 uint64_t store_ss_index(struct store *s);
 struct page *store_ss_page(struct store *s);
 int store_reserve(struct store *s, uint32_t size);
+bool store_last_part(struct store *s);
 
 int store_create_entry(struct store *s, uint64_t term, uint64_t seq,
 		       uint64_t cid, uint32_t flags, void *data, uint32_t len);

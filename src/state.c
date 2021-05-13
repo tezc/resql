@@ -649,6 +649,7 @@ int state_on_client_disconnect(struct state *st, const char *name, bool clean)
 
 		sc_map_del_sv(&st->names, name);
 		sc_map_del_64v(&st->ids, s->id);
+
 		session_destroy(s);
 	} else {
 		rc = aux_write_session(&st->aux, s);

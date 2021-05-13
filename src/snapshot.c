@@ -297,6 +297,8 @@ int snapshot_take(struct snapshot *ss, struct page *page)
 		.stop = false,
 	};
 
+	ss->running = true;
+
 	rc = sc_sock_pipe_write(&ss->efd, &task, sizeof(task));
 	if (rc != sizeof(task)) {
 		sc_log_error("pipe_write : %s \n", sc_sock_pipe_err(&ss->efd));
@@ -313,7 +315,6 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 	struct state state;
 	struct session *s;
 
-	ss->running = true;
 	start = sc_time_mono_ns();
 
 	first = page->prev_index + 1;

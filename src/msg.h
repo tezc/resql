@@ -297,8 +297,8 @@ bool msg_create_snapshot_req(struct sc_buf *buf, uint64_t term, uint64_t round,
 			     uint64_t offset, bool done, const void *data,
 			     uint32_t size);
 
-bool msg_create_snapshot_resp(struct sc_buf *buf, uint64_t term, uint64_t round, bool success,
-			      bool done);
+bool msg_create_snapshot_resp(struct sc_buf *buf, uint64_t term, uint64_t round,
+			      bool success, bool done);
 
 bool msg_create_info_req(struct sc_buf *buf, void *data, uint32_t size);
 bool msg_create_shutdown_req(struct sc_buf *buf, bool now);

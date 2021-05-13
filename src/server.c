@@ -460,9 +460,140 @@ static void server_update_connections(struct server *s)
 	}
 }
 
+static bool server_sending_snapshot(struct server *s)
+{
+	struct sc_list *list;
+	struct node *n;
+
+	sc_list_foreach (&s->connected_nodes, list) {
+		n = sc_list_entry(list, struct node, list);
+		if (n->next < s->ss.index) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static int server_wait_snapshot(struct server *s)
+{
+	int rc;
+
+	if (!s->ss_inprogress) {
+		return RS_NOOP;
+	}
+
+	s->ss_inprogress = false;
+
+	rc = snapshot_wait(&s->ss);
+	if (rc != RS_OK) {
+		metric_snapshot(false, 0, 0);
+		return rc;
+	}
+
+	store_snapshot_taken(&s->store);
+	metric_snapshot(true, s->ss.time, s->ss.size);
+	snapshot_replace(&s->ss);
+
+	return RS_OK;
+}
+
+static int server_create_entry(struct server *s, bool force, uint64_t seq,
+			       uint64_t cid, uint32_t flags, struct sc_buf *buf)
+{
+	bool ss_sending;
+	bool ss_running;
+	int rc;
+	uint32_t size = sc_buf_size(buf);
+	void *data = sc_buf_rbuf(buf);
+
+retry:
+	rc = store_create_entry(&s->store, s->meta.term, seq, cid, flags, data,
+				size);
+	if (rc != RS_OK && rc != RS_FULL) {
+		return rc;
+	}
+
+	if (rc == RS_FULL) {
+		ss_running = snapshot_running(&s->ss);
+		ss_sending = server_sending_snapshot(s);
+
+		if (!ss_sending || !ss_running) {
+			rc = server_wait_snapshot(s);
+			switch (rc) {
+			case RS_OK:
+				goto retry;
+			case RS_NOOP:
+				break;
+			default:
+				return rc;
+			}
+		}
+
+		if (force || !store_last_part(&s->store)) {
+			rc = store_reserve(&s->store, size);
+			switch (rc) {
+			case RS_OK:
+				goto retry;
+			case RS_FULL:
+				break;
+			default:
+				return rc;
+			}
+		}
+
+		if (s->ss_inprogress) {
+			rc = server_wait_snapshot(s);
+			switch (rc) {
+			case RS_OK:
+				goto retry;
+			case RS_NOOP:
+				break;
+			default:
+				return rc;
+			}
+		}
+
+		return force ? RS_FULL : RS_REJECT;
+	}
+
+	if (s->timestamp - s->last_ts > 10000) {
+		s->last_ts = s->timestamp;
+
+		sc_buf_clear(&s->tmp);
+		cmd_encode_timestamp(&s->tmp);
+		server_create_entry(s, true, 0, 0, CMD_TIMESTAMP, &s->tmp);
+	}
+
+	return RS_OK;
+}
+
+static int server_on_client_disconnect(struct server *s, struct client *c,
+				       enum msg_rc msg_rc)
+{
+	client_set_terminated(c);
+
+	sc_map_del_64v(&s->vclients, c->id);
+	sc_map_del_sv(&s->clients, c->name);
+	sc_array_add(&s->term_clients, c);
+
+	sc_log_debug("Client %s disconnected. \n", c->name);
+
+	if (s->role != SERVER_ROLE_LEADER) {
+		return RS_OK;
+	}
+
+	sc_buf_clear(&s->tmp);
+	cmd_encode_disconnect(&s->tmp, c->name, msg_rc == MSG_OK);
+
+	return server_create_entry(s, true, 0, 0, CMD_DISCONNECT, &s->tmp);
+}
+
 static void server_become_follower(struct server *s, struct node *leader,
 				   uint64_t term)
 {
+	struct client *c;
+
 	if (s->leader != leader) {
 		s->leader = leader;
 		meta_set_leader(&s->meta, leader ? leader->name : NULL);
@@ -477,6 +608,15 @@ static void server_become_follower(struct server *s, struct node *leader,
 	s->meta.term = term;
 
 	snapshot_clear(&s->ss);
+
+	sc_map_foreach_value (&s->clients, c) {
+		client_set_terminated(c);
+		sc_array_add(&s->term_clients, c);
+		sc_log_debug("Client %s disconnected. \n", c->name);
+	}
+
+	sc_map_clear_sv(&s->clients);
+	sc_map_clear_64v(&s->vclients);
 }
 
 void server_meta_change(struct server *s)
@@ -773,71 +913,6 @@ static void server_on_pending_disconnect(struct server *s, struct conn *in,
 	conn_destroy(in);
 }
 
-static int server_wait_snapshot(struct server *s)
-{
-	int rc;
-
-	if (!s->ss_inprogress) {
-		return RS_NOOP;
-	}
-
-	s->ss_inprogress = false;
-
-	rc = snapshot_wait(&s->ss);
-	if (rc != RS_OK) {
-		metric_snapshot(false, 0, 0);
-		return rc;
-	}
-
-	store_snapshot_taken(&s->store);
-	metric_snapshot(true, s->ss.time, s->ss.size);
-	snapshot_replace(&s->ss);
-
-	return RS_OK;
-}
-
-static int server_create_entry(struct server *s, bool force, uint64_t seq,
-			       uint64_t cid, uint32_t flags, struct sc_buf *buf)
-{
-	int rc;
-	uint32_t size = sc_buf_size(buf);
-	void *data = sc_buf_rbuf(buf);
-
-retry:
-	rc = store_create_entry(&s->store, s->meta.term, seq, cid, flags, data,
-				size);
-	if (rc == RS_FULL) {
-		rc = server_wait_snapshot(s);
-		if (rc == RS_OK) {
-			goto retry;
-		}
-
-		if (rc == RS_FULL) {
-			return rc;
-		}
-
-		if (force) {
-			rc = store_reserve(&s->store, size);
-			if (rc != RS_OK) {
-				rs_exit("Out of disk space.. \n");
-			}
-			goto retry;
-		}
-
-		return RS_FULL;
-	}
-
-	if (s->timestamp - s->last_ts > 10000) {
-		s->last_ts = s->timestamp;
-
-		sc_buf_clear(&s->tmp);
-		cmd_encode_timestamp(&s->tmp);
-		server_create_entry(s, true, 0, 0, CMD_TIMESTAMP, &s->tmp);
-	}
-
-	return RS_OK;
-}
-
 static int server_log(struct server *s, const char *level, const char *fmt, ...)
 {
 	int rc;
@@ -915,27 +990,6 @@ static int server_write_term_start_cmd(struct server *s)
 	cmd_encode_term(&s->tmp);
 
 	return server_create_entry(s, true, 0, 0, CMD_TERM, &s->tmp);
-}
-
-static int server_on_client_disconnect(struct server *s, struct client *c,
-				       enum msg_rc msg_rc)
-{
-	client_set_terminated(c);
-
-	sc_map_del_64v(&s->vclients, c->id);
-	sc_map_del_sv(&s->clients, c->name);
-	sc_array_add(&s->term_clients, c);
-
-	sc_log_debug("Client %s disconnected. \n", c->name);
-
-	if (s->role != SERVER_ROLE_LEADER) {
-		return RS_OK;
-	}
-
-	sc_buf_clear(&s->tmp);
-	cmd_encode_disconnect(&s->tmp, c->name, msg_rc == MSG_OK);
-
-	return server_create_entry(s, true, 0, 0, CMD_DISCONNECT, &s->tmp);
 }
 
 static int server_on_client_connect_req(struct server *s, struct conn *in,
@@ -1667,20 +1721,26 @@ static int server_store_entries(struct server *s, uint64_t index,
 		}
 retry:
 		rc = store_put_entry(&s->store, index, e);
+		if (rc != RS_OK && rc != RS_FULL) {
+			return rc;
+		}
+
 		if (rc == RS_FULL) {
 			rc = server_wait_snapshot(s);
-			if (rc == RS_OK) {
+			switch (rc) {
+			case RS_OK:
 				goto retry;
-			}
-
-			if (rc == RS_FULL) {
+			case RS_NOOP:
+				break;
+			default:
 				return rc;
 			}
 
 			rc = store_reserve(&s->store, total_len);
 			if (rc != RS_OK) {
-				rs_exit("Out of disk space .. \n");
+				return rc;
 			}
+
 			goto retry;
 		}
 		index++;
@@ -1831,7 +1891,7 @@ int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 	n->in_timestamp = s->timestamp;
 
 	rc = server_wait_snapshot(s);
-	if (rc == RS_FULL) {
+	if (rc != RS_OK && rc != RS_NOOP) {
 		return rc;
 	}
 
@@ -1842,7 +1902,8 @@ int server_on_snapshot_req(struct server *s, struct node *n, struct msg *msg)
 	}
 out:
 	buf = conn_out(&n->conn);
-	msg_create_snapshot_resp(buf, s->meta.term, req->round, success, req->done);
+	msg_create_snapshot_resp(buf, s->meta.term, req->round, success,
+				 req->done);
 
 	return rc;
 }

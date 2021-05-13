@@ -55,7 +55,7 @@
 #define PAGE_VERSION	       1
 #define PAGE_CRC_OFFSET	       28
 #define PAGE_PREV_INDEX_OFFSET 8
-#define PAGE_MAX_SIZE	       (1u * 1024 * 1024 * 1024)
+#define PAGE_MAX_SIZE	       (2u * 1024 * 1024 * 1024)
 
 #define PAGE_INITIAL_SIZE (32 * 1024 * 1024)
 
@@ -105,8 +105,7 @@ int page_init(struct page *p, const char *path, int64_t len,
 	p->init = false;
 
 	if (len > PAGE_MAX_SIZE) {
-		sc_log_error("Requested too big page : %" PRIi64 " \n",
-			     p->map.err);
+		sc_log_error("page_init, too big : %" PRIi64 " \n", len);
 		return RS_ERROR;
 	}
 
@@ -191,7 +190,7 @@ int page_reserve(struct page *p, uint32_t size)
 	}
 
 	if (cap > PAGE_MAX_SIZE) {
-		return RS_FAIL;
+		return RS_FULL;
 	}
 
 	path = sc_str_create(p->path);
@@ -200,19 +199,20 @@ int page_reserve(struct page *p, uint32_t size)
 
 	rc = page_init(p, path, cap, p->prev_index);
 	if (rc != RS_OK) {
-		ret = RS_FAIL;
+		ret = RS_FULL;
 		// Revert back to old size
 		rc = page_init(p, path, -1, p->prev_index);
 		if (rc != RS_OK) {
 			sc_log_error("Rollback failed : %s \n", path);
-			ret = rc;
+			ret = RS_ERROR;
 			goto out;
 		}
 	}
 
 	if (prev_index != p->prev_index || last_index != page_last_index(p) ||
 	    entry_count != page_entry_count(p)) {
-		rs_abort("Log page is corrupt : %s \n", path);
+		sc_log_error("Log page is corrupt : %s \n", path);
+		return RS_ERROR;
 	}
 
 out:
@@ -290,6 +290,11 @@ uint32_t page_cap(struct page *p)
 {
 	return sc_buf_cap(&p->buf) - PAGE_HEADER_LEN - ENTRY_HEADER_SIZE -
 	       PAGE_END_MARK_LEN;
+}
+
+bool page_last_part(struct page *p)
+{
+	return sc_buf_wpos(&p->buf) >= PAGE_MAX_SIZE / 2;
 }
 
 void page_fsync(struct page *p, uint64_t index)

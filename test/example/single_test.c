@@ -36,7 +36,6 @@
 
 static void single()
 {
-
 	test_server_create_auto(1);
 	pause();
 }

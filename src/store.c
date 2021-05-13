@@ -202,17 +202,19 @@ retry:
 	if (size > page_quota(s->curr)) {
 		if (size > page_cap(s->curr)) {
 			rc = page_reserve(s->curr, size);
-			if (rc == RS_OK) {
+			switch (rc) {
+			case RS_OK:
 				goto retry;
+			case RS_FULL:
+				break;
+			default:
+				return rc;
 			}
 		}
 
 		if (s->curr != s->pages[1]) {
 			s->curr = s->pages[1];
 			page_clear(s->curr, s->last_index);
-			if (size > page_cap(s->curr)) {
-				page_reserve(s->curr, size);
-			}
 			goto retry;
 		}
 
@@ -232,6 +234,12 @@ int store_reserve(struct store *s, uint32_t size)
 	return page_reserve(s->pages[1], size);
 }
 
+bool store_last_part(struct store *s)
+{
+	rs_assert(s->curr == s->pages[1]);
+	return page_last_part(s->curr);
+}
+
 int store_put_entry(struct store *s, uint64_t index, unsigned char *entry)
 {
 	int rc;
@@ -249,7 +257,7 @@ retry:
 				goto retry;
 			}
 
-			if (rc == RS_ERROR || rc == RS_FULL) {
+			if (rc != RS_FULL) {
 				return rc;
 			}
 		}
@@ -259,18 +267,6 @@ retry:
 
 			s->curr = s->pages[1];
 			page_clear(s->curr, s->last_index);
-
-			if (size > page_cap(s->curr)) {
-				rc = page_reserve(s->curr, size);
-				if (rc == RS_OK) {
-					goto retry;
-				}
-
-				if (rc == RS_ERROR || rc == RS_FULL) {
-					return rc;
-				}
-			}
-
 			goto retry;
 		}
 
