@@ -46,8 +46,8 @@ void write_test()
 	resql *c;
 	resql_result *rs;
 
-	test_server_create(0, 2);
-	test_server_create(1, 2);
+	test_server_create(true, 0, 2);
+	test_server_create(false, 1, 2);
 
 	c = test_client_create();
 
@@ -78,9 +78,9 @@ void kill_test()
 	resql *c;
 	resql_result *rs;
 
-	test_server_create(0, 3);
-	test_server_create(1, 3);
-	test_server_create(2, 3);
+	test_server_create(true, 0, 3);
+	test_server_create(false, 1, 3);
+	test_server_create(true, 2, 3);
 
 	c = test_client_create();
 
@@ -131,13 +131,13 @@ void kill2_test()
 	resql *c;
 	resql_result *rs;
 
-	test_server_create(0, 7);
-	test_server_create(1, 7);
-	test_server_create(2, 7);
-	test_server_create(3, 7);
-	test_server_create(4, 7);
-	test_server_create(5, 7);
-	test_server_create(6, 7);
+	test_server_create(false, 0, 7);
+	test_server_create(true, 1, 7);
+	test_server_create(true, 2, 7);
+	test_server_create(false, 3, 7);
+	test_server_create(true, 4, 7);
+	test_server_create(false, 5, 7);
+	test_server_create(true, 6, 7);
 
 	c = test_client_create();
 
@@ -184,9 +184,9 @@ void kill2_test()
 
 void pause_test()
 {
-	test_server_create(0, 3);
-	test_server_create(1, 3);
-	test_server_create(2, 3);
+	test_server_create(true, 0, 3);
+	test_server_create(false, 1, 3);
+	test_server_create(true, 2, 3);
 
 	sleep(10);
 

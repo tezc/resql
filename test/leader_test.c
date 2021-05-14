@@ -46,9 +46,9 @@ void write_test()
 	resql_stmt stmt1, stmt2;
 	struct resql_column *row;
 
-	test_server_create(0, 3);
-	test_server_create(1, 3);
-	test_server_create(2, 3);
+	test_server_create(true, 0, 3);
+	test_server_create(false, 1, 3);
+	test_server_create(true, 2, 3);
 
 	c = test_client_create();
 
@@ -60,7 +60,7 @@ void write_test()
 
 	test_server_destroy_leader();
 	test_server_destroy_leader();
-	test_server_start_auto(3);
+	test_server_start_auto(true, 3);
 
 	resql_put_sql(c, "DROP TABLE IF EXISTS snapshot;");
 	resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");
@@ -113,9 +113,9 @@ void restart_test()
 	resql_stmt stmt1, stmt2;
 	struct resql_column *row;
 
-	test_server_create(0, 3);
-	test_server_create(1, 3);
-	test_server_create(2, 3);
+	test_server_create(false, 0, 3);
+	test_server_create(true, 1, 3);
+	test_server_create(false, 2, 3);
 
 	c = test_client_create();
 
@@ -127,8 +127,8 @@ void restart_test()
 
 	test_server_destroy(0);
 	test_server_destroy(1);
-	test_server_start(0, 3);
-	test_server_start(1, 3);
+	test_server_start(true, 0, 3);
+	test_server_start(false, 1, 3);
 
 	resql_put_sql(c, "DROP TABLE IF EXISTS snapshot;");
 	resql_put_sql(c, "CREATE TABLE snapshot (key TEXT, value TEXT);");

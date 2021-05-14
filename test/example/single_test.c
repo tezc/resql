@@ -32,11 +32,24 @@
 #include "server.h"
 #include "test_util.h"
 
+#include "sc/sc_str.h"
 #include <unistd.h>
 
 static void single()
 {
-	test_server_create_auto(1);
+	struct conf conf;
+
+	conf_init(&conf);
+	sc_str_set(&conf.node.dir, "/tmp/node0");
+	conf.node.in_memory = false;
+
+	test_server_create_conf(&conf, 0);
+	test_server_destroy(0);
+
+	conf_init(&conf);
+	sc_str_set(&conf.node.dir, "/tmp/node0");
+	conf.node.in_memory = false;
+	test_server_create_conf(&conf, 0);
 	pause();
 }
 

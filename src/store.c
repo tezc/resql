@@ -59,6 +59,7 @@ static int store_read(struct store *s)
 {
 	int rc;
 	size_t c, count;
+	uint64_t prev, last;
 	char buf[PATH_MAX];
 
 	rs_snprintf(buf, sizeof(buf), "%s/%s", s->path, DEF_PAGE_FILE_0);
@@ -73,15 +74,18 @@ static int store_read(struct store *s)
 		goto cleanup_second;
 	}
 
-	if (s->pages[1]->prev_index < s->pages[0]->prev_index) {
+	if (page_prev_index(s->pages[1]) < page_prev_index(s->pages[0])) {
 		store_swap(s);
 	}
 
-	if (s->pages[0]->prev_index != s->ss_index) {
+	prev = page_prev_index(s->pages[0]);
+	last = page_last_index(s->pages[0]);
+
+	if (prev > s->ss_index || last <= s->ss_index) {
 		page_clear(s->pages[0], s->ss_index);
 	}
 
-	if (s->pages[1]->prev_index != page_last_index(s->pages[0])) {
+	if (page_prev_index(s->pages[1]) != last) {
 		page_clear(s->pages[1], s->ss_index);
 	}
 
@@ -90,11 +94,11 @@ static int store_read(struct store *s)
 	}
 
 	sc_log_info("Log page [%s] from (%" PRIu64 ",%" PRIu64 "] \n",
-		    s->pages[0]->path, s->pages[0]->prev_index,
+		    s->pages[0]->path, page_prev_index(s->pages[0]),
 		    page_last_index(s->pages[0]));
 
 	sc_log_info("Log page [%s] from (%" PRIu64 ",%" PRIu64 "] \n",
-		    s->pages[1]->path, s->pages[1]->prev_index,
+		    s->pages[1]->path, page_prev_index(s->pages[1]),
 		    page_last_index(s->pages[1]));
 
 	c = page_entry_count(s->pages[1]);

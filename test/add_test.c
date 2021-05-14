@@ -44,8 +44,8 @@ void test_one()
 	resql_result *rs;
 	struct resql_column *row;
 
-	test_server_create(0, 1);
-	test_server_add_auto();
+	test_server_create(true, 0, 1);
+	test_server_add_auto(false);
 	c = test_client_create();
 
 	resql_put_sql(
@@ -81,9 +81,9 @@ void test_one()
 	value = row[1].intval;
 	memcpy(blob, row[2].blob, row[2].len);
 
-	test_server_add_auto();
-	test_server_add_auto();
-	test_server_add_auto();
+	test_server_add_auto(false);
+	test_server_add_auto(true);
+	test_server_add_auto(false);
 	test_server_destroy_leader();
 
 	resql_put_sql(c, "SELECT random(), random(), randomblob(64);");

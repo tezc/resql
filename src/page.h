@@ -65,6 +65,7 @@ uint32_t page_quota(struct page *p);
 uint32_t page_cap(struct page *p);
 bool page_last_part(struct page *p);
 
+uint64_t page_prev_index(struct page *p);
 uint64_t page_last_index(struct page *p);
 uint64_t page_last_term(struct page *p);
 unsigned char *page_last_entry(struct page *p);

@@ -45,7 +45,7 @@ static void client_simple()
 	struct resql_column *row;
 	struct resql_result *rs = NULL;
 
-	test_server_create(0, 1);
+	test_server_create(true, 0, 1);
 	c = test_client_create();
 
 	for (int i = 0; i < 100; i++) {
@@ -90,7 +90,7 @@ static void client_prepared()
 	resql_stmt stmt = 0;
 	struct resql_column *row;
 
-	test_server_create(0, 1);
+	test_server_create(false, 0, 1);
 	c = test_client_create();
 
 	rc = resql_del_prepared(c, &stmt);
@@ -162,7 +162,7 @@ static void client_error()
 	resql *c;
 	resql_stmt stmt = 0;
 
-	test_server_create(0, 1);
+	test_server_create(false, 0, 1);
 	c = test_client_create();
 
 	rc = resql_del_prepared(c, &stmt);
@@ -263,7 +263,7 @@ static void client_many()
 	resql_stmt stmt = 0;
 	struct resql_result *rs = NULL;
 
-	test_server_create(0, 1);
+	test_server_create(true, 0, 1);
 	c = test_client_create();
 
 	rc = resql_del_prepared(c, &stmt);
@@ -302,7 +302,7 @@ static void client_big()
 	resql_stmt stmt = 0;
 	struct resql_result *rs = NULL;
 
-	test_server_create(0, 1);
+	test_server_create(false, 0, 1);
 	c = test_client_create();
 
 	rc = resql_del_prepared(c, &stmt);

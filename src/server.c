@@ -800,13 +800,13 @@ int server_read_meta(struct server *s)
 		return rc;
 	}
 
-	rc = store_init(&s->store, s->conf.node.dir, state->term, state->index);
+	rc = store_init(&s->store, s->conf.node.dir, state->ss_term, state->ss_index);
 	if (rc != RS_OK) {
 		return rc;
 	}
 
-	rc = snapshot_open(&s->ss, s->state.ss_path, s->state.term,
-			   s->state.index);
+	rc = snapshot_open(&s->ss, s->state.ss_path, s->state.ss_term,
+			   s->state.ss_index);
 	if (rc != RS_OK) {
 		return rc;
 	}
@@ -1441,9 +1441,23 @@ static void server_on_full_disk(struct server *s)
 	s->full_timer = sc_timer_add(&s->timer, 10000, SERVER_TIMER_FULL, NULL);
 }
 
-static int server_restart(struct server *s)
+static int server_restart(struct server *s, int reason)
 {
 	int rc;
+
+	rc = state_close(&s->state);
+	if (rc != RS_OK) {
+		rs_exit("state_close : %d ", rc);
+	}
+
+	if (reason == RS_SNAPSHOT) {
+		if (!s->conf.node.in_memory) {
+			rc = file_remove_path(s->state.path);
+			if (rc != RS_OK) {
+				rs_exit("snapshot failure");
+			}
+		}
+	}
 
 	rc = server_close(s);
 	if (rc != RS_OK && rc != RS_FULL) {
@@ -2766,7 +2780,7 @@ void server_handle_rc(struct server *s, int rc)
 		server_on_full_disk(s);
 		break;
 	case RS_SNAPSHOT:
-		rc = server_restart(s);
+		rc = server_restart(s, RS_SNAPSHOT);
 		if (rc == RS_FULL) {
 			server_on_full_disk(s);
 		}

@@ -48,9 +48,9 @@
 #include <inttypes.h>
 
 #define STATE_FILE	   "state.resql"
+#define STATE_TMP_FILE	   "state.tmp.resql"
 #define STATE_SS_FILE	   "snapshot.resql"
 #define STATE_SS_TMP_FILE  "snapshot.tmp.resql"
-#define STATE_SS_COPY_FILE "snapshot.copy.resql"
 
 thread_local struct state *t_state;
 static sqlite3_vfs ext;
@@ -227,6 +227,7 @@ void state_init(struct state *st, struct state_cb cb, const char *path,
 
 	st->cb = cb;
 	st->path = sc_str_create_fmt("%s/%s", path, STATE_FILE);
+	st->tmp_path = sc_str_create_fmt("%s/%s", path, STATE_TMP_FILE);
 	st->ss_path = sc_str_create_fmt("%s/%s", path, STATE_SS_FILE);
 	st->ss_tmp_path = sc_str_create_fmt("%s/%s", path, STATE_SS_TMP_FILE);
 	st->max_page = UINT_MAX;
@@ -249,6 +250,7 @@ int state_term(struct state *st)
 
 	sc_buf_term(&st->tmp);
 	sc_str_destroy(&st->path);
+	sc_str_destroy(&st->tmp_path);
 	sc_str_destroy(&st->ss_path);
 	sc_str_destroy(&st->ss_tmp_path);
 
@@ -325,6 +327,8 @@ int state_write_vars(struct state *st, struct aux *aux)
 
 	sc_buf_put_64(&st->tmp, st->term);
 	sc_buf_put_64(&st->tmp, st->index);
+	sc_buf_put_64(&st->tmp, st->ss_term);
+	sc_buf_put_64(&st->tmp, st->ss_index);
 	meta_encode(&st->meta, &st->tmp);
 
 	sc_buf_put_64(&st->tmp, st->timestamp);
@@ -362,6 +366,8 @@ int state_read_vars(struct state *st, struct aux *aux)
 
 	st->term = sc_buf_get_64(&st->tmp);
 	st->index = sc_buf_get_64(&st->tmp);
+	st->ss_term = sc_buf_get_64(&st->tmp);
+	st->ss_index = sc_buf_get_64(&st->tmp);
 	meta_decode(&st->meta, &st->tmp);
 
 	st->timestamp = sc_buf_get_64(&st->tmp);
@@ -428,12 +434,22 @@ int state_read_snapshot(struct state *st, bool in_memory)
 			goto cleanup_aux;
 		}
 	} else {
-		rc = file_copy(st->path, st->ss_path);
+		b = file_exists_at(st->path);
+		sc_log_info("Found state file : %s \n", b ? "yes" : " no");
+
+		if (!b) {
+			rc = file_copy(st->path, st->ss_path);
+			if (rc != RS_OK) {
+				return rc;
+			}
+		}
+
+		rc = file_rename(st->tmp_path, st->path);
 		if (rc != RS_OK) {
 			return rc;
 		}
 
-		rc = aux_init(&st->aux, st->path, 0);
+		rc = aux_init(&st->aux, st->tmp_path, 0);
 		if (rc != RS_OK) {
 			return rc;
 		}
@@ -457,6 +473,9 @@ int state_read_for_snapshot(struct state *st)
 {
 	bool b;
 	int rc;
+
+	st->snapshot = true;
+	st->in_memory = false;
 
 	b = file_exists_at(st->ss_path);
 	if (!b) {
@@ -487,10 +506,10 @@ int state_open(struct state *st, bool in_memory)
 {
 	int rc;
 
-	rc = file_remove_path(st->path);
-	if (rc != RS_OK) {
-		return rc;
-	}
+	st->in_memory = in_memory;
+	st->snapshot = false;
+
+	file_remove_path(st->tmp_path);
 
 	rc = file_remove_path(st->ss_tmp_path);
 	if (rc != RS_OK) {
@@ -569,6 +588,13 @@ int state_close(struct state *st)
 		rc = aux_term(&st->aux);
 		if (rc != RS_OK) {
 			ret = rc;
+		}
+
+		if (!st->snapshot && !st->in_memory) {
+			rc = file_rename(st->path, st->tmp_path);
+			if (rc != RS_OK) {
+				ret = rc;
+			}
 		}
 	}
 

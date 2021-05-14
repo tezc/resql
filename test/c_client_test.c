@@ -1001,9 +1001,9 @@ int main(int argc, char *argv[])
 	resql_init();
 	init_all();
 
-	test_server_create(0, 3);
-	test_server_create(1, 3);
-	test_server_create(2, 3);
+	test_server_create(true, 0, 3);
+	test_server_create(false, 1, 3);
+	test_server_create(false, 2, 3);
 
 	test_client_execute(test_last_insert_id);
 	test_client_execute(test_reset);

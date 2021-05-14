@@ -164,7 +164,7 @@ void test_util_run(void (*test_fn)(void), const char *fn_name)
 	sc_log_info("[ Passed  ] %s  \n", fn_name);
 }
 
-struct server *test_server_start(int id, int cluster_size)
+struct server *test_server_start(bool in_memory, int id, int cluster_size)
 {
 	char *opt[] = {""};
 
@@ -183,7 +183,7 @@ struct server *test_server_start(int id, int cluster_size)
 	sc_str_set(&conf.node.ad_url, urls[id]);
 	sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
 	sc_str_set(&conf.node.dir, dirs[id]);
-	conf.advanced.fsync = false;
+	conf.node.in_memory = in_memory;
 
 	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
@@ -213,7 +213,7 @@ struct server *test_server_create_conf(struct conf *conf, int id)
 	return s;
 }
 
-struct server *test_server_create_auto(int cluster_size)
+struct server *test_server_create_auto(bool in_memory, int cluster_size)
 {
 	int i;
 
@@ -223,10 +223,10 @@ struct server *test_server_create_auto(int cluster_size)
 		}
 	}
 
-	return test_server_create(i, cluster_size);
+	return test_server_create(in_memory, i, cluster_size);
 }
 
-struct server *test_server_start_auto(int cluster_size)
+struct server *test_server_start_auto(bool in_memory, int cluster_size)
 {
 	int i;
 
@@ -236,10 +236,10 @@ struct server *test_server_start_auto(int cluster_size)
 		}
 	}
 
-	return test_server_start(i, cluster_size);
+	return test_server_start(in_memory, i, cluster_size);
 }
 
-struct server *test_server_create(int id, int cluster_size)
+struct server *test_server_create(bool in_memory, int id, int cluster_size)
 {
 	char *opt[] = {""};
 
@@ -260,6 +260,7 @@ struct server *test_server_create(int id, int cluster_size)
 	sc_str_set(&conf.node.ad_url, urls[id]);
 	sc_str_set(&conf.cluster.nodes, nodes[cluster_size - 1]);
 	sc_str_set(&conf.node.dir, dirs[id]);
+	conf.node.in_memory = in_memory;
 
 	conf_read_config(&conf, false, sizeof(opt) / sizeof(char *), opt);
 
@@ -274,7 +275,7 @@ struct server *test_server_create(int id, int cluster_size)
 	return s;
 }
 
-struct server *test_server_add_auto()
+struct server *test_server_add_auto(bool in_memory)
 {
 	int i;
 	int rc;
@@ -294,7 +295,7 @@ struct server *test_server_add_auto()
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	s = test_server_create(i, 1);
+	s = test_server_create(in_memory, i, 1);
 	test_wait_until_size(count);
 
 	return s;
@@ -319,7 +320,7 @@ retry:
 	}
 }
 
-void test_server_add(int id, int cluster_size)
+void test_server_add(bool in_memory, int id, int cluster_size)
 {
 	int rc;
 	resql *c;
@@ -331,7 +332,7 @@ void test_server_add(int id, int cluster_size)
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	test_server_create(id, cluster_size);
+	test_server_create(in_memory, id, cluster_size);
 	test_wait_until_size(cluster_size);
 }
 

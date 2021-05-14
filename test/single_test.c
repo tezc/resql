@@ -34,7 +34,7 @@
 
 void test_one()
 {
-	test_server_create(0, 1);
+	test_server_create(true, 0, 1);
 	test_client_create();
 }
 
@@ -42,7 +42,7 @@ void test_sizes()
 {
 	for (int i = 1; i <= 9; i++) {
 		for (int j = 0; j < i; j++) {
-			test_server_create(j, i);
+			test_server_create(true, j, i);
 		}
 
 		test_client_create();
@@ -57,7 +57,40 @@ void test_client()
 	resql *c;
 	resql_result *rs;
 
-	test_server_create(0, 1);
+	test_server_create(true, 0, 1);
+	c = test_client_create();
+
+	resql_put_sql(c, "SELECT * FROM resql_clients;");
+	rc = resql_exec(c, true, &rs);
+	client_assert(c, rc == RESQL_OK);
+}
+
+void test_one_disk()
+{
+	test_server_create(false, 0, 1);
+	test_client_create();
+}
+
+void test_sizes_disk()
+{
+	for (int i = 1; i <= 9; i++) {
+		for (int j = 0; j < i; j++) {
+			test_server_create(false, j, i);
+		}
+
+		test_client_create();
+		test_client_destroy_all();
+		test_server_destroy_all();
+	}
+}
+
+void test_client_disk()
+{
+	int rc;
+	resql *c;
+	resql_result *rs;
+
+	test_server_create(false, 0, 1);
 	c = test_client_create();
 
 	resql_put_sql(c, "SELECT * FROM resql_clients;");
@@ -70,5 +103,9 @@ int main()
 	test_execute(test_one);
 	test_execute(test_client);
 	test_execute(test_sizes);
+
+	test_execute(test_one_disk);
+	test_execute(test_client_disk);
+	test_execute(test_sizes_disk);
 	return 0;
 }
