@@ -1,0 +1,163 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      current:
+        description: 'current'
+        required: true
+      release:
+        description: 'release'
+        required: true
+      next:
+        description: 'next'
+        required: true
+jobs:
+  create-release-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token : ${{ secrets.GIT_TOKEN }}
+      - name: Commit report
+        run: |
+          git config --global user.name tezc
+          git config --global user.email tezc@users.noreply.github.com
+          git config --global user.name
+          git config --global user.email
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" cresql/resql.h)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" goresql/client.go)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" jresql/src/main/java/resql/Resql.java)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" jresql/pom.xml)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" src/rs.h)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/cli/resql_cli.c)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/benchmark/resql_benchmark.c)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/alpine/Dockerfile)
+          (set -x; sed -i "s/${{ github.event.inputs.current }}/${{ github.event.inputs.release }}/g" util/docker/debian/Dockerfile)
+          git commit -am "[skip ci] bump version to v${{ github.event.inputs.release }}"
+          git push origin master
+          git tag v${{ github.event.inputs.release }}
+          git tag goresql/v${{ github.event.inputs.release }}
+          git push origin --tags
+
+  release-maven:
+    needs: create-release-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: v${{ github.event.inputs.release }}
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+          java-package: jdk
+
+      - name: Build with Maven
+        run: |
+          cd jresql
+          mvn -B package -DskipTests --file pom.xml
+
+      - name: Set up Apache Maven Central
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_CENTRAL_TOKEN
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Publish to Apache Maven Central
+        run: |
+          cd jresql
+          mvn deploy --batch-mode -DskipTests --no-transfer-progress
+        env:
+          MAVEN_USERNAME: tezc
+          MAVEN_CENTRAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+
+  release-go-doc:
+    needs: create-release-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13.1'
+      - run: GOPROXY=https://proxy.golang.org GO111MODULE=on go get github.com/tezc/resql/goresql@v${{ github.event.inputs.release }}
+
+  release-docker-debian:
+    needs: create-release-commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: v${{ github.event.inputs.release }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: util/docker/debian
+          platforms: linux/amd64,linux/arm64,
+          push: true
+          tags: tezc/resql:latest,tezc/resql:${{ github.event.inputs.release }}
+
+  release-docker-alpine:
+    needs: create-release-commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: v${{ github.event.inputs.release }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: util/docker/alpine
+          platforms: linux/amd64,linux/arm64,
+          push: true
+          tags: tezc/resql:alpine,tezc/resql:${{ github.event.inputs.release }}-alpine
+
+  update-next-version:
+    needs: create-release-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GIT_TOKEN }}
+      - name: Commit report
+        run: |
+          git config --global user.name tezc
+          git config --global user.email tezc@users.noreply.github.com
+          git config --global user.name
+          git config --global user.email
+          git pull
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" cresql/resql.h)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" goresql/client.go)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" jresql/src/main/java/resql/Resql.java)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" jresql/pom.xml)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" src/rs.h)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/cli/resql_cli.c)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/benchmark/resql_benchmark.c)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/alpine/Dockerfile)
+          (set -x; sed -i "s/${{ github.event.inputs.release }}/${{ github.event.inputs.next }}/g" util/docker/debian/Dockerfile)
+          git commit -am "[skip ci] bump version to v${{ github.event.inputs.next }}"
+          git push origin master

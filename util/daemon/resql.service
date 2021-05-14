@@ -1,0 +1,12 @@
+[Unit]
+Description=Resql database daemon
+After=network.target
+
+[Service]
+WorkingDirectory=/tmp/resql
+Type=notify
+ExecStart=/usr/local/bin/resql -c=/etc/resql.ini --systemd
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

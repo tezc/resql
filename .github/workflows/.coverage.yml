@@ -1,0 +1,23 @@
+name: "Coverage"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    name: Coverage
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        run: |
+          sudo apt-get install cmake lcov
+          mkdir build && cd build
+          cmake .. -DRESQL_BUILD_TESTS=1 -DCMAKE_BUILD_TYPE=Coverage
+          make -j
+          make coverage
+          bash <(curl -s https://codecov.io/bash) -f test/coverage.info -t ${{ secrets.CODECOV }}
