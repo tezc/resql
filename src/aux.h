@@ -64,7 +64,7 @@ int aux_load_to_memory(struct aux *aux, const char *from);
 int aux_prepare(struct aux *aux);
 
 int aux_clear_nodes(struct aux *aux);
-int aux_write_node(struct aux *aux, struct info *info);
+int aux_write_node(struct aux *aux, struct info *n);
 
 int aux_add_log(struct aux *aux, uint64_t id, const char *level,
 		const char *log);
