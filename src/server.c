@@ -1550,7 +1550,7 @@ static int server_on_reqvote_req(struct server *s, struct node *n,
 		goto out;
 	}
 
-	if (req->term > s->meta.term && req->last_log_index >= last_index) {
+	if (req->term >= s->meta.term && req->last_log_index >= last_index) {
 		grant = true;
 		rc = server_update_meta(s, req->term, n->name);
 		if (rc != RS_OK) {
@@ -1613,7 +1613,7 @@ static int server_on_prevote_req(struct server *s, struct node *n,
 		goto out;
 	}
 
-	if (req->term > s->meta.term && req->last_log_index >= index) {
+	if (req->term >= s->meta.term && req->last_log_index >= index) {
 		result = true;
 	}
 
