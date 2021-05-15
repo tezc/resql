@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [ gcc, clang ]
+        compiler: [ gcc ]
     steps:
       - uses: actions/checkout@v2.1.0
       - name: build
