@@ -331,26 +331,26 @@ static void *sc_instruction(ucontext_t *uc)
 	(void) uc;
 	void *p = NULL;
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6)
 	#if defined(_STRUCT_X86_THREAD_STATE64) && !defined(__i386__)
 		p = (void *) uc->uc_mcontext->__ss.__rip;
 	#elif defined(__i386__)
 		p = (void *) uc->uc_mcontext->__ss.__eip;
 	#else
-		p = (void *) arm_thread_state64_get_pc(uc->uc_mcontext->__ss);
+		p = (void *) (uintptr_t) arm_thread_state64_get_pc(uc->uc_mcontext->__ss);
 	#endif
 #elif defined(__linux__)
-#if defined(__i386__) || ((defined(__x86_64__)) && defined(__ILP32__))
-	p = (void *) uc->uc_mcontext.gregs[REG_EIP];
-#elif defined(__x86_64__)
-	p = (void *) uc->uc_mcontext.gregs[REG_RIP];
-#elif defined(__ia64__)
-	p = (void *) uc->uc_mcontext.sc_ip;
+	#if defined(__i386__) || ((defined(__x86_64__)) && defined(__ILP32__))
+		p = (void *) uc->uc_mcontext.gregs[REG_EIP];
+	#elif defined(__x86_64__)
+		p = (void *) uc->uc_mcontext.gregs[REG_RIP];
+	#elif defined(__ia64__)
+		p = (void *) uc->uc_mcontext.sc_ip;
 	#elif defined(__arm__)
 		p = (void *) uc->uc_mcontext.arm_pc;
 	#elif defined(__aarch64__)
 		p = (void *) uc->uc_mcontext.pc;
-#endif
+	#endif
 #elif defined(__FreeBSD__)
 	#if defined(__i386__)
 		p = (void *) uc->uc_mcontext.mc_eip;
