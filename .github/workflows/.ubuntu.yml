@@ -29,9 +29,58 @@ jobs:
           make -j
           make check
           rm -rf *
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=address
+          make -j
+          make check
+          rm -rf *
+          cd ..
+          ./build.sh
+
+  ubuntu-32bit:
+    runs-on: ubuntu-latest
+    name: Build on Ubuntu 32 bit
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [ gcc, clang ]
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          sudo apt update
+          sudo apt-get install valgrind cmake libc6-dev-i386
+          mkdir build-debug && cd build-debug
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=undefined -DCMAKE_C_FLAGS=-m32
+          make -j
+          make check
+          rm -rf *
           cmake .. -DCMAKE_BUILD_TYPE=Debug -DRESQL_BUILD_TESTS=1 -DSANITIZER=address -DCMAKE_C_FLAGS=-m32
           make -j
           make check
           rm -rf *
           cd ..
           ./build.sh
+
+  ubuntu-release-build:
+    runs-on: ubuntu-latest
+    name: Release build on Ubuntu
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [ gcc, clang ]
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - name: build
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          sudo apt update
+          sudo apt-get install valgrind cmake libc6-dev-i386
+          mkdir build-release && cd build-release
+          cmake .. -DRESQL_BUILD_TESTS=1
+          make -j
+          make check
