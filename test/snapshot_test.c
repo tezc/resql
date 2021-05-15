@@ -218,9 +218,7 @@ static void snapshot_two()
 	rs_assert(resql_next(rs) == false);
 
 	test_server_add_auto(true);
-	sleep(10);
 	test_server_destroy_leader();
-	sleep(30);
 
 	c = test_client_create();
 	resql_put_sql(c, "Select count(*) from snapshot;");
@@ -426,9 +424,7 @@ static void snapshot_two_disk()
 	rs_assert(resql_next(rs) == false);
 
 	test_server_add_auto(false);
-	sleep(10);
 	test_server_destroy_leader();
-	sleep(30);
 
 	c = test_client_create();
 	resql_put_sql(c, "Select count(*) from snapshot;");

@@ -188,7 +188,7 @@ void pause_test()
 	test_server_create(false, 1, 3);
 	test_server_create(true, 2, 3);
 
-	sleep(10);
+	test_wait_until_size(3);
 
 	test_client_create();
 }

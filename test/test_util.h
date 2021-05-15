@@ -67,6 +67,7 @@ void test_server_destroy_all();
 void test_server_destroy_leader();
 
 resql *test_client_create();
+resql *test_client_create_timeout(uint32_t timeout);
 void test_client_destroy(resql *c);
 void test_client_destroy_all();
 

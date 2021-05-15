@@ -303,13 +303,22 @@ struct server *test_server_add_auto(bool in_memory)
 
 void test_wait_until_size(int size)
 {
-	int rc;
+	int rc, try = 0;
 	resql *c;
 	struct resql_column *row;
 	resql_result *rs;
 
-	c = test_client_create();
 retry:
+	try++;
+	c = test_client_create_timeout(2000);
+	if (c == NULL) {
+		if (try >= 100) {
+			printf("test_wait_until_size failure.");
+			abort();
+		}
+		goto retry;
+	}
+
 	resql_put_sql(c, "SELECT count(*) FROM resql_nodes;");
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
@@ -429,6 +438,47 @@ resql *test_client_create()
 	if (rc != RESQL_OK) {
 		printf("Failed rs : %d \n", rc);
 		abort();
+	}
+
+	found = false;
+	for (int i = 0; i < 256; i++) {
+		if (clients[i] == NULL) {
+			clients[i] = c;
+			found = true;
+			break;
+		}
+	}
+
+	rs_assert(found);
+	client_count++;
+
+	return c;
+}
+
+resql *test_client_create_timeout(uint32_t timeout)
+{
+	rs_assert(client_count < 256);
+
+	int rc;
+	bool found;
+	const char *url = urls[0];
+	resql *c;
+
+	for (int i = 0; i < 9; i++) {
+		if (cluster[i] != NULL) {
+			url = urls[i];
+			break;
+		}
+	}
+
+	struct resql_config conf = {
+		.urls = url,
+		.timeout_millis = timeout,
+	};
+
+	rc = resql_create(&c, &conf);
+	if (rc != RESQL_OK) {
+		return NULL;
 	}
 
 	found = false;
