@@ -306,7 +306,7 @@ void page_fsync(struct page *p, uint64_t index)
 {
 	int rc;
 	uint64_t ts;
-	uint32_t pos, last;
+	uint32_t pos;
 
 	if (index <= p->prev_index || index > page_last_index(p) ||
 	    p->flush_index >= index) {
@@ -318,10 +318,8 @@ void page_fsync(struct page *p, uint64_t index)
 		return;
 	}
 
-	last = p->flush_pos;
-
 	ts = sc_time_mono_ns();
-	rc = sc_mmap_msync(&p->map, (last & ~(4095)), (pos - last));
+	rc = sc_mmap_msync(&p->map, p->flush_pos, (pos - p->flush_pos));
 	if (rc != 0) {
 		// This should never fail
 		rs_abort("msync : %s \n", strerror(errno));
