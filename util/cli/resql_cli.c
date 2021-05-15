@@ -601,6 +601,7 @@ void resql_print_help()
 	       "                         is automatic, if table does not fit the \n"
 	       "                         screen, it will be printed vertical     \n");
 	printf(" .help                   Print help screen \n");
+	printf(" .exit                   Exit CLI \n");
 }
 
 void resql_cli_init(struct resql_cli *cli)
@@ -687,6 +688,8 @@ int main(int argc, char **argv)
 			resql_print_all_indexes();
 		} else if (!strncmp(line, ".schema", 7)) {
 			resql_print_schema(line);
+		} else if (!strncmp(line, ".exit", 5)) {
+			break;
 		} else if (line[0] == '.') {
 			printf("Unrecognized command: %s\n\n", line);
 			resql_print_help();
