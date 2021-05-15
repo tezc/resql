@@ -39,9 +39,9 @@
 static void multi()
 {
 
-	test_server_create(0, 3);
-	test_server_create(1, 3);
-	test_server_create(2, 3);
+	test_server_create(true, 0, 3);
+	test_server_create(true, 1, 3);
+	test_server_create(true, 2, 3);
 
 	pause();
 }
