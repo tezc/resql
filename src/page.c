@@ -256,6 +256,11 @@ uint32_t page_entry_count(struct page *p)
 	return (uint32_t) sc_array_size(&p->entries);
 }
 
+uint64_t page_prev_index(struct page *p)
+{
+	return p->prev_index;
+}
+
 uint64_t page_last_index(struct page *p)
 {
 	return p->prev_index + sc_array_size(&p->entries);

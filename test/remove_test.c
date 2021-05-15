@@ -44,8 +44,8 @@ void test_one()
 	resql_result *rs;
 	struct resql_column *row;
 
-	test_server_create(0, 2);
-	test_server_create(1, 2);
+	test_server_create(true, 0, 2);
+	test_server_create(false, 1, 2);
 	c = test_client_create();
 
 	resql_put_sql(
@@ -73,7 +73,7 @@ void test_one()
 	value = row[1].intval;
 	memcpy(blob, row[2].blob, row[2].len);
 
-	test_server_add(2, 3);
+	test_server_add(true, 2, 3);
 	test_server_remove(0);
 	test_server_remove(2);
 

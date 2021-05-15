@@ -48,7 +48,7 @@ static void restart_simple()
 	struct resql_column *row;
 	struct resql_result *rs = NULL;
 
-	test_server_create(0, 1);
+	test_server_create(true, 0, 1);
 	c = test_client_create();
 
 	for (int i = 0; i < 100; i++) {
@@ -70,7 +70,7 @@ static void restart_simple()
 	}
 
 	test_server_destroy_all();
-	test_server_start(0, 1);
+	test_server_start(true, 0, 1);
 
 	for (int i = 0; i < 100; i++) {
 		resql_put_sql(c, "Select 'resql'");
@@ -99,7 +99,7 @@ static void restart_simple2()
 	struct resql_column *row;
 	struct resql_result *rs = NULL;
 
-	test_server_create(0, 1);
+	test_server_create(true, 0, 1);
 	c = test_client_create();
 
 	for (int i = 0; i < 100; i++) {
@@ -122,11 +122,11 @@ static void restart_simple2()
 
 	test_server_destroy_all();
 
-	test_server_start(0, 1);
+	test_server_start(true, 0, 1);
 	test_server_destroy_all();
 
 	test_client_destroy_all();
-	test_server_start(0, 1);
+	test_server_start(true, 0, 1);
 	test_client_create();
 }
 

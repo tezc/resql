@@ -308,7 +308,7 @@ int snapshot_take(struct snapshot *ss, struct page *page)
 	return RS_OK;
 }
 
-static void snapshot_compact(struct snapshot *ss, struct page *page)
+static void snapshot_compact(struct snapshot *ss, struct page *p)
 {
 	int rc;
 	uint64_t first, last, start;
@@ -317,22 +317,24 @@ static void snapshot_compact(struct snapshot *ss, struct page *page)
 
 	start = sc_time_mono_ns();
 
-	first = page->prev_index + 1;
-	last = page_last_index(page);
-
 	state_init(&state, (struct state_cb){0}, ss->server->conf.node.dir, "");
 	rc = state_read_for_snapshot(&state);
 	if (rc != RS_OK) {
 		goto error;
 	}
 
+	first = state.index + 1;
+	last = page_last_index(p);
+
 	for (uint64_t j = first; j <= last; j++) {
-		rc = state_apply(&state, j, page_entry_at(page, j), &s);
+		rc = state_apply(&state, j, page_entry_at(p, j), &s);
 		if (rc != RS_OK) {
 			goto error;
 		}
 	}
 
+	state.ss_index = state.index;
+	state.ss_term = state.term;
 	state_close(&state);
 	file_remove_path(state.ss_path);
 
@@ -361,7 +363,8 @@ error:
 	ss->running = false;
 	sc_log_info("snapshot failure in : %" PRIu64
 		    " milliseconds, for [%" PRIu64 ",%" PRIu64 "] \n",
-		    ss->time / 1000 / 1000, first, last);
+		    ss->time / 1000 / 1000, p->prev_index + 1,
+		    page_last_index(p));
 }
 
 static void *snapshot_run(void *arg)

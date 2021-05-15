@@ -433,88 +433,54 @@ out:
 	return aux_rc(rc);
 }
 
-int aux_write_node(struct aux *aux, struct info *info)
+int aux_write_node(struct aux *aux, struct info *n)
 {
 	int rc = 0;
 	sqlite3_stmt *stmt = aux->add_node;
 
-	rc |= sqlite3_bind_text(stmt, 1, info->name, -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 2, info->connected, -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 3, info->role, -1, NULL);
-	rc |= sqlite3_bind_text(stmt, 4, info->urls, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 1, n->name, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 2, n->connected, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 3, n->role, -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 4, n->urls, -1, NULL);
 
-	if (sc_buf_size(&info->stats) == 0) {
+	if (sc_buf_size(&n->stats) == 0) {
 		goto out;
 	}
 
-	rc |= sqlite3_bind_text(stmt, 5, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 6, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 7, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 8, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 9, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 10, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 11, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 12, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 13, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 14, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 15, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 16, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 17, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 18, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 19, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 20, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 21, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 22, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 23, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 24, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 25, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 26, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 27, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 28, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 29, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 30, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 31, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 32, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 33, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 34, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 35, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 36, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&info->stats), -1,
-				NULL);
-	rc |= sqlite3_bind_text(stmt, 38, sc_buf_get_str(&info->stats), -1,
-				NULL);
+	rc |= sqlite3_bind_text(stmt, 5, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 6, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 7, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 8, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 9, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 10, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 11, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 12, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 13, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 14, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 15, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 16, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 17, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 18, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 19, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 20, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 21, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 22, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 23, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 24, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 25, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 26, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 27, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 28, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 29, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 30, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 31, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 32, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 33, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 34, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 35, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 36, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 37, sc_buf_get_str(&n->stats), -1, NULL);
+	rc |= sqlite3_bind_text(stmt, 38, sc_buf_get_str(&n->stats), -1, NULL);
 out:
 	if (rc != SQLITE_OK) {
 		goto cleanup;

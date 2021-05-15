@@ -52,14 +52,14 @@ void init_all();
 void test_util_run(void (*test_fn)(void), const char *fn_name);
 
 struct server *test_server_create_conf(struct conf *conf, int id);
-struct server *test_server_create_auto(int cluster_size);
-struct server *test_server_create(int id, int cluster_size);
-struct server *test_server_start_auto(int cluster_size);
-struct server *test_server_start(int id, int cluster_size);
-struct server *test_server_add_auto();
+struct server *test_server_create_auto(bool in_memory, int cluster_size);
+struct server *test_server_create(bool in_memory, int id, int cluster_size);
+struct server *test_server_start_auto(bool in_memory, int cluster_size);
+struct server *test_server_start(bool in_memory, int id, int cluster_size);
+struct server *test_server_add_auto(bool in_memory);
 
 void test_wait_until_size(int size);
-void test_server_add(int id, int cluster_size);
+void test_server_add(bool in_memory, int id, int cluster_size);
 void test_server_remove(int id);
 
 void test_server_destroy(int id);

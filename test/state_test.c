@@ -35,7 +35,7 @@
 
 void state_simple()
 {
-	test_server_create(0, 1);
+	test_server_create(false, 0, 1);
 	test_client_create();
 }
 
