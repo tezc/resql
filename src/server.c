@@ -559,7 +559,7 @@ retry:
 	}
 
 	diff = s->timestamp - s->last_ts;
-	if ((!force && diff > 2) || (force && diff > 10000)) {
+	if (diff > 3) {
 		s->last_ts = s->timestamp;
 
 		sc_buf_clear(&s->tmp);
