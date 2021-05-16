@@ -1375,15 +1375,16 @@ void resql_reset_rows(struct resql_result *rs)
 	rs->remaining_rows = rs->row_count;
 }
 
-bool resql_next(struct resql_result *rs)
+int resql_next(struct resql_result *rs)
 {
 	enum msg_flag flag;
 	size_t size;
+	struct resql_column* row;
 
 	sc_buf_set_rpos(&rs->buf, rs->next_result);
 
 	if (sc_buf_get_8(&rs->buf) != MSG_FLAG_OP) {
-		return false;
+		return RESQL_DONE;
 	}
 
 	rs->next_result = sc_buf_rpos(&rs->buf) + sc_buf_get_32(&rs->buf);
@@ -1400,7 +1401,12 @@ bool resql_next(struct resql_result *rs)
 
 		if (rs->column_count > rs->column_cap) {
 			size = sizeof(*rs->row) * rs->column_count;
-			rs->row = resql_realloc(rs->row, size);
+			row = resql_realloc(rs->row, size);
+			if (row == NULL) {
+				return RESQL_OOM;
+			}
+
+			rs->row = row;
 			rs->column_cap = rs->column_count;
 		}
 
@@ -1412,10 +1418,10 @@ bool resql_next(struct resql_result *rs)
 		rs->remaining_rows = rs->row_count;
 		rs->row_pos = sc_buf_rpos(&rs->buf);
 
-		return true;
+		return RESQL_OK;
 	}
 
-	return flag == MSG_FLAG_OP_END;
+	return flag == MSG_FLAG_OP_END ? RESQL_OK : RESQL_DONE;
 }
 
 struct resql_column *resql_row(struct resql_result *rs)
