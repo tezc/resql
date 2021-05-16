@@ -218,11 +218,9 @@ static void snapshot_two()
 	rs_assert(resql_next(rs) == RESQL_DONE);
 
 	test_server_add_auto(true);
-	sleep(10);
 	test_server_destroy_leader();
-	sleep(30);
 
-	c = test_client_create();
+	c = test_client_create_timeout(10000);
 	resql_put_sql(c, "Select count(*) from snapshot;");
 	rc = resql_exec(c, true, &rs);
 	client_assert(c, rc == RESQL_OK);
@@ -426,11 +424,9 @@ static void snapshot_two_disk()
 	rs_assert(resql_next(rs) == RESQL_DONE);
 
 	test_server_add_auto(false);
-	sleep(10);
 	test_server_destroy_leader();
-	sleep(30);
 
-	c = test_client_create();
+	c = test_client_create_timeout(10000);
 	resql_put_sql(c, "Select count(*) from snapshot;");
 	rc = resql_exec(c, true, &rs);
 	client_assert(c, rc == RESQL_OK);
