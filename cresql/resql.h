@@ -71,11 +71,12 @@ enum resql_rc
     RESQL_OK           = 0,  // Success return value
     RESQL_ERROR        = -1, // Used for network failures, disconnections.
     RESQL_SQL_ERROR    = -2, // User error, e.g SQL syntax issue,
-    RESQL_CONFIG_ERROR = -5, // Returns only from resql_create()
-    RESQL_OOM          = -6, // Returns only from resql_create()
-    RESQL_PARTIAL      = -7, // Internal
-    RESQL_INVALID      = -8, // Internal
-    RESQL_FATAL        = -9  // Internal
+    RESQL_CONFIG_ERROR = -3, // Misconfiguration
+    RESQL_OOM          = -4, // Out of memory
+    RESQL_DONE         = -5, // Operation is completed
+    RESQL_PARTIAL      = -6, // Internal
+    RESQL_INVALID      = -7, // Internal
+    RESQL_FATAL        = -8  // Internal
 };
 
 // clang-format on
@@ -317,9 +318,11 @@ void resql_reset_rows(resql_result *rs);
  *
  *
  * @param rs result
- * @return   if next row exists.
+ * @return   RESQL_OK   if next result set exists.
+ *           RESQL_DONE if no more result sets
+ *           RESQL_OOM  out of memory.
  */
-bool resql_next(resql_result *rs);
+int resql_next(resql_result *rs);
 
 /**
  * Get row count for the current statement. Only meaningful for SELECT

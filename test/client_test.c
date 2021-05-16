@@ -62,7 +62,7 @@ static void client_simple()
 				rs_assert(strcmp("resql", row[0].text) == 0);
 			}
 
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 
 	for (int i = 0; i < 100; i++) {
@@ -78,7 +78,7 @@ static void client_simple()
 				rs_assert(row[0].type == RESQL_TEXT);
 				rs_assert(strcmp("resql", row[0].text) == 0);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 }
 
@@ -121,7 +121,7 @@ static void client_prepared()
 			while (resql_row(rs)) {
 				rs_assert(true);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 
 	rc = resql_del_prepared(c, &stmt);
@@ -151,7 +151,7 @@ static void client_prepared()
 			rs_assert(row[3].len == 5);
 			rs_assert(strcmp(row[3].blob, "blob") == 0);
 		}
-	} while (resql_next(rs));
+	} while (resql_next(rs) == RESQL_OK);
 }
 
 static void client_error()
@@ -195,7 +195,7 @@ static void client_error()
 	rc = resql_exec(c, false, &rs);
 	client_assert(c, rc == RESQL_OK);
 
-	while (resql_next(rs)) {
+	while (resql_next(rs) == RESQL_OK) {
 		rs_assert(true);
 	}
 
@@ -219,7 +219,7 @@ static void client_error()
 	int k = 0;
 	do {
 		k++;
-	} while (resql_next(rs));
+	} while (resql_next(rs) == RESQL_OK);
 
 	rs_assert(k == 2);
 
@@ -248,7 +248,7 @@ static void client_error()
 			rs_assert(row[3].len == 5);
 			rs_assert(strcmp(row[3].blob, "blob") == 0);
 		}
-	} while (resql_next(rs));
+	} while (resql_next(rs) == RESQL_OK);
 
 	rc = resql_prepare(
 		c, "INSERT INTO test VALUES (:key1, :key2, :key3, :key4);",
@@ -291,7 +291,7 @@ static void client_many()
 			while (resql_row(rs) != NULL) {
 				rs_assert(true);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 }
 
@@ -333,7 +333,7 @@ static void client_big()
 			while (resql_row(rs)) {
 				rs_assert(true);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 
 	free(p);

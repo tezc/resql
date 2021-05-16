@@ -347,7 +347,7 @@ static void test_prepared_param_many()
 
 	for (int i = 0; i < 9999; i++) {
 		assert(resql_changes(rs) == 1);
-		assert(resql_next(rs) == true);
+		assert(resql_next(rs) == RESQL_OK);
 	}
 
 	resql_put_sql(c, "SELECT * FROM ctest;");
