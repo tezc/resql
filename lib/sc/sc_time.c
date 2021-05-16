@@ -57,13 +57,13 @@ uint64_t sc_time_ms()
 	return (dateTime.QuadPart / 10000);
 #else
 	int rc;
-	struct timespec ts;
+	struct timeval t;
 
-	rc = clock_gettime(CLOCK_REALTIME, &ts);
+	rc = gettimeofday(&t, 0);
 	assert(rc == 0);
 	(void) rc;
 
-	return ts.tv_sec * 1000 + (uint64_t) (ts.tv_nsec / 10e6);
+	return t.tv_sec * 1000 + (uint64_t) (t.tv_usec / 1000);
 #endif
 }
 
@@ -80,13 +80,13 @@ uint64_t sc_time_ns()
 	return (dateTime.QuadPart * 100);
 #else
 	int rc;
-	struct timespec ts;
+	struct timeval t;
 
-	rc = clock_gettime(CLOCK_REALTIME, &ts);
+	rc = gettimeofday(&t, 0);
 	assert(rc == 0);
 	(void) rc;
 
-	return ts.tv_sec * (uint64_t) 1000000000 + ts.tv_nsec;
+	return t.tv_sec * (uint64_t) 1000000000 + t.tv_usec * 1000;
 #endif
 }
 
