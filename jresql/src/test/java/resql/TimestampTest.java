@@ -70,7 +70,7 @@ public class TimestampTest {
             rs = client.execute(false);
             assert (rs.linesChanged() == 1);
             assert (rs.lastRowId() == i + 1);
-            Thread.sleep(20);
+            Thread.sleep(50);
         }
 
         client.put("SELECT DISTINCT(ts_ms) FROM ts_ms_table;");
