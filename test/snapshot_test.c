@@ -454,12 +454,11 @@ static void snapshot_two_disk()
 int main(void)
 {
 	test_execute(snapshot_two);
-	test_execute(snapshot_simple);
-	test_execute(snapshot_big);
-
 	test_execute(snapshot_two_disk);
+
 	test_execute(snapshot_simple_disk);
 	test_execute(snapshot_big_disk);
-
+	test_execute(snapshot_simple);
+	test_execute(snapshot_big);
 	return 0;
 }

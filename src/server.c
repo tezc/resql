@@ -802,7 +802,8 @@ int server_read_meta(struct server *s)
 		return rc;
 	}
 
-	rc = store_init(&s->store, s->conf.node.dir, state->ss_term, state->ss_index);
+	rc = store_init(&s->store, s->conf.node.dir, state->ss_term,
+			state->ss_index);
 	if (rc != RS_OK) {
 		return rc;
 	}
