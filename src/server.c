@@ -504,6 +504,7 @@ static int server_create_entry(struct server *s, bool force, uint64_t seq,
 	bool ss_sending;
 	bool ss_running;
 	int rc;
+	uint64_t diff;
 	uint32_t size = sc_buf_size(buf);
 	void *data = sc_buf_rbuf(buf);
 
@@ -557,7 +558,8 @@ retry:
 		return force ? RS_FULL : RS_REJECT;
 	}
 
-	if (s->timestamp - s->last_ts > 2) {
+	diff = s->timestamp - s->last_ts;
+	if ((!force && diff > 2) || (force && diff > 10000)) {
 		s->last_ts = s->timestamp;
 
 		sc_buf_clear(&s->tmp);

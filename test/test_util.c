@@ -422,28 +422,19 @@ resql *test_client_create()
 
 	int rc, try = 0;
 	bool found;
-	const char *url = urls[0];
 	resql *c;
 
-retry:
-	for (int i = 0; i < 9; i++) {
-		if (cluster[i] != NULL) {
-			url = urls[i];
-			break;
-		}
-	}
-
 	struct resql_config conf = {
-		.urls = url,
+		.urls = node8,
 		.timeout_millis = 60000,
 	};
 
+retry:
 	rc = resql_create(&c, &conf);
 	if (rc != RESQL_OK) {
 		try++;
 		if (try >= 10) {
-			printf("Failed rs : %d \n", rc);
-			abort();
+			rs_abort("%s \n", resql_errstr(c));
 		}
 
 		resql_shutdown(c);
@@ -471,28 +462,18 @@ resql *test_client_create_timeout(uint32_t timeout)
 
 	int rc, try = 0;
 	bool found;
-	const char *url = urls[0];
 	resql *c;
-
-retry:
-	for (int i = 0; i < 9; i++) {
-		if (cluster[i] != NULL) {
-			url = urls[i];
-			break;
-		}
-	}
-
 	struct resql_config conf = {
-		.urls = url,
+		.urls = node8,
 		.timeout_millis = timeout,
 	};
 
+retry:
 	rc = resql_create(&c, &conf);
 	if (rc != RESQL_OK) {
 		try++;
 		if (try >= 10) {
-			printf("Failed rs : %d \n", rc);
-			abort();
+			rs_abort("%s \n", resql_errstr(c));
 		}
 
 		resql_shutdown(c);
