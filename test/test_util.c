@@ -324,9 +324,12 @@ retry:
 	client_assert(c, rc == RESQL_OK);
 	row = resql_row(rs);
 	if (row[0].intval != size) {
+		test_client_destroy(c);
 		sleep(1);
 		goto retry;
 	}
+
+	test_client_destroy(c);
 }
 
 void test_server_add(bool in_memory, int id, int cluster_size)
@@ -417,11 +420,12 @@ resql *test_client_create()
 {
 	rs_assert(client_count < 256);
 
-	int rc;
+	int rc, try = 0;
 	bool found;
 	const char *url = urls[0];
 	resql *c;
 
+retry:
 	for (int i = 0; i < 9; i++) {
 		if (cluster[i] != NULL) {
 			url = urls[i];
@@ -431,13 +435,19 @@ resql *test_client_create()
 
 	struct resql_config conf = {
 		.urls = url,
-		.timeout_millis = 600000,
+		.timeout_millis = 60000,
 	};
 
 	rc = resql_create(&c, &conf);
 	if (rc != RESQL_OK) {
-		printf("Failed rs : %d \n", rc);
-		abort();
+		try++;
+		if (try >= 10) {
+			printf("Failed rs : %d \n", rc);
+			abort();
+		}
+
+		resql_shutdown(c);
+		goto retry;
 	}
 
 	found = false;
@@ -459,11 +469,12 @@ resql *test_client_create_timeout(uint32_t timeout)
 {
 	rs_assert(client_count < 256);
 
-	int rc;
+	int rc, try = 0;
 	bool found;
 	const char *url = urls[0];
 	resql *c;
 
+retry:
 	for (int i = 0; i < 9; i++) {
 		if (cluster[i] != NULL) {
 			url = urls[i];
@@ -478,7 +489,14 @@ resql *test_client_create_timeout(uint32_t timeout)
 
 	rc = resql_create(&c, &conf);
 	if (rc != RESQL_OK) {
-		return NULL;
+		try++;
+		if (try >= 10) {
+			printf("Failed rs : %d \n", rc);
+			abort();
+		}
+
+		resql_shutdown(c);
+		goto retry;
 	}
 
 	found = false;

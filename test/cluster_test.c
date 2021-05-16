@@ -195,8 +195,8 @@ void pause_test()
 
 int main()
 {
-	test_execute(kill2_test);
 	test_execute(pause_test);
+	test_execute(kill2_test);
 	test_execute(kill_test);
 	test_execute(write_test);
 }
