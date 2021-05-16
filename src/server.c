@@ -779,7 +779,7 @@ int server_read_meta(struct server *s)
 {
 	bool exist;
 	int rc;
-	struct state *state = &s->state;
+	struct state *st = &s->state;
 
 	rc = file_remove_path(s->meta_tmp_path);
 	if (rc != RS_OK) {
@@ -802,14 +802,12 @@ int server_read_meta(struct server *s)
 		return rc;
 	}
 
-	rc = store_init(&s->store, s->conf.node.dir, state->ss_term,
-			state->ss_index);
+	rc = store_init(&s->store, s->conf.node.dir, st->term, st->index);
 	if (rc != RS_OK) {
 		return rc;
 	}
 
-	rc = snapshot_open(&s->ss, s->state.ss_path, s->state.ss_term,
-			   s->state.ss_index);
+	rc = snapshot_open(&s->ss, s->state.ss_path, st->term, st->index);
 	if (rc != RS_OK) {
 		return rc;
 	}

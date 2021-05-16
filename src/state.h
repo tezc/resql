@@ -49,10 +49,8 @@ struct state_cb {
 
 struct state {
 	struct state_cb cb;
-	bool snapshot;
-	bool in_memory;
+
 	char *path;
-	char *tmp_path;
 	char *ss_path;
 	char *ss_tmp_path;
 	char *last_err;
@@ -71,8 +69,6 @@ struct state {
 	struct meta meta;
 	uint64_t term;
 	uint64_t index;
-	uint64_t ss_term;
-	uint64_t ss_index;
 
 	// time
 	uint64_t timestamp;
