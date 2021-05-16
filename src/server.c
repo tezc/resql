@@ -557,7 +557,7 @@ retry:
 		return force ? RS_FULL : RS_REJECT;
 	}
 
-	if (s->timestamp - s->last_ts > 10000) {
+	if (s->timestamp - s->last_ts > 5) {
 		s->last_ts = s->timestamp;
 
 		sc_buf_clear(&s->tmp);
