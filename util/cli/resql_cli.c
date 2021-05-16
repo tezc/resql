@@ -110,7 +110,7 @@ void resql_cli_read_cmdline(struct resql_cli *cli, int argc, char *argv[])
 			resql_cli_cmdline_usage();
 			exit(0);
 		default:
-			printf("resql-cli : Unknown option %s \n", argv[argc]);
+			printf("resql-cli : Unknown option %s \n", argv[i]);
 			resql_cli_cmdline_usage();
 			exit(1);
 		}

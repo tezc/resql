@@ -66,7 +66,7 @@ static void restart_simple()
 				rs_assert(row[0].type == RESQL_TEXT);
 				rs_assert(strcmp("resql", row[0].text) == 0);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 
 	test_server_destroy_all();
@@ -86,7 +86,7 @@ static void restart_simple()
 				rs_assert(row[0].type == RESQL_TEXT);
 				rs_assert(strcmp("resql", row[0].text) == 0);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 }
 
@@ -117,7 +117,7 @@ static void restart_simple2()
 				rs_assert(row[0].type == RESQL_TEXT);
 				rs_assert(strcmp("resql", row[0].text) == 0);
 			}
-		} while (resql_next(rs));
+		} while (resql_next(rs) == RESQL_OK);
 	}
 
 	test_server_destroy_all();

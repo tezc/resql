@@ -97,7 +97,7 @@ static void snapshot_simple()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 }
 
 static void snapshot_big()
@@ -159,7 +159,7 @@ static void snapshot_big()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 }
 
 static void snapshot_two()
@@ -215,7 +215,7 @@ static void snapshot_two()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 
 	test_server_add_auto(true);
 	test_server_destroy_leader();
@@ -242,7 +242,7 @@ static void snapshot_two()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 }
 
 static void snapshot_simple_disk()
@@ -303,7 +303,7 @@ static void snapshot_simple_disk()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 }
 
 static void snapshot_big_disk()
@@ -365,7 +365,7 @@ static void snapshot_big_disk()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 }
 
 static void snapshot_two_disk()
@@ -421,7 +421,7 @@ static void snapshot_two_disk()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 
 	test_server_add_auto(false);
 	test_server_destroy_leader();
@@ -448,7 +448,7 @@ static void snapshot_two_disk()
 		rs_assert(strcmp(tmp, row[0].text) == 0);
 	}
 
-	rs_assert(resql_next(rs) == false);
+	rs_assert(resql_next(rs) == RESQL_DONE);
 }
 
 int main(void)
