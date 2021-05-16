@@ -333,8 +333,6 @@ static void snapshot_compact(struct snapshot *ss, struct page *p)
 		}
 	}
 
-	state.ss_index = state.index;
-	state.ss_term = state.term;
 	state_close(&state);
 	file_remove_path(state.ss_path);
 

@@ -504,6 +504,7 @@ static int server_create_entry(struct server *s, bool force, uint64_t seq,
 	bool ss_sending;
 	bool ss_running;
 	int rc;
+	uint64_t diff;
 	uint32_t size = sc_buf_size(buf);
 	void *data = sc_buf_rbuf(buf);
 
@@ -557,7 +558,8 @@ retry:
 		return force ? RS_FULL : RS_REJECT;
 	}
 
-	if (s->timestamp - s->last_ts > 5) {
+	diff = s->timestamp - s->last_ts;
+	if (diff > 3) {
 		s->last_ts = s->timestamp;
 
 		sc_buf_clear(&s->tmp);
@@ -777,7 +779,7 @@ int server_read_meta(struct server *s)
 {
 	bool exist;
 	int rc;
-	struct state *state = &s->state;
+	struct state *st = &s->state;
 
 	rc = file_remove_path(s->meta_tmp_path);
 	if (rc != RS_OK) {
@@ -800,13 +802,12 @@ int server_read_meta(struct server *s)
 		return rc;
 	}
 
-	rc = store_init(&s->store, s->conf.node.dir, state->ss_term, state->ss_index);
+	rc = store_init(&s->store, s->conf.node.dir, st->term, st->index);
 	if (rc != RS_OK) {
 		return rc;
 	}
 
-	rc = snapshot_open(&s->ss, s->state.ss_path, s->state.ss_term,
-			   s->state.ss_index);
+	rc = snapshot_open(&s->ss, s->state.ss_path, st->term, st->index);
 	if (rc != RS_OK) {
 		return rc;
 	}
