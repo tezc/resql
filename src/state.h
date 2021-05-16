@@ -65,6 +65,7 @@ struct state {
 	bool readonly;
 	bool full;
 	int64_t max_page;
+	uint64_t session_timeout;
 
 	struct aux aux;
 	struct meta meta;

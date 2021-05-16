@@ -47,10 +47,10 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#define STATE_FILE	   "state.resql"
-#define STATE_TMP_FILE	   "state.tmp.resql"
-#define STATE_SS_FILE	   "snapshot.resql"
-#define STATE_SS_TMP_FILE  "snapshot.tmp.resql"
+#define STATE_FILE	  "state.resql"
+#define STATE_TMP_FILE	  "state.tmp.resql"
+#define STATE_SS_FILE	  "snapshot.resql"
+#define STATE_SS_TMP_FILE "snapshot.tmp.resql"
 
 thread_local struct state *t_state;
 static sqlite3_vfs ext;
@@ -63,6 +63,8 @@ static const char *usage_remove_node =
 	"usage : SELECT resql('remove-node', 'node0');";
 static const char *usage_max_size =
 	"usage : SELECT resql('max-size', 5000000);";
+static const char *usage_session_timeout =
+	"usage : SELECT resql('session-timeout', 60000);";
 
 void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 {
@@ -70,7 +72,7 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 	const unsigned char *cmd;
 	const unsigned char *value;
 	const char *ret;
-	struct state *state = t_state;
+	struct state *st = t_state;
 
 	if (argc <= 0) {
 		sqlite3_result_error(ctx, usage_default, -1);
@@ -84,10 +86,9 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 			return;
 		}
 
-		if (state->cb.add_node) {
+		if (st->cb.add_node) {
 			value = sqlite3_value_text(argv[1]);
-			ret = state->cb.add_node(state->cb.arg,
-						 (const char *) value);
+			ret = st->cb.add_node(st->cb.arg, (const char *) value);
 			sqlite3_result_text(ctx, ret, -1, NULL);
 		}
 	} else if (strcmp((char *) cmd, "remove-node") == 0) {
@@ -96,10 +97,10 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 			return;
 		}
 
-		if (state->cb.remove_node) {
+		if (st->cb.remove_node) {
 			value = sqlite3_value_text(argv[1]);
-			ret = state->cb.remove_node(state->cb.arg,
-						    (const char *) value);
+			ret = st->cb.remove_node(st->cb.arg,
+						 (const char *) value);
 			sqlite3_result_text(ctx, ret, -1, NULL);
 		}
 	} else if (strcmp((char *) cmd, "shutdown") == 0) {
@@ -108,10 +109,9 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 			return;
 		}
 
-		if (state->cb.shutdown) {
+		if (st->cb.shutdown) {
 			value = sqlite3_value_text(argv[1]);
-			ret = state->cb.shutdown(state->cb.arg,
-						 (const char *) value);
+			ret = st->cb.shutdown(st->cb.arg, (const char *) value);
 			sqlite3_result_text(ctx, ret, -1, NULL);
 		}
 	} else if (strcmp((char *) cmd, "max-size") == 0) {
@@ -128,10 +128,30 @@ void state_config(sqlite3_context *ctx, int argc, sqlite3_value **argv)
 				return;
 			}
 
-			state->max_page = val / 4096;
+			st->max_page = val / 4096;
 		}
 
-		sqlite3_result_int64(ctx, state->max_page * 4096);
+		sqlite3_result_int64(ctx, st->max_page * 4096);
+	} else if (strcmp((char *) cmd, "session-timeout") == 0) {
+		if (argc > 2) {
+			sqlite3_result_error(ctx, usage_session_timeout, -1);
+			return;
+		}
+
+		if (argc == 2) {
+			val = sqlite3_value_int64(argv[1]);
+			if (val < 30000) {
+				sqlite3_result_error(
+					ctx,
+					"Timeout must be greater than 30 seconds",
+					-1);
+				return;
+			}
+
+			st->session_timeout = val;
+		}
+
+		sqlite3_result_int64(ctx, st->session_timeout);
 	} else {
 		sqlite3_result_error(ctx, "Unknown command", -1);
 	}
@@ -231,6 +251,7 @@ void state_init(struct state *st, struct state_cb cb, const char *path,
 	st->ss_path = sc_str_create_fmt("%s/%s", path, STATE_SS_FILE);
 	st->ss_tmp_path = sc_str_create_fmt("%s/%s", path, STATE_SS_TMP_FILE);
 	st->max_page = UINT_MAX;
+	st->session_timeout = 60000;
 
 	sc_buf_init(&st->tmp, 1024);
 	meta_init(&st->meta, name);
@@ -329,6 +350,8 @@ int state_write_vars(struct state *st, struct aux *aux)
 	sc_buf_put_64(&st->tmp, st->index);
 	sc_buf_put_64(&st->tmp, st->ss_term);
 	sc_buf_put_64(&st->tmp, st->ss_index);
+	sc_buf_put_64(&st->tmp, st->max_page);
+	sc_buf_put_64(&st->tmp, st->session_timeout);
 	meta_encode(&st->meta, &st->tmp);
 
 	sc_buf_put_64(&st->tmp, st->timestamp);
@@ -368,6 +391,8 @@ int state_read_vars(struct state *st, struct aux *aux)
 	st->index = sc_buf_get_64(&st->tmp);
 	st->ss_term = sc_buf_get_64(&st->tmp);
 	st->ss_index = sc_buf_get_64(&st->tmp);
+	st->max_page = sc_buf_get_64(&st->tmp);
+	st->session_timeout = sc_buf_get_64(&st->tmp);
 	meta_decode(&st->meta, &st->tmp);
 
 	st->timestamp = sc_buf_get_64(&st->tmp);
