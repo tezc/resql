@@ -637,7 +637,7 @@ int main(int argc, char **argv)
 
 	struct resql_config config = {
 		.urls = s_cli.url,
-		.timeout_millis = 4000,
+		.timeout_millis = 10000,
 		.cluster_name = "cluster",
 	};
 
