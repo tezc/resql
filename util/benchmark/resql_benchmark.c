@@ -740,6 +740,7 @@ int main(int argc, char **argv)
 	const double p95 = hdr_value_at_percentile(h, 95.0) / (double) 1000.0f;
 	const double p99 = hdr_value_at_percentile(h, 99.0) / (double) 1000.0f;
 	const double p999 = hdr_value_at_percentile(h, 99.9) / (double) 1000.0f;
+	const double max = hdr_max(h) / (double) 1000.0f;
 	const double avg = hdr_mean(h) / (double) 1000.0f;
 
 	printf("\nlatency (milliseconds): \n\n");
@@ -749,6 +750,7 @@ int main(int argc, char **argv)
 	printf("p0.95  : %.3f ms\n", p95);
 	printf("p0.99  : %.3f ms\n", p99);
 	printf("p0.999 : %.3f ms\n", p999);
+	printf("max    : %.3f ms\n", max);
 	printf("\n\n");
 
 	printf("Total time  : " COLOR " %.3f seconds.\n" RST, total / 1e9);
@@ -769,3 +771,4 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
