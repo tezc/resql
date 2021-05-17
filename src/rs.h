@@ -40,7 +40,7 @@
 
 // clang-format off
 
-#define RS_VERSION "0.1.2"
+#define RS_VERSION "0.1.3-latest"
 
 #ifndef RESQL_FILE_NAME
 	#define RESQL_FILE_NAME "unknown file name"
@@ -64,7 +64,7 @@
 	((type *) ((char *) (ptr) -offsetof(type, elem)))
 
 #ifndef thread_local
-	#if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
+	#if __STDC_VERSION__ >= 20.1.3-latest && !defined __STDC_NO_THREADS__
 		#define thread_local _Thread_local
 	#elif defined _WIN32 && (defined _MSC_VER || defined __ICL || \
 				defined __DMC__ || defined __BORLANDC__)
