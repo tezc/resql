@@ -310,7 +310,7 @@ void test_wait_until_size(int size)
 
 retry:
 	try++;
-	c = test_client_create_timeout(2000);
+	c = test_client_create_timeout(10000);
 	if (c == NULL) {
 		if (try >= 100) {
 			printf("test_wait_until_size failure.");
