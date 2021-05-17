@@ -82,7 +82,7 @@ var errDiskFull = errors.New("resql: disk full")
 var errSessionDoesNotExist = errors.New("resql : session does not exist on the server")
 
 // goresql version
-const Version = "0.1.2-latest"
+const Version = "0.1.2"
 
 type client struct {
 	name         string
