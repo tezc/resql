@@ -592,7 +592,7 @@ int main(int argc, char **argv)
 
 	struct resql_config config = {
 		.urls = bench.url,
-		.timeout_millis = 8000,
+		.timeout_millis = 20000,
 		.cluster_name = "cluster",
 	};
 
