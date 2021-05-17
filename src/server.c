@@ -467,7 +467,7 @@ static bool server_sending_snapshot(struct server *s)
 
 	sc_list_foreach (&s->connected_nodes, list) {
 		n = sc_list_entry(list, struct node, list);
-		if (n->next < s->ss.index) {
+		if (n->match < s->ss.index) {
 			return true;
 		}
 	}
@@ -519,7 +519,7 @@ retry:
 		ss_running = snapshot_running(&s->ss);
 		ss_sending = server_sending_snapshot(s);
 
-		if (!ss_sending || !ss_running) {
+		if (!ss_sending && !ss_running) {
 			rc = server_wait_snapshot(s);
 			switch (rc) {
 			case RS_OK:
