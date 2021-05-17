@@ -706,7 +706,7 @@ int main(int argc, char **argv)
 			break;
 		}
 
-		sleep_micro(200000);
+		sleep_micro(400000);
 	}
 
 	for (unsigned int i = 0; i < bench.clients; i++) {
