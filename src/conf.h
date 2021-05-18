@@ -60,6 +60,7 @@ struct conf {
 
 	struct {
 		bool systemd;
+		bool backup;
 		char *config_file;
 	} cmdline;
 

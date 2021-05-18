@@ -40,15 +40,14 @@ static void single()
 	struct conf conf;
 
 	conf_init(&conf);
-	sc_str_set(&conf.node.dir, "/tmp/node0");
+	sc_str_set(&conf.node.dir, "/tmp/testx2");
+	sc_str_set(&conf.node.name, "node5");
+	sc_str_set(&conf.node.bind_url, "tcp://node5@127.0.0.1:7600");
+	sc_str_set(&conf.node.ad_url, "tcp://node5@127.0.0.1:7600");
+	sc_str_set(&conf.cluster.nodes, "tcp://node5@127.0.0.1:7600");
 	conf.node.in_memory = false;
+	conf.cmdline.backup = true;
 
-	test_server_create_conf(&conf, 0);
-	test_server_destroy(0);
-
-	conf_init(&conf);
-	sc_str_set(&conf.node.dir, "/tmp/node0");
-	conf.node.in_memory = false;
 	test_server_create_conf(&conf, 0);
 	pause();
 }
