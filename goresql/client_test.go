@@ -1091,6 +1091,43 @@ func TestMultiResultset(t *testing.T) {
 	equal(t, b, false)
 }
 
+func TestJson(t *testing.T) {
+
+	c.PutStatement("DROP TABLE IF EXISTS gotest;")
+	c.PutStatement("CREATE TABLE gotest (id INTEGER PRIMARY KEY, data json)")
+
+	_, err := c.Execute(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.PutStatement("INSERT INTO gotest VALUES(?, ?);")
+	c.BindIndex(0, 0)
+	c.BindIndex(1, "{\"foo\":\"bar\", \"foo_array\":[\"bar_1\",\"bar_2\"]}")
+
+	_, err = c.Execute(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.PutStatement("SELECT * FROM gotest;")
+	rs, err := c.Execute(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var id NullInt32
+	var data NullString
+
+	err = rs.Row().Read(&id, &data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	equal(t, id.Int32, int32(0))
+	equal(t, data.String, "{\"foo\":\"bar\", \"foo_array\":[\"bar_1\",\"bar_2\"]}")
+}
+
 func Example0() {
 	s, _ := Create(&Config{})
 	s.PutStatement("SELECT 'Hello World!';")
@@ -1491,4 +1528,122 @@ func Example7() {
 	// Value was : 1000
 	// Changes : 1
 	// Value is : 1001
+}
+
+func Example8() {
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, data json);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("INSERT INTO test VALUES('foo::1','{\"foo\":\"bar1\", \"foo_array\":[\"bar_1\",\"bar_2\"]}');")
+	s.PutStatement("INSERT INTO test VALUES('foo::2','{\"foo\":\"bar2\", \"foo_array\":[\"bar_3\",\"bar_4\"]}');")
+	s.PutStatement("INSERT INTO test VALUES('foo::3','{\"foo\":\"bar3\", \"foo_array\":[\"bar_5\",\"bar_6\"]}');")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("SELECT * FROM test")
+	rs, err := s.Execute(true)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for r := rs.Row(); r != nil; r = rs.Row() {
+		var key, data NullString
+
+		err = r.Read(&key, &data)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println(key.String, data.String)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+	// foo::1 {"foo":"bar1", "foo_array":["bar_1","bar_2"]}
+	// foo::2 {"foo":"bar2", "foo_array":["bar_3","bar_4"]}
+	// foo::3 {"foo":"bar3", "foo_array":["bar_5","bar_6"]}
+}
+
+func Example9() {
+	s, err := Create(&Config{})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("DROP TABLE IF EXISTS test;")
+	s.PutStatement("CREATE TABLE test (key TEXT, data json);")
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("INSERT INTO test VALUES('foo::1','{\"foo\":\"bar1\", \"foo_array\":[\"bar_1\",\"bar_2\"]}');")
+	s.PutStatement("INSERT INTO test VALUES('foo::2','{\"foo\":\"bar2\", \"foo_array\":[\"bar_3\",\"bar_4\"]}');")
+	s.PutStatement("INSERT INTO test VALUES('foo::3','{\"foo\":\"bar3\", \"foo_array\":[\"bar_5\",\"bar_6\"]}');")
+
+	_, err = s.Execute(false)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	s.PutStatement("SELECT json_extract(data, '$.foo') as foo FROM test WHERE key='foo::3';")
+	rs, err := s.Execute(true)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for r := rs.Row(); r != nil; r = rs.Row() {
+		var data NullString
+
+		err = r.Read(&data)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println(data.String)
+	}
+
+	// Cleanup
+	s.PutStatement("DROP TABLE test;")
+	_, _ = s.Execute(false)
+
+	err = s.Shutdown()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Output:
+	// bar3
 }
