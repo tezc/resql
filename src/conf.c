@@ -75,6 +75,7 @@ enum conf_index
 
 	CONF_CMDLINE_CONF_FILE,
 	CONF_CMDLINE_SYSTEMD,
+	CONf_CMDLINE_BACKUP,
 
 	CONF_INVALID
 };
@@ -106,6 +107,7 @@ static struct conf_item conf_list[] = {
 
         {CONF_STRING,  CONF_CMDLINE_CONF_FILE,     "cmd-line", "config"          },
         {CONF_BOOL,    CONF_CMDLINE_SYSTEMD,       "cmd-line", "systemd"         },
+        {CONF_BOOL,    CONf_CMDLINE_BACKUP,        "cmd-line", "backup"          },
 };
 // clang-format on
 
@@ -133,6 +135,7 @@ void conf_init(struct conf *c)
 
 	c->cmdline.config_file = sc_str_create("resql.ini");
 	c->cmdline.systemd = false;
+	c->cmdline.backup = false;
 }
 
 void conf_term(struct conf *c)
@@ -273,13 +276,13 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
 	char *conf = NULL, *value;
 
 	struct sc_option_item options[] = {
+		{.letter = 'b', .name = "backup"},
 		{.letter = 'c', .name = "config"},
 		{.letter = 'h', .name = "help"},
 		{.letter = 's', .name = "systemd"},
 		{.letter = 'v', .name = "version"},
 
 		{.letter = 'a', .name = "node-advertise-url"},
-		{.letter = 'b', .name = "node-bind-url"},
 		{.letter = 'd', .name = "node-directory"},
 		{.letter = 'f', .name = "advanced-fsync"},
 		{.letter = 'i', .name = "node-in-memory"},
@@ -291,6 +294,7 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
 		{.letter = 'r', .name = "node-source-addr"},
 		{.letter = 't', .name = "node-log-destination"},
 		{.letter = 'u', .name = "cluster-name"},
+		{.letter = 'y', .name = "node-bind-url"},
 	};
 
 	struct sc_option opt = {
@@ -341,6 +345,8 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
 		rc = 0;
 		ch = sc_option_at(&opt, i, &value);
 		switch (ch) {
+		case 'b':
+			c->cmdline.backup = true;
 		case 'c':
 			break;
 		case 's':
@@ -352,9 +358,6 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
 			exit(0);
 		case 'a':
 			rc = conf_add(c, -1, "node", "advertise-url", value);
-			break;
-		case 'b':
-			rc = conf_add(c, -1, "node", "bind-url", value);
 			break;
 		case 'd':
 			rc = conf_add(c, -1, "node", "directory", value);
@@ -388,6 +391,9 @@ void conf_read_config(struct conf *c, bool read_file, int argc, char **argv)
 			break;
 		case 'u':
 			rc = conf_add(c, -1, "cluster", "name", value);
+			break;
+		case 'y':
+			rc = conf_add(c, -1, "node", "bind-url", value);
 			break;
 
 		case '?':
@@ -462,6 +468,7 @@ void conf_print(struct conf *c)
 			"-------------------------------------------------");
 	conf_to_buf(&buf, CONF_CMDLINE_CONF_FILE, c->cmdline.config_file);
 	conf_to_buf(&buf, CONF_CMDLINE_SYSTEMD, &c->cmdline.systemd);
+	conf_to_buf(&buf, CONf_CMDLINE_BACKUP, &c->cmdline.backup);
 
 	sc_log_info("%s \n", buf.mem);
 	sc_buf_term(&buf);

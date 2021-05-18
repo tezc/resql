@@ -814,13 +814,16 @@ int server_read_meta(struct server *s)
 
 	s->commit = s->state.index;
 
-	if (s->state.meta.index > s->meta.index) {
+	if (!s->conf.cmdline.backup && s->state.meta.index > s->meta.index) {
 		meta_copy(&s->meta, &s->state.meta);
 		rc = server_write_meta(s);
 		if (rc != RS_OK) {
 			return rc;
 		}
 	}
+
+	// Clear flag once used
+	s->conf.cmdline.backup = false;
 
 	server_meta_change(s);
 
@@ -968,6 +971,8 @@ static int server_write_meta_cmd(struct server *s)
 	assert(s->role == SERVER_ROLE_LEADER);
 
 	meta_set_leader(&s->meta, s->conf.node.name);
+	s->meta.index = s->store.last_index + 1;
+
 	sc_buf_clear(&s->tmp);
 	cmd_encode_meta(&s->tmp, &s->meta);
 
