@@ -17,8 +17,6 @@ It's mostly about performance and consistency. Resql tries to be as fast as poss
 * Light on resources: ~1 MB executable size, can start with a few MB of RAM. Currently, it uses 2 threads only, it'll occupy 2 cores on your machine at most.
 * [C](https://github.com/tezc/resql/wiki/C-Client), [Java](https://github.com/tezc/resql/wiki/Java-Client) and [Go](https://github.com/tezc/resql/wiki/Go-Client) clients are available.
 * JSON, Full-Text Search, RTree and Geopoly SQLite extensions are included.
-* Each operation is atomic. Operations can be batched together and sent to the server in one round-trip and executed atomically.
-* Read and write operations can be combined together. e.g. SELECT and INSERT in a single batch.
 
 ### Limitations
 * Explicit transactions are not supported. e.g. No BEGIN, COMMIT or ROLLBACK. Instead of explicit transactions, you can batch your operations and send them in one go. A batch is executed atomically.
@@ -28,32 +26,42 @@ It's mostly about performance and consistency. Resql tries to be as fast as poss
 
 Resql can be compiled on Linux, macOS and FreeBSD. CI runs on multiple architectures. Big-little endian systems and 32 bit CPUs are supported.
 
+- Requirements : CMake, GCC or Clang.
 
-#### Requirements
-CMake, GCC or Clang.
+  These can be installed via the package manager of your OS.  
+  ```
+  Ubuntu : apt install gcc cmake  
+  MacOS  : brew install cmake
+  ```
+- Compile
+  ```
+  git clone https://github.com/tezc/resql.git
+  cd resql
+  ./build.sh
+  ```
+  Build takes ~ 1 minute. It will create server, cli and benchmark executable under bin/ directory of the current directory.
 
-These can be installed via the package manager of your OS.  
-```
-Ubuntu : apt install gcc cmake  
-MacOS  : brew install cmake
-```
-#### Compile
-```
-git clone https://github.com/tezc/resql.git
-cd resql
-./build.sh
-```
-Build takes ~ 1 minute. It will create server, cli and benchmark executable under bin/ directory of the current directory.
+- After the build is completed, start the server : 
+  ```
+  cd bin
+  ./resql
+  ```
+- Start command-line interface (CLI) to connect to the server
+  ```
+  ./resql-cli 
+  Trying to connect to server at tcp://127.0.0.1:7600 
+  Connected 
 
-After the build is completed : 
-```
-cd bin
-./resql
-```
-Start command-line interface (CLI) to connect to the server
-```
-./resql-cli
-```
+  Type .help for usage. 
+
+  resql> SELECT client_name, remote, connect_time FROM resql_clients
+  +-------------+-----------------+---------------------+
+  | client_name | remote          | connect_time        |
+  +-------------+-----------------+---------------------+
+  | g6H06FPh_0  | 127.0.0.1:46924 | 2021-05-19 12:44:39 |
+  +-------------+-----------------+---------------------+
+
+  ```
 
 ## Documentation
 
@@ -69,19 +77,6 @@ Start command-line interface (CLI) to connect to the server
   - [Java client](https://github.com/tezc/resql/wiki/Java-Client)
   - [Go client](https://github.com/tezc/resql/wiki/Go-Client)
   - [C client](https://github.com/tezc/resql/wiki/C-Client)
-
-
-## Project Layout 
-```
-bin/     : output dir, ./build.sh will generate server executable and cli here.  
-cresql/  : c client
-goresql/ : go client
-jresql/  : java client
-lib/     : dependencies
-src/     : server source code  
-test/    : server tests
-util/    : cli, docker, benchmark tool
-```
 
 ## Acknowledgements
 
