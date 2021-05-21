@@ -48,6 +48,12 @@ struct client *client_create(struct conn *conn, const char *name)
 	conn_set_type(&c->conn, SERVER_FD_CLIENT_RECV);
 
 	c->name = sc_str_create(name);
+
+	/**
+	 * This function is called when we receive CONNECT_REQ. So, client is
+	 * waiting CONNECT_RESP which will be sent later when new connection is
+	 * applied to the state.
+	 */
 	c->msg_wait = true;
 
 	sc_list_init(&c->read);

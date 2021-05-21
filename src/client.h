@@ -59,6 +59,16 @@ void client_destroy(struct client *c);
 void client_print(struct client *c, char *buf, size_t len);
 int client_processed(struct client *c);
 bool client_pending(struct client *c);
+
+/**
+ * Mark client terminated for lazy destroy.
+ *
+ * When looping on epoll_wait, an event may cause a client to disconnect but
+ * we may have collected that client socket's event but not yet processed.
+ * This will trigger use-after-free undefined behavior. Rather than destroying
+ * client, mark it terminated and call client_destroy() when you processed all
+ * events from epoll_wait.
+ */
 void client_set_terminated(struct client *c);
 
 #endif

@@ -61,26 +61,38 @@ int aux_init(struct aux *aux, const char *path, int mode);
 int aux_term(struct aux *aux);
 
 int aux_load_to_memory(struct aux *aux, const char *from);
+
+// Configure db and prepare statements
 int aux_prepare(struct aux *aux);
 
+// resql_node table
 int aux_clear_nodes(struct aux *aux);
 int aux_write_node(struct aux *aux, struct info *n);
 
-int aux_add_log(struct aux *aux, uint64_t id, const char *level,
-		const char *log);
-
+// resql_clients table, each client has a session associated
 int aux_write_session(struct aux *aux, struct session *s);
 int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
 		     sqlite3_stmt *stmt_tb);
 int aux_del_session(struct aux *aux, struct session *s);
 int aux_clear_sessions(struct aux *aux);
+
+//
 int aux_write_kv(struct aux *aux, const char *key, struct sc_buf *buf);
 int aux_read_kv(struct aux *aux, const char *key, struct sc_buf *buf);
 
+// resql_statements table
 int aux_add_stmt(struct aux *aux, const char *client, uint64_t cid, uint64_t id,
 		 const char *sql);
 int aux_rm_stmt(struct aux *aux, uint64_t id);
+
+// resql_log table, add log entry
+int aux_add_log(struct aux *aux, uint64_t id, const char *level,
+		const char *log);
+
+// Translate sqlite error codes to RS_ family error codes.
 int aux_rc(int rc);
+
+// clear statement, prepare for reuse
 void aux_clear(sqlite3_stmt *stmt);
 
 #endif
