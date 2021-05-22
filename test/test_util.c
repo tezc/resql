@@ -305,25 +305,23 @@ void test_wait_until_size(int size)
 {
 	int rc, try = 0;
 	resql *c;
-	struct resql_column *row;
 	resql_result *rs;
 
 retry:
 	try++;
+	if (try >= 100) {
+		printf("test_wait_until_size failure.");
+		abort();
+	}
+
 	c = test_client_create_timeout(10000);
 	if (c == NULL) {
-		if (try >= 100) {
-			printf("test_wait_until_size failure.");
-			abort();
-		}
 		goto retry;
 	}
 
 	resql_put_sql(c, "SELECT count(*) FROM resql_nodes;");
 	rc = resql_exec(c, false, &rs);
-	client_assert(c, rc == RESQL_OK);
-	row = resql_row(rs);
-	if (row[0].intval != size) {
+	if (rc != RESQL_OK || resql_row(rs)[0].intval != size) {
 		test_client_destroy(c);
 		sleep(1);
 		goto retry;
