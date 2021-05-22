@@ -51,7 +51,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 	n->next = 1;
 	n->round = 0;
 	n->match = 0;
-	n->conn_timer = SC_TIMER_INVALID;
+	n->timeout = SC_TIMER_INVALID;
 	n->interval = 32;
 	n->ss_index = 0;
 	n->ss_pos = 0;
@@ -63,8 +63,7 @@ struct node *node_create(const char *name, struct server *server, bool connect)
 	sc_buf_init(&n->info, 1024);
 
 	if (connect) {
-		n->conn_timer =
-			sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
+		n->timeout = sc_timer_add(n->timer, 0, SERVER_TIMER_CONNECT, n);
 	}
 
 	return n;
@@ -77,7 +76,7 @@ void node_destroy(struct node *n)
 	sc_list_del(NULL, &n->list);
 	conn_term(&n->conn);
 	sc_str_destroy(&n->name);
-	sc_timer_cancel(n->timer, &n->conn_timer);
+	sc_timer_cancel(n->timer, &n->timeout);
 
 	sc_queue_foreach (&n->uris, uri) {
 		sc_uri_destroy(&uri);
@@ -133,8 +132,7 @@ int node_try_connect(struct node *n, unsigned int randtimer)
 	}
 
 	timeout = (randtimer % 512) + n->interval + 32;
-	n->conn_timer =
-		sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
+	n->timeout = sc_timer_add(n->timer, timeout, SERVER_TIMER_CONNECT, n);
 
 	if (n->conn.state == CONN_CONNECTED) {
 		n->interval = 64;

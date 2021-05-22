@@ -152,7 +152,11 @@ int aux_term(struct aux *aux)
 		sc_log_error("sqlite3_close : %s \n", sqlite3_errmsg(aux->db));
 	}
 
-	// Set back db in case sqlite3_close fails
+	/* Set db back in case sqlite3_close fails. This is not expected and
+	 * normally should not be handled. This is left here just for debugging
+	 * purposes. Error code will be handled in the caller anyway.
+	 * (It must lead to an abort or a restart).
+	 */
 	*aux = (struct aux){
 		.db = db,
 	};
@@ -336,8 +340,8 @@ int aux_prepare(struct aux *aux)
 	}
 
 	sql = "INSERT OR REPLACE INTO resql_nodes VALUES ("
-	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
+	      "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 	rc = sqlite3_prepare_v3(aux->db, sql, -1, true, &aux->add_node, NULL);
 	if (rc != SQLITE_OK) {
 		goto error;
@@ -645,9 +649,11 @@ int aux_read_session(struct aux *aux, struct session *s, sqlite3_stmt *sess_tb,
 					SQLITE_PREPARE_PERSISTENT, &stmt, NULL);
 		if (rc != SQLITE_OK) {
 			/**
-			 * If client disconnected abruptly and client's
+			 * If client disconnects abruptly and client's
 			 * statement becomes invalid, e.g table which is used by
-			 * statement is dropped, prepare may return error.
+			 * the statement is dropped, prepare may return error.
+			 * Client will realize this when execution of the
+			 * prepare statement returns an error.
 			 */
 			if (aux_rc(rc) != RS_ERROR) {
 				goto out;
@@ -835,10 +841,21 @@ int aux_rc(int rc)
 	case SQLITE_MISMATCH:
 	case SQLITE_AUTH:
 	case SQLITE_RANGE:
+		/**
+		 * These error codes can occur when processing queries.
+		 * e.g on INSERT into a non-existing table.
+		 */
 		return RS_ERROR;
 	case SQLITE_FULL:
+		/* FULL has a special handling, this is not a fatal error code.
+		 * Server will continue when there is enough space.
+		 */
 		return RS_FULL;
 	default:
+		/**
+		 * Any other error code is fatal. We can't do anything
+		 * meaningful when we receive CORRUPT retcode.
+		 */
 		return RS_FATAL;
 	}
 }

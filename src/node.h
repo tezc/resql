@@ -46,27 +46,25 @@ struct node {
 	struct conn conn;
 
 	struct sc_list list;
-	struct sc_queue_ptr uris;
-	uint64_t conn_timer;
-	uint64_t interval;
-	char *name;
+	struct sc_queue_ptr uris; // URLs
+	uint64_t timeout;         // Reconnect timeout
+	uint64_t interval;        // Reconnect trial interval
+	char *name;               // Node name
 
-	uint64_t next;
-	uint64_t match;
-	uint64_t round;
+	uint64_t next;            // Next entry index
+	uint64_t match;           // Entry match index
+	uint64_t round;           // Round match index
 
-	uint64_t ss_pos;
-	uint64_t ss_index;
-	uint64_t msg_inflight;
+	uint64_t ss_pos;          // Snapshot offset
+	uint64_t ss_index;        // Snapshot index
+	uint64_t msg_inflight;    // Number of inflight messages
 
-	int id;
-	bool voted;
-	enum meta_role role;
-	const char *status;
+	int id;                   // Node id
+	const char *status;       // Status, e.g online, offline, disk_full
 
-	uint64_t in_timestamp;
-	uint64_t out_timestamp;
-	struct sc_buf info;
+	uint64_t in_timestamp;    // Latest in timestamp
+	uint64_t out_timestamp;   // Latest out timestamp
+	struct sc_buf info;       // Metrics
 };
 
 struct node *node_create(const char *name, struct server *server, bool connect);

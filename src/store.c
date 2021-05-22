@@ -255,6 +255,8 @@ int store_put_entry(struct store *s, uint64_t index, unsigned char *entry)
 
 retry:
 	if (size > page_quota(s->curr)) {
+
+		// If entry size is larger than capacity, expand the page.
 		if (size > page_cap(s->curr)) {
 			rc = page_reserve(s->curr, size);
 			if (rc == RS_OK) {
@@ -266,6 +268,7 @@ retry:
 			}
 		}
 
+		// page[0] is full, switch to page[1]
 		if (s->curr != s->pages[1]) {
 			store_flush(s);
 
@@ -310,6 +313,7 @@ void store_entries(struct store *s, uint64_t index, uint32_t limit,
 {
 	page_get_entries(s->pages[0], index, limit, entries, size, count);
 	if (*entries == NULL) {
+		// If there is no entry, try next page
 		page_get_entries(s->pages[1], index, limit, entries, size,
 				 count);
 	}
