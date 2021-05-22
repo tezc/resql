@@ -33,7 +33,7 @@ package resql;
 
 public interface Resql extends AutoCloseable {
 
-    String VERSION = "0.1.3-latest";
+    String VERSION = "0.1.4-latest";
 
     /**
      * Prepare Statement

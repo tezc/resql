@@ -53,7 +53,7 @@ struct resql_cli {
 	int count;
 };
 
-#define RESQL_CLI_VERSION "0.1.3-latest"
+#define RESQL_CLI_VERSION "0.1.4-latest"
 
 static struct resql_cli s_cli;
 static struct resql *client;
@@ -637,7 +637,7 @@ int main(int argc, char **argv)
 
 	struct resql_config config = {
 		.urls = s_cli.url,
-		.timeout_millis = 4000,
+		.timeout_millis = 10000,
 		.cluster_name = "cluster",
 	};
 
