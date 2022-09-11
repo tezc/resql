@@ -29,7 +29,7 @@ fedora_task:
 centos8_task:
   use_compute_credits: $CIRRUS_USER_COLLABORATOR == 'true'
   container:
-    image: centos:8
+    image: centos:latest
   test_script:
     - yum -y install gcc make cmake
     - mkdir build-debug && cd build-debug
