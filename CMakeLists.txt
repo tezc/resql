@@ -216,6 +216,7 @@ if (${HAVE_BACKTRACE})
 endif ()
 
 set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wall -Werror -pedantic -Wextra")
+set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wno-stringop-overflow")
 set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")
@@ -240,8 +241,8 @@ else ()
     message(STATUS "System is LITTLE ENDIAN")
 endif ()
 
-set(C_FLAGS_COMMON
-        "${C_FLAGS_COMMON} -D'RESQL_FILE_NAME=\"$(subst $(realpath ${CMAKE_SOURCE_DIR})/,,$(abspath $<))\"'")
+#[[set(C_FLAGS_COMMON
+        "${C_FLAGS_COMMON} -D'RESQL_FILE_NAME=\"$(subst $(realpath ${CMAKE_SOURCE_DIR})/,,$(abspath $<))\"'")]]
 
 set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -D__FILE_OFFSET_BITS=64 -D_GNU_SOURCE")
 
