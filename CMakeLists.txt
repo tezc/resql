@@ -216,7 +216,12 @@ if (${HAVE_BACKTRACE})
 endif ()
 
 set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wall -Werror -pedantic -Wextra")
-set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wno-stringop-overflow")
+
+check_c_compiler_flag(-Wno-stringop-overflow HAVE_STR_OF_CHECK)
+if (HAVE_STR_OF_CHECK)
+    set(C_FLAGS_COMMON "${C_FLAGS_COMMON} -Wno-stringop-overflow")
+endif ()
+
 set(C_FLAGS_DEB "${C_FLAGS_DEB} -fno-omit-frame-pointer")
 
 message(STATUS "Additional Libraries : ${ADDITIONAL_LIBRARIES}")
